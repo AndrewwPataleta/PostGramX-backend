@@ -1,0 +1,33 @@
+import { DataSource } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
+import { loadEnvConfig } from '../config/env';
+
+loadEnvConfig();
+
+const isProdLike = ['production', 'stage'].includes(process.env.NODE_ENV || '');
+
+const sslConfig = isProdLike
+  ? {
+      rejectUnauthorized: false,
+      ca: fs
+        .readFileSync(
+        path.join(__dirname, '..', 'certs', 'postgramx-database-cert.crt'),
+        )
+        .toString(),
+    }
+  : false;
+
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.POSTGRES_HOST,
+  port: Number(process.env.POSTGRES_PORT),
+  username: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB,
+  synchronize: false,
+  migrationsRun: false,
+  entities: [__dirname + '/../modules/**/*.entity.{ts,js}'],
+  migrations: [],
+  ssl: sslConfig,
+});
