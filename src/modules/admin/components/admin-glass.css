@@ -1,0 +1,103 @@
+:root {
+    --gx-bg-1: #120f1f;
+    --gx-bg-2: #0b0a12;
+    --gx-aurora-a: rgba(233, 138, 152, 0.35);
+    --gx-aurora-b: rgba(34, 211, 238, 0.28);
+    --gx-aurora-c: rgba(244, 114, 182, 0.28);
+}
+
+html, body, #app {
+    background:
+            radial-gradient(1200px 600px at 50% -10%, var(--gx-aurora-a), transparent 60%),
+            radial-gradient(800px 500px at 80% 20%, var(--gx-aurora-b), transparent 60%),
+            radial-gradient(900px 700px at 20% 70%, var(--gx-aurora-c), transparent 65%),
+            linear-gradient(180deg, var(--gx-bg-1) 0%, var(--gx-bg-2) 55%, var(--gx-bg-2) 100%);
+    background-attachment: fixed, fixed, fixed, fixed;
+    color: #fff;
+}
+
+[class*="sidebar"],
+[class*="Navbar"],
+[class*="Drawer"],
+[class*="Box"],
+[class*="Card"],
+[class*="Login"],
+[class*="Table"],
+[class*="Panel"] {
+    backdrop-filter: saturate(1.1) blur(16px);
+    -webkit-backdrop-filter: saturate(1.1) blur(16px);
+    border: 1px solid rgba(255,255,255,0.14);
+    background-color: rgba(255,255,255,0.06) !important;
+    box-shadow:
+            0 10px 30px rgba(0,0,0,0.35),
+            inset 0 1px 0 rgba(255,255,255,0.12);
+    border-radius: 16px;
+}
+
+[class*="Navbar"] {
+    border-radius: 16px;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+}
+
+[class*="sidebar"] {
+    background-color: rgba(15,14,26,0.28) !important;
+    box-shadow: -6px 0 24px rgba(0,0,0,0.35);
+}
+
+button, a.Button, [class*="Button"] {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08));
+    border: 1px solid rgba(255,255,255,0.16);
+    box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,0.10),
+            0 12px 30px rgba(233,138,152,0.35);
+    color: #fff !important;
+}
+button:hover, a.Button:hover, [class*="Button"]:hover {
+    box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,0.16),
+            0 16px 40px rgba(233,138,152,0.45);
+}
+
+input, select, textarea {
+    background-color: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    backdrop-filter: blur(10px);
+}
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #FDF6F5 !important;
+    box-shadow: 0 0 0 3px #FDF6F5 !important;
+}
+
+table {
+    border-color: rgba(255,255,255,0.12) !important;
+}
+thead th {
+    background-color: rgba(255,255,255,0.06) !important;
+}
+tbody tr:hover td {
+    background-color: rgba(255,255,255,0.06) !important;
+}
+
+[class*="Login"] {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.32);
+}
+[class*="Login"] button,
+[class*="Login"] a.Button,
+[class*="Login"] [class*="Button"] {
+    width: 100%;
+    max-width: 360px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.badge, [class*="Badge"], [class*="Pill"] {
+    background-image: radial-gradient(120% 120% at 50% -10%, #8B5CF6 0%, #22D3EE 100%);
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,0.16);
+}

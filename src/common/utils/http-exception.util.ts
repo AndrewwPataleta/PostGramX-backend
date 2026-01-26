@@ -17,13 +17,19 @@ export function buildHttpExceptionPayload(
   };
 }
 
+function normalizeI18nMessage(value: unknown): string | string[] {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.every(v => typeof v === 'string')) return value;
+  return String(value);
+}
+
 export async function buildI18nHttpExceptionPayload(
-  i18n: I18nService | I18nContext,
-  key: string,
-  options?: TranslateOptions,
-  extra: Record<string, unknown> = {},
+    i18n: I18nService | I18nContext,
+    key: string,
+    options?: TranslateOptions,
+    extra: Record<string, unknown> = {},
 ): Promise<HttpExceptionPayload> {
-  const message = await i18n.t(key, options);
-  // @ts-ignore
+  const raw = await i18n.t(key, options);
+  const message = normalizeI18nMessage(raw);
   return buildHttpExceptionPayload(key, message, extra);
 }

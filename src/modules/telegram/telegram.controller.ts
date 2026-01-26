@@ -1,15 +1,19 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
+import {I18n, I18nService} from 'nestjs-i18n';
+
+import { ApiTags, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ShopInvoiceDto } from './dto/shop-invoice.dto';
+import { dtoValidationPipe } from '../../common/pipes/dto-validation.pipe';
 
 @Controller('telegram')
 @ApiTags('telegram')
 export class TelegramController {
-  constructor(private readonly telegramService: TelegramService) {}
+    constructor(
+        private readonly telegramService: TelegramService,
+        private readonly i18n: I18nService,
+    ) {}
 
-  @Get('health')
-  @ApiOperation({ summary: 'Telegram module health check' })
-  health() {
-    return this.telegramService.getHealth();
-  }
+
+
 }

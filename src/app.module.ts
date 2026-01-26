@@ -1,68 +1,129 @@
-import {Module, Logger} from '@nestjs/common';
+import {Logger, MiddlewareConsumer, Module, NestModule} from '@nestjs/common';
+import {AppController} from './app.controller';
+import {AppService} from './app.service';
+import {AuthModule} from './modules/auth/auth.module';
+import {HealthModule} from './modules/health/health.module';
+import {AuthMiddleware} from './modules/auth/middleware/auth.middleware';
 import {ConfigModule, ConfigService} from '@nestjs/config';
+import {ScheduleModule} from '@nestjs/schedule';
 import {TypeOrmModule, TypeOrmModuleOptions} from '@nestjs/typeorm';
+import {I18nModule, AcceptLanguageResolver} from 'nestjs-i18n';
+import {join} from 'path';
 import * as fs from 'fs';
 import * as path from 'path';
 import {getEnvFilePath} from './config/env.helper';
 import {AdminModule} from './modules/admin/admin.module';
-import {AuthModule} from './modules/auth/auth.module';
-import {TelegramModule} from './modules/telegram/telegram.module';
+import {User} from './modules/auth/entities/user.entity';
+import {CacheModule, CacheInterceptor} from '@nestjs/cache-manager';
+import {APP_INTERCEPTOR} from '@nestjs/core';
+import {CacheInvalidationSubscriber} from './database/cache-invalidation.subscriber';
+import {UserProfileModule} from './modules/user-profile/user-profile.module';
+
 
 @Module({
     imports: [
+        CacheModule.register({ttl: 60, isGlobal: true}),
+        I18nModule.forRoot({
+            fallbackLanguage: 'en',
+            loaderOptions: {
+                path: join(process.cwd(), 'src/i18n'),
+                watch: true,
+            },
+            resolvers: [
+                {
+                    use: AcceptLanguageResolver,
+                    options: {matchType: 'strict-loose'},
+                },
+            ],
+        }),
         ConfigModule.forRoot({
             isGlobal: true,
             envFilePath: getEnvFilePath(),
         }),
+        ScheduleModule.forRoot(),
         TypeOrmModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService): TypeOrmModuleOptions => {
-                const isProdLike = ['production', 'stage'].includes(
+                const logger = new Logger('TypeOrmConfig');
+                const isProdLike = ['prod', 'stage'].includes(
                     process.env.NODE_ENV || '',
                 );
-                const logger = new Logger('TypeORM');
+                const sslConfig = {
+                    rejectUnauthorized: false,
+                    ca: fs
+                        .readFileSync(
+                            path.join(
+                                __dirname,
+                                '..',
+                                'certs',
+                                'postgramx-ca-certificate.crt',
+                            ),
+                        )
+                        .toString(),
+                }
 
-                const sslConfig = isProdLike
-                    ? {
-                        rejectUnauthorized: false,
-                        ca: fs
-                            .readFileSync(
-                                path.join(
-                                    __dirname,
-                                    '..',
-                                    'certs',
-                                    'postgramx-database-cert.crt',
-                                ),
-                            )
-                            .toString(),
-                    }
-                    : false;
+                const host = config.get('POSTGRES_HOST');
+                const port = Number(config.get<number>('POSTGRES_PORT') ?? 5432);
+                const database = config.get('POSTGRES_DB');
+                const username = config.get('POSTGRES_USER');
+                const connectionTimeout = Number(
+                    config.get<number>('POSTGRES_CONNECTION_TIMEOUT_MS') ?? 10000,
+                );
 
                 logger.log(
-                    `📡 Connecting to DB at env ${config.get('NODE_ENV')} ${config.get('POSTGRES_HOST')}:${config.get(
-                        'POSTGRES_PORT',
-                    )} (${isProdLike ? 'SSL' : 'No SSL'})`,
+                    [
+                        'Initializing database connection',
+                        `host=${host}`,
+                        `port=${port}`,
+                        `database=${database}`,
+                        `username=${username}`,
+                        `ssl=${Boolean(sslConfig)}`,
+                        `timeoutMs=${connectionTimeout}`,
+                    ].join(' | '),
                 );
 
                 return {
                     type: 'postgres',
-                    host: config.get('POSTGRES_HOST'),
-                    port: +config.get<number>('POSTGRES_PORT'),
-                    username: config.get('POSTGRES_USER'),
+                    host,
+                    port,
+                    username,
                     password: config.get('POSTGRES_PASSWORD'),
-                    database: config.get('POSTGRES_DB'),
+                    database,
+                    entities: [User],
                     autoLoadEntities: true,
                     synchronize: false,
-                    migrationsRun: false,
-                    migrations: [],
+                    // migrationsRun: true,
+                    migrations: [
+                        path.join(
+                            __dirname,
+                            'database',
+                            'migrations',
+                            '*.{ts,js}',
+                        ),
+                    ],
                     ssl: sslConfig,
+                    extra: {
+                        connectionTimeoutMillis: connectionTimeout,
+                    },
                 } as TypeOrmModuleOptions;
             },
         }),
-        AdminModule,
+        TypeOrmModule.forFeature([User]),
         AuthModule,
-        TelegramModule,
+        HealthModule,
+        AdminModule,
+        UserProfileModule,
     ],
-    providers: [],
+    controllers: [AppController],
+    providers: [
+        AppService,
+        CacheInvalidationSubscriber,
+        {provide: APP_INTERCEPTOR, useClass: CacheInterceptor},
+    ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(AuthMiddleware).exclude('admin/(.*)').forRoutes('*');
+    }
+}

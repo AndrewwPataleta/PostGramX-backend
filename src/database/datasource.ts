@@ -12,7 +12,7 @@ const sslConfig = isProdLike
       rejectUnauthorized: false,
       ca: fs
         .readFileSync(
-        path.join(__dirname, '..', 'certs', 'postgramx-database-cert.crt'),
+          path.join(__dirname, '..', 'certs', 'PostgramX-database-cert.crt'),
         )
         .toString(),
     }
@@ -26,8 +26,8 @@ export const AppDataSource = new DataSource({
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
   synchronize: false,
-  migrationsRun: false,
+  migrationsRun: true   ,
   entities: [__dirname + '/../modules/**/*.entity.{ts,js}'],
-  migrations: [],
+  migrations: [__dirname + '/migrations/*.{ts,js}'],
   ssl: sslConfig,
 });

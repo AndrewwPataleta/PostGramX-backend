@@ -1,0 +1,20 @@
+{
+  "welcome": "<b>Welcome to PostgramX</b> — where your wishes come true! \n\nHere you can:\n- Add your dream items and share them with friends\n- Follow your loved ones to stay in the loop\n- Let our AI helper suggest the perfect gifts\n\nReady to get gifts and make dreams happen? Let's start! ✨",
+  "button_start": "Start exploring",
+  "button_support": "Contact us",
+  "button_community": "Our community",
+  "profile_invite": "Hello from PostgramX! Someone invited you to explore their wishlist. Tap below to see their dreams.",
+  "button_view_wishlist": "See wishlist",
+  "gift_booked": "Hello from PostgramX! Great news—someone booked your gift. Check your profile for details!",
+  "notification_disable_hint": "You can disable this notification in your profile.",
+  "button_profile": "Profile",
+  "follow_notification": "Hello from PostgramX! You have a new follower. Open PostgramX to see who.",
+  "button_open_profile": "Open profile",
+  "friend_new_gift": "Hello from PostgramX! {{friendName}} just added a new wish. Tap below to view the list.",
+  "friend_new_gift_default_name": "your friend",
+  "invoice_purchase_title": "Credits",
+  "invoice_purchase_description": "Purchase of {{credits}} credits",
+  "secret_santa_new_participant": "Hello from PostgramX! A new participant joined your Secret Santa draw.",
+  "secret_santa_removed": "Hello from PostgramX! You were removed from the Secret Santa draw.",
+  "secret_santa_started": "Hello from PostgramX! The Secret Santa draw has been completed. Open PostgramX to see the results."
+}

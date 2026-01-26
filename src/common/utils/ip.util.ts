@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { request as httpsRequest } from 'https';
 import type { Request } from 'express';
 
@@ -89,7 +88,6 @@ export function extractClientIp(req: Request): string | null {
 
 export function lookupCountryIso(
   ip: string,
-  logger?: Logger,
 ): Promise<string | null> {
   const normalizedIp = normalizeIp(ip);
 
@@ -113,7 +111,7 @@ export function lookupCountryIso(
       {
         method: 'GET',
         headers: {
-          'User-Agent': 'postgramx-backend/1.0',
+          'User-Agent': 'PostgramX-backend/1.0',
           Accept: 'text/plain',
         },
       },
@@ -128,9 +126,6 @@ export function lookupCountryIso(
           (response.statusCode < 200 || response.statusCode >= 300)
         ) {
           response.resume();
-          logger?.debug?.(
-            `IP lookup request failed with status ${response.statusCode} for IP ${normalizedIp}`,
-          );
           safeResolve(null);
           return;
         }
@@ -153,15 +148,11 @@ export function lookupCountryIso(
       },
     );
 
-    request.on('error', (error) => {
-      logger?.debug?.(
-        `Failed to fetch ISO code for IP ${normalizedIp}: ${error.message}`,
-      );
+    request.on('error', () => {
       safeResolve(null);
     });
 
     request.setTimeout(1500, () => {
-      logger?.debug?.(`ISO lookup request timed out for IP ${normalizedIp}`);
       request.destroy();
       safeResolve(null);
     });

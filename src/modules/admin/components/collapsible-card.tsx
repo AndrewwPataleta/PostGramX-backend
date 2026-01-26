@@ -38,62 +38,114 @@ type CollapsibleCardBaseProps<T extends ElementType> = {
   style?: CSSProperties;
   defaultCollapsed?: boolean;
   collapsedNotice?: ReactNode;
+  contentWrapperStyle?: CSSProperties;
   collapsible?: boolean;
-};
+} & Omit<ComponentPropsWithoutRef<T>, 'style' | 'children'>;
 
-type CollapsibleCardProps<T extends ElementType> = CollapsibleCardBaseProps<T> &
-  Omit<ComponentPropsWithoutRef<T>, keyof CollapsibleCardBaseProps<T>>;
-
-export const CollapsibleCard = <T extends ElementType = 'section'>(
-  props: CollapsibleCardProps<T>,
-) => {
-  const {
-    as,
-    children,
-    style,
-    defaultCollapsed = false,
-    collapsedNotice = 'Content hidden',
-    collapsible = true,
-    ...rest
-  } = props;
-  const Component = (as || 'section') as ElementType;
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
-
-  const mergedStyle = useMemo(
-    () => ({
-      ...cardStyle,
-      position: 'relative',
-      overflow: 'hidden',
-      ...style,
-    }),
-    [style],
+export const CollapsibleCard = <T extends ElementType = 'div'>({
+  as,
+  children,
+  style,
+  defaultCollapsed = false,
+  collapsedNotice,
+  contentWrapperStyle,
+  collapsible = true,
+  ...rest
+}: CollapsibleCardBaseProps<T>) => {
+  const Component = (as ?? 'div') as ElementType;
+  const [isCollapsed, setIsCollapsed] = useState(
+    collapsible ? defaultCollapsed : false,
   );
 
-  const toggle = useCallback(() => {
+  const extractFirstText = useCallback((node: ReactNode): string | null => {
+    if (node == null || typeof node === 'boolean') {
+      return null;
+    }
+
+    if (typeof node === 'string') {
+      const trimmed = node.trim();
+      return trimmed.length ? trimmed : null;
+    }
+
+    if (typeof node === 'number') {
+      return node.toString();
+    }
+
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const text = extractFirstText(child);
+        if (text) {
+          return text;
+        }
+      }
+      return null;
+    }
+
+    if (React.isValidElement(node)) {
+      return extractFirstText(node.props.children);
+    }
+
+    return null;
+  }, []);
+
+  const derivedCollapsedNotice = useMemo(() => {
+    if (collapsedNotice) {
+      return collapsedNotice;
+    }
+
+    return extractFirstText(children) ?? 'Card is collapsed';
+  }, [collapsedNotice, children, extractFirstText]);
+
+  const toggleCollapsed = useCallback(() => {
     if (!collapsible) {
       return;
     }
-    setCollapsed((prev) => !prev);
+
+    setIsCollapsed((prev) => !prev);
   }, [collapsible]);
 
+  const isContentCollapsed = collapsible ? isCollapsed : false;
+
   return (
-    <Component style={mergedStyle} {...rest}>
-      {collapsible ? (
-        <button type="button" onClick={toggle} style={toggleButtonStyle}>
-          <span
-            style={{
-              ...arrowIconStyle,
-              transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)',
-            }}
-          >
-            ⌃
+    <Component
+      {...(rest as ComponentPropsWithoutRef<T>)}
+      style={{
+        ...cardStyle,
+        position: 'relative',
+        overflow: 'hidden',
+        ...style,
+      }}
+    >
+      {collapsible && (
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={
+            isContentCollapsed ? 'Expand card' : 'Collapse card'
+          }
+          aria-expanded={!isContentCollapsed}
+          style={{
+            ...toggleButtonStyle,
+            transform: isContentCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
+        >
+          <span style={{ ...arrowIconStyle }}>
+            {isContentCollapsed ? '▼' : '▲'}
           </span>
         </button>
-      ) : null}
-      {collapsed ? (
-        <div style={collapsedNoticeStyle}>{collapsedNotice}</div>
-      ) : (
-        children
+      )}
+      <div
+        style={{
+          display: isContentCollapsed ? 'none' : 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          ...contentWrapperStyle,
+        }}
+      >
+        {children}
+      </div>
+      {collapsible && isContentCollapsed && (
+        <div style={collapsedNoticeStyle}>{derivedCollapsedNotice}</div>
       )}
     </Component>
   );

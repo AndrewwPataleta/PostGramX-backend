@@ -31,7 +31,6 @@ export class DtoValidationPipe implements PipeTransform {
       return value;
     }
 
-    // ✅ ВАЖНО: используем class-transformer, чтобы @Type() сработал и вложенные DTO стали инстансами
     const instance = plainToInstance(metatype as any, value ?? {}, {
       enableImplicitConversion: true,
       exposeDefaultValues: true,
@@ -41,7 +40,6 @@ export class DtoValidationPipe implements PipeTransform {
       whitelist: true,
       forbidUnknownValues: false,
       skipMissingProperties: false,
-      // ✅ чтобы whitelist применился и к вложенным объектам
       forbidNonWhitelisted: false,
       validationError: { target: false, value: false },
     });

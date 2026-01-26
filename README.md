@@ -24,7 +24,7 @@
 
 ## Description
 
-Nest JS template project focused on Telegram functionality, including Telegram Mini App authentication and an AdminJS dashboard.
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
 ## Installation
 

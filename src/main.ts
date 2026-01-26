@@ -1,46 +1,51 @@
-// src/main.ts
-import 'reflect-metadata'; // ← обязательно первой строкой
+import 'reflect-metadata';
 
-import { loadEnvConfig } from './config/env';
-import { json, urlencoded } from 'express';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import {loadEnvConfig} from './config/env';
+import {json, urlencoded} from 'express';
+import {Logger} from '@nestjs/common';
+import {NestFactory} from '@nestjs/core';
+import {AppModule} from './app.module';
+import {SwaggerModule, DocumentBuilder} from '@nestjs/swagger';
+import {ResponseSanitizerInterceptor} from './common/interceptors/response-sanitizer.interceptor';
+import {ADMIN_ROOT_PATH} from './modules/admin/config/paths';
 
 async function bootstrap() {
-  // eslint-disable-next-line no-console
-  console.log('🧭 Bootstrap start');
-  loadEnvConfig();
-  // eslint-disable-next-line no-console
-  console.log('✅ Env config loaded');
+    loadEnvConfig();
 
-  const app = await NestFactory.create(AppModule);
-  // eslint-disable-next-line no-console
-  console.log('✅ Nest application created');
+    const logger = new Logger('Bootstrap');
 
-  const bodyLimit = process.env.REQUEST_BODY_LIMIT || '50mb';
-  app.use(json({ limit: bodyLimit }));
-  app.use(urlencoded({ extended: true, limit: bodyLimit }));
-  app.enableCors();
-  // eslint-disable-next-line no-console
-  console.log(`✅ Express middlewares registered (bodyLimit=${bodyLimit})`);
+    const app = await NestFactory.create(AppModule);
 
-  // Swagger только для local/stage
-  if (['local', 'stage'].includes(process.env.NODE_ENV || '')) {
-    const config = new DocumentBuilder()
-      .setTitle('Nest JS Telegram Template API')
-      .setDescription('API documentation for the Telegram-focused template')
-      .setVersion('1.0')
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('swagger', app, document);
-    // eslint-disable-next-line no-console
-    console.log('✅ Swagger initialized');
-  }
+    app.useGlobalInterceptors(
+        new ResponseSanitizerInterceptor(),
+    );
 
-  const port = parseInt(process.env.PORT || '80', 10);
-  await app.listen(port);
-  // eslint-disable-next-line no-console
-  console.log(`🚀 Server running on http://localhost:${port}`);
+    const bodyLimit = process.env.REQUEST_BODY_LIMIT || '50mb';
+    app.use(json({limit: bodyLimit}));
+    app.use(urlencoded({extended: true, limit: bodyLimit}));
+    app.enableCors();
+
+    if (['local', 'stage'].includes(process.env.NODE_ENV || '')) {
+        const config = new DocumentBuilder()
+            .setTitle('PostgramX API')
+            .setDescription('API documentation for PostgramX')
+            .setVersion('1.0')
+            .build();
+        const document = SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('swagger', app, document);
+    }
+
+
+    const port = parseInt(process.env.PORT || '80', 10);
+    await app.listen(port);
+
+    const dbHost = process.env.POSTGRES_HOST || 'localhost';
+    const dbPort = process.env.POSTGRES_PORT || '5432';
+    const dbName = process.env.POSTGRES_DB || 'postgres';
+
+    logger.log(`Database: ${dbHost}:${dbPort}/${dbName}`);
+    logger.log(`Server is running on port ${port}`);
+    logger.log(`Admin panel path: ${ADMIN_ROOT_PATH}`);
 }
+
 bootstrap();
