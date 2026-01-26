@@ -124,43 +124,44 @@ export class AuthService {
             };
 
             user = this.userRepository.create(userPayload);
-
-            user.lastLoginAt = new Date();
-
-            if (normalizedPlatformType && user.platformType !== normalizedPlatformType) {
-                user.platformType = normalizedPlatformType;
-            } else if (!user.platformType && userInfo.platformType) {
-                user.platformType = userInfo.platformType as string;
-            }
-
-            if (user.authType !== normalizedAuthType) {
-                user.authType = normalizedAuthType;
-            }
-
-            if (normalizedAuthType === 'telegram' && userId && user.telegramId !== userId) {
-                user.telegramId = userId;
-            }
-
-
-            if (userInfo.username && user.username !== userInfo.username) {
-                user.username = userInfo.username;
-            }
-            if (userInfo.firstName && user.firstName !== userInfo.firstName) {
-                user.firstName = userInfo.firstName;
-            }
-            if (userInfo.lastName && user.lastName !== userInfo.lastName) {
-                user.lastName = userInfo.lastName;
-            }
-
-
-            if (userInfo.email && user.email !== userInfo.email) {
-                user.email = userInfo.email;
-            }
-
-            if (typeof userInfo.isPremium === 'boolean' && user.isPremium !== userInfo.isPremium) {
-                user.isPremium = userInfo.isPremium;
-            }
-            return user;
         }
+
+        user.lastLoginAt = new Date();
+
+        if (normalizedPlatformType && user.platformType !== normalizedPlatformType) {
+            user.platformType = normalizedPlatformType;
+        } else if (!user.platformType && userInfo.platformType) {
+            user.platformType = userInfo.platformType as string;
+        }
+
+        if (user.authType !== normalizedAuthType) {
+            user.authType = normalizedAuthType;
+        }
+
+        if (normalizedAuthType === 'telegram' && userId && user.telegramId !== userId) {
+            user.telegramId = userId;
+        }
+
+        if (userInfo.username && user.username !== userInfo.username) {
+            user.username = userInfo.username;
+        }
+        if (userInfo.firstName && user.firstName !== userInfo.firstName) {
+            user.firstName = userInfo.firstName;
+        }
+        if (userInfo.lastName && user.lastName !== userInfo.lastName) {
+            user.lastName = userInfo.lastName;
+        }
+
+        if (userInfo.email && user.email !== userInfo.email) {
+            user.email = userInfo.email;
+        }
+
+        if (typeof userInfo.isPremium === 'boolean' && user.isPremium !== userInfo.isPremium) {
+            user.isPremium = userInfo.isPremium;
+        }
+
+        user = await this.userRepository.save(user);
+
+        return user;
     }
 }
