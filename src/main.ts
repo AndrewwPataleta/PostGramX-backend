@@ -19,11 +19,7 @@ async function bootstrap() {
     app.useGlobalInterceptors(
         new ResponseSanitizerInterceptor(),
     );
-    app.setGlobalPrefix('api');
-    app.enableVersioning({
-        type: VersioningType.URI,
-        defaultVersion: '1',
-    });
+
 
     const bodyLimit = process.env.REQUEST_BODY_LIMIT || '50mb';
     app.use(json({limit: bodyLimit}));

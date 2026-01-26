@@ -2,7 +2,7 @@ import {
     Controller,
     Post,
     Body,
-    UnauthorizedException,
+    UnauthorizedException, Get,
 } from '@nestjs/common';
 import {I18n, I18nContext} from 'nestjs-i18n';
 import {AuthDto} from './dto/auth.dto';
