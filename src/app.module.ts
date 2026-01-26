@@ -99,8 +99,8 @@ import {ChannelsModule} from './modules/channels/channels.module';
                     password: config.get('POSTGRES_PASSWORD'),
                     database,
                     entities: [User],
-                    autoLoadEntities: true,
-                    synchronize,
+                    autoLoadEntities: false,
+                    synchronize: false,
                     ssl: sslConfig,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
