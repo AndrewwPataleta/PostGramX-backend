@@ -2,7 +2,7 @@ import 'reflect-metadata';
 
 import {loadEnvConfig} from './config/env';
 import {json, urlencoded} from 'express';
-import {Logger} from '@nestjs/common';
+import {Logger, VersioningType} from '@nestjs/common';
 import {NestFactory} from '@nestjs/core';
 import {AppModule} from './app.module';
 import {SwaggerModule, DocumentBuilder} from '@nestjs/swagger';
@@ -19,6 +19,11 @@ async function bootstrap() {
     app.useGlobalInterceptors(
         new ResponseSanitizerInterceptor(),
     );
+    app.setGlobalPrefix('api');
+    app.enableVersioning({
+        type: VersioningType.URI,
+        defaultVersion: '1',
+    });
 
     const bodyLimit = process.env.REQUEST_BODY_LIMIT || '50mb';
     app.use(json({limit: bodyLimit}));
