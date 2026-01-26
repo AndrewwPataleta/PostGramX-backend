@@ -67,7 +67,7 @@ All channel endpoints are prefixed with `/api` in production (for example, `http
 ```bash
 curl -X POST https://postgramx.com/api/channels/preview \\
   -H "Content-Type: application/json" \\
-  -d '{"usernameOrLink":"https://t.me/examplechannel"}'
+  -d '{"data":{"usernameOrLink":"https://t.me/examplechannel"}}'
 ```
 
 ### Link channel
@@ -75,7 +75,7 @@ curl -X POST https://postgramx.com/api/channels/preview \\
 ```bash
 curl -X POST https://postgramx.com/api/channels/link \\
   -H "Content-Type: application/json" \\
-  -d '{"username":"examplechannel"}'
+  -d '{"data":{"username":"examplechannel"}}'
 ```
 
 ### Verify channel
