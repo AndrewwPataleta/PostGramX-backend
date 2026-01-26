@@ -32,7 +32,9 @@ export class ChannelsController {
         this.assertUser(req);
 
         try {
-            return await this.channelsService.previewChannel(dto.usernameOrLink);
+            return await this.channelsService.previewChannel(
+                dto.data.usernameOrLink,
+            );
         } catch (error) {
             await this.handleError(error, i18n);
         }
@@ -49,7 +51,10 @@ export class ChannelsController {
         const user = this.assertUser(req);
 
         try {
-            return await this.channelsService.linkChannel(dto.username, user.id);
+            return await this.channelsService.linkChannel(
+                dto.data.username,
+                user.id,
+            );
         } catch (error) {
             await this.handleError(error, i18n);
         }
