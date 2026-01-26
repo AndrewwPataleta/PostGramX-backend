@@ -14,6 +14,7 @@ import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {ChannelsService, ChannelServiceError} from './channels.service';
 import {PreviewChannelDto} from './dto/preview-channel.dto';
 import {LinkChannelDto} from './dto/link-channel.dto';
+import {VerifyChannelDto} from './dto/verify-channel.dto';
 import {ChannelErrorCode} from './types/channel-error-code.enum';
 
 @Controller('channels')
@@ -60,15 +61,19 @@ export class ChannelsController {
         }
     }
 
-    @Post(':id/verify')
+    @Post('verify')
     @ApiOperation({summary: 'Verify a linked channel'})
-    async verify(@Req() req: Request, @I18n() i18n: I18nContext) {
+    @ApiBody({type: VerifyChannelDto})
+    async verify(
+        @Body(dtoValidationPipe) dto: VerifyChannelDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
         const user = this.assertUser(req);
-        const channelId = req.params.id;
 
         try {
             return await this.channelsService.verifyChannel(
-                channelId,
+                dto.data.id,
                 user.id,
                 user.telegramId,
             );
