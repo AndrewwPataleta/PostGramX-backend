@@ -1,15 +1,9 @@
-import {
-    Body,
-    Controller,
-    HttpException,
-    Post,
-    Req,
-    UnauthorizedException,
-} from '@nestjs/common';
+import {Body, Controller, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
 import {I18n, I18nContext} from 'nestjs-i18n';
 import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
+import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {ChannelsService, ChannelServiceError} from './channels.service';
 import {PreviewChannelDto} from './dto/preview-channel.dto';
 import {LinkChannelDto} from './dto/link-channel.dto';
@@ -32,14 +26,18 @@ export class ChannelsController {
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
-        this.assertUser(req);
+        assertUser(req);
 
         try {
             return await this.channelsService.previewChannel(
                 dto.data.usernameOrLink,
             );
         } catch (error) {
-            await this.handleError(error, i18n);
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
         }
     }
 
@@ -51,7 +49,7 @@ export class ChannelsController {
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
-        const user = this.assertUser(req);
+        const user = assertUser(req);
 
         try {
             return await this.channelsService.linkChannel(
@@ -59,7 +57,11 @@ export class ChannelsController {
                 user.id,
             );
         } catch (error) {
-            await this.handleError(error, i18n);
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
         }
     }
 
@@ -71,7 +73,7 @@ export class ChannelsController {
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
-        const user = this.assertUser(req);
+        const user = assertUser(req);
 
         try {
             return await this.channelsService.verifyChannel(
@@ -80,35 +82,11 @@ export class ChannelsController {
                 user.telegramId,
             );
         } catch (error) {
-            await this.handleError(error, i18n);
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
         }
-    }
-
-    private assertUser(req: Request) {
-        const user = (req as Request & {user?: {id: string; telegramId?: string}})
-            .user;
-        if (!user) {
-            throw new UnauthorizedException();
-        }
-        return user;
-    }
-
-    private async handleError(
-        error: unknown,
-        i18n: I18nContext,
-    ): Promise<never> {
-        if (error instanceof ChannelServiceError) {
-            const status = mapChannelErrorToStatus(error.code);
-            const messageKey = mapChannelErrorToMessageKey(error.code);
-            const message = await i18n.t(messageKey);
-            throw new HttpException(
-                {
-                    code: error.code,
-                    message,
-                },
-                status,
-            );
-        }
-        throw error;
     }
 }
