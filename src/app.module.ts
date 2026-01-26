@@ -93,7 +93,7 @@ import {ChannelsModule} from './modules/channels/channels.module';
                     database,
                     entities: [User],
                     autoLoadEntities: true,
-                    synchronize: true,
+                    synchronize: false,
                     ssl: sslConfig,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
