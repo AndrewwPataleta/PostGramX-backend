@@ -17,13 +17,3 @@ export function buildHttpExceptionPayload(
   };
 }
 
-export async function buildI18nHttpExceptionPayload(
-  i18n: I18nService | I18nContext,
-  key: string,
-  options?: TranslateOptions,
-  extra: Record<string, unknown> = {},
-): Promise<HttpExceptionPayload> {
-  const message = await i18n.t(key, options);
-  // @ts-ignore
-  return buildHttpExceptionPayload(key, message, extra);
-}

@@ -44,6 +44,7 @@
     "express-session": "^1.18.2",
     "fs": "^0.0.1-security",
     "grammy": "^1.36.3",
+    "nestjs-i18n": "^10.6.0",
     "nodemailer": "^7.0.9",
     "openai": "^6.6.0",
     "path": "^0.12.7",

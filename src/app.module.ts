@@ -4,7 +4,7 @@ import {TypeOrmModule, TypeOrmModuleOptions} from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import {getEnvFilePath} from './config/env.helper';
-import {AdminModule} from './modules/admin/admin.module';
+
 import {AuthModule} from './modules/auth/auth.module';
 import {TelegramModule} from './modules/telegram/telegram.module';
 
@@ -59,9 +59,8 @@ import {TelegramModule} from './modules/telegram/telegram.module';
                 } as TypeOrmModuleOptions;
             },
         }),
-        AdminModule,
         AuthModule,
-        TelegramModule,
+     //   TelegramModule,
     ],
     providers: [],
 })
