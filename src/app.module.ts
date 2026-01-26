@@ -47,9 +47,15 @@ import {ChannelsModule} from './modules/channels/channels.module';
             inject: [ConfigService],
             useFactory: (config: ConfigService): TypeOrmModuleOptions => {
                 const logger = new Logger('TypeOrmConfig');
-                const isProdLike = ['production', 'stage'].includes(
-                    process.env.NODE_ENV || '',
-                );
+                const nodeEnv = process.env.NODE_ENV || '';
+                const isProdLike = ['production', 'stage'].includes(nodeEnv);
+                const synchronizeEnv = config
+                    .get<string>('POSTGRES_SYNCHRONIZE')
+                    ?.toLowerCase();
+                const synchronize =
+                    synchronizeEnv !== undefined
+                        ? synchronizeEnv === 'true'
+                        : nodeEnv !== 'production';
                 const sslConfig = isProdLike ? {
                     rejectUnauthorized: false,
                     ca: fs
@@ -81,6 +87,7 @@ import {ChannelsModule} from './modules/channels/channels.module';
                         `username=${username}`,
                         `ssl=${Boolean(sslConfig)}`,
                         `timeoutMs=${connectionTimeout}`,
+                        `synchronize=${synchronize}`,
                     ].join(' | '),
                 );
 
@@ -93,7 +100,7 @@ import {ChannelsModule} from './modules/channels/channels.module';
                     database,
                     entities: [User],
                     autoLoadEntities: true,
-                    synchronize: false,
+                    synchronize,
                     ssl: sslConfig,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
