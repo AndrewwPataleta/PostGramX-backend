@@ -35,6 +35,15 @@ export class ChannelEntity {
     @Column({type: 'timestamptz', nullable: true})
     lastCheckedAt: Date | null;
 
+    @Column({type: 'integer', nullable: true})
+    memberCount: number | null;
+
+    @Column({type: 'integer', nullable: true})
+    avgViews: number | null;
+
+    @Column({type: 'jsonb', nullable: true})
+    languageStats: Record<string, unknown> | null;
+
     @Column({nullable: true})
     verificationErrorCode: string | null;
 

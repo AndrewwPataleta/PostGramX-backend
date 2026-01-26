@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {ChannelEntity} from './entities/channel.entity';
@@ -9,6 +9,7 @@ import {
 import {ChannelStatus} from './types/channel-status.enum';
 import {ChannelRole} from './types/channel-role.enum';
 import {ChannelErrorCode} from './types/channel-error-code.enum';
+import {ListChannelsFilters} from './dto/list-channels.dto';
 import {
     TelegramChatService,
     TelegramChatServiceError,
@@ -44,6 +45,51 @@ export type ChannelVerifyResult = {
     verifiedAt?: string;
     error?: {code: ChannelErrorCode; message: string};
     permissions?: Record<string, unknown>;
+};
+
+export type ChannelListItem = {
+    id: string;
+    username: string;
+    title: string;
+    status: ChannelStatus;
+    telegramChatId: string | null;
+    memberCount: number | null;
+    avgViews: number | null;
+    verifiedAt: Date | null;
+    lastCheckedAt: Date | null;
+    membership: {
+        role: ChannelRole;
+        telegramAdminStatus: TelegramAdminStatus | null;
+        lastRecheckAt: Date | null;
+    };
+};
+
+export type ChannelListResponse = {
+    items: ChannelListItem[];
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+};
+
+export type ChannelDetails = {
+    id: string;
+    username: string;
+    title: string;
+    status: ChannelStatus;
+    telegramChatId: string | null;
+    memberCount: number | null;
+    avgViews: number | null;
+    verifiedAt: Date | null;
+    lastCheckedAt: Date | null;
+    languageStats: Record<string, unknown> | null;
+    membership: {
+        role: ChannelRole;
+        telegramAdminStatus: TelegramAdminStatus | null;
+        lastRecheckAt: Date | null;
+    };
 };
 
 @Injectable()
@@ -184,6 +230,167 @@ export class ChannelsService {
             }
             throw error;
         }
+    }
+
+    async listForUser(
+        userId: string,
+        filters: ListChannelsFilters,
+    ): Promise<ChannelListResponse> {
+        const page = filters.page ?? 1;
+        const limit = Math.min(filters.limit ?? 20, 50);
+        const offset = (page - 1) * limit;
+        const sort = filters.sort ?? 'recent';
+        const order = filters.order ?? 'desc';
+
+        const query = this.channelRepository
+            .createQueryBuilder('channel')
+            .innerJoinAndMapOne(
+                'channel.membership',
+                ChannelMembershipEntity,
+                'membership',
+                'membership.channelId = channel.id AND membership.userId = :userId AND membership.isActive = true',
+                {userId},
+            )
+            .select([
+                'channel.id',
+                'channel.username',
+                'channel.title',
+                'channel.status',
+                'channel.telegramChatId',
+                'channel.memberCount',
+                'channel.avgViews',
+                'channel.verifiedAt',
+                'channel.lastCheckedAt',
+                'channel.updatedAt',
+            ])
+            .addSelect([
+                'membership.role',
+                'membership.telegramAdminStatus',
+                'membership.lastRecheckAt',
+            ]);
+
+        if (filters.role) {
+            query.andWhere('membership.role = :role', {role: filters.role});
+        }
+
+        if (filters.status) {
+            query.andWhere('channel.status = :status', {
+                status: filters.status,
+            });
+        }
+
+        if (filters.verifiedOnly) {
+            query.andWhere('channel.status = :verifiedStatus', {
+                verifiedStatus: ChannelStatus.VERIFIED,
+            });
+        }
+
+        if (filters.username) {
+            query.andWhere('channel.username = :username', {
+                username: filters.username,
+            });
+        }
+
+        if (filters.q) {
+            query.andWhere(
+                '(channel.title ILIKE :query OR channel.username ILIKE :query)',
+                {query: `%${filters.q}%`},
+            );
+        }
+
+        switch (sort) {
+            case 'title':
+                query.orderBy('channel.title', order.toUpperCase() as 'ASC' | 'DESC');
+                query.addOrderBy('channel.id', 'DESC');
+                break;
+            case 'subscribers':
+                query.orderBy('channel.memberCount', 'DESC', 'NULLS LAST');
+                query.addOrderBy('channel.id', 'DESC');
+                break;
+            case 'recent':
+            default:
+                query.orderBy('channel.updatedAt', 'DESC');
+                query.addOrderBy('channel.id', 'DESC');
+                break;
+        }
+
+        query.skip(offset).take(limit);
+
+        const [channels, total] = await query.getManyAndCount();
+
+        const items = channels.map((channel) => {
+            const membership = (channel as ChannelEntity & {
+                membership: ChannelMembershipEntity;
+            }).membership;
+
+            return {
+                id: channel.id,
+                username: channel.username,
+                title: channel.title,
+                status: channel.status,
+                telegramChatId: channel.telegramChatId,
+                memberCount: channel.memberCount,
+                avgViews: channel.avgViews,
+                verifiedAt: channel.verifiedAt,
+                lastCheckedAt: channel.lastCheckedAt,
+                membership: {
+                    role: membership.role,
+                    telegramAdminStatus: membership.telegramAdminStatus,
+                    lastRecheckAt: membership.lastRecheckAt,
+                },
+            };
+        });
+
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+        return {
+            items,
+            page,
+            limit,
+            total,
+            totalPages,
+            hasPrev: page > 1,
+            hasNext: page < totalPages,
+        };
+    }
+
+    async getForUser(
+        userId: string,
+        channelId: string,
+    ): Promise<ChannelDetails> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new NotFoundException('Channel not found.');
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {channelId, userId, isActive: true},
+        });
+
+        if (!membership) {
+            throw new ForbiddenException('Access denied.');
+        }
+
+        return {
+            id: channel.id,
+            username: channel.username,
+            title: channel.title,
+            status: channel.status,
+            telegramChatId: channel.telegramChatId,
+            memberCount: channel.memberCount,
+            avgViews: channel.avgViews,
+            verifiedAt: channel.verifiedAt,
+            lastCheckedAt: channel.lastCheckedAt,
+            languageStats: channel.languageStats,
+            membership: {
+                role: membership.role,
+                telegramAdminStatus: membership.telegramAdminStatus,
+                lastRecheckAt: membership.lastRecheckAt,
+            },
+        };
     }
 
     private findUserAdmin(

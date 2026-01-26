@@ -1,4 +1,4 @@
-import {Body, Controller, Post, Req} from '@nestjs/common';
+import {Body, Controller, Param, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
 import {I18n, I18nContext} from 'nestjs-i18n';
@@ -8,6 +8,8 @@ import {ChannelsService, ChannelServiceError} from './channels.service';
 import {PreviewChannelDto} from './dto/preview-channel.dto';
 import {LinkChannelDto} from './dto/link-channel.dto';
 import {VerifyChannelDto} from './dto/verify-channel.dto';
+import {ListChannelsDto} from './dto/list-channels.dto';
+import {ChannelDetailsDto} from './dto/channel-details.dto';
 import {
     mapChannelErrorToMessageKey,
     mapChannelErrorToStatus,
@@ -88,5 +90,53 @@ export class ChannelsController {
                 mapMessageKey: mapChannelErrorToMessageKey,
             });
         }
+    }
+
+    @Post('list')
+    @ApiOperation({summary: "List user's channels with filters and pagination"})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {
+                    verifiedOnly: true,
+                    q: 'crypto',
+                    page: 1,
+                    limit: 20,
+                    sort: 'recent',
+                    order: 'desc',
+                },
+            },
+        },
+    })
+    async list(
+        @Body(dtoValidationPipe) dto: ListChannelsDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+        return this.channelsService.listForUser(user.id, dto.data);
+    }
+
+    @Post(':id')
+    @ApiOperation({summary: 'Get channel details for current user'})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {},
+            },
+        },
+    })
+    async getChannel(
+        @Param('id') id: string,
+        @Body(dtoValidationPipe) dto: ChannelDetailsDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+        return this.channelsService.getForUser(user.id, id);
     }
 }
