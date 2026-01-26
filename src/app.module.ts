@@ -46,10 +46,10 @@ import {ChannelsModule} from './modules/channels/channels.module';
             inject: [ConfigService],
             useFactory: (config: ConfigService): TypeOrmModuleOptions => {
                 const logger = new Logger('TypeOrmConfig');
-                const isProdLike = ['prod', 'stage'].includes(
+                const isProdLike = ['production', 'stage'].includes(
                     process.env.NODE_ENV || '',
                 );
-                const sslConfig = {
+                const sslConfig = isProdLike ? {
                     rejectUnauthorized: false,
                     ca: fs
                         .readFileSync(
@@ -61,7 +61,7 @@ import {ChannelsModule} from './modules/channels/channels.module';
                             ),
                         )
                         .toString(),
-                }
+                } : false;
 
                 const host = config.get('POSTGRES_HOST');
                 const port = Number(config.get<number>('POSTGRES_PORT') ?? 5432);
