@@ -58,5 +58,17 @@
     "homeGarden": "Home & Garden",
     "kids": "Kids' Products",
     "booksStationery": "Books & Stationery"
+  },
+  "channels": {
+    "errors": {
+      "invalid_username": "Invalid Telegram username.",
+      "channel_not_found": "Channel not found.",
+      "not_a_channel": "The provided chat is not a channel.",
+      "channel_private_or_no_username": "Channel is private or missing a username.",
+      "bot_forbidden": "Bot is forbidden from accessing the channel.",
+      "user_not_admin": "User is not an administrator of the channel.",
+      "bot_not_admin": "Bot is not an administrator of the channel.",
+      "bot_missing_rights": "Bot is missing required permissions."
+    }
   }
 }

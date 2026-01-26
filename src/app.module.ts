@@ -18,6 +18,7 @@ import {CacheModule, CacheInterceptor} from '@nestjs/cache-manager';
 import {APP_INTERCEPTOR} from '@nestjs/core';
 import {CacheInvalidationSubscriber} from './database/cache-invalidation.subscriber';
 import {UserProfileModule} from './modules/user-profile/user-profile.module';
+import {ChannelsModule} from './modules/channels/channels.module';
 
 
 @Module({
@@ -91,16 +92,7 @@ import {UserProfileModule} from './modules/user-profile/user-profile.module';
                     database,
                     entities: [User],
                     autoLoadEntities: true,
-                    synchronize: false,
-                    // migrationsRun: true,
-                    migrations: [
-                        path.join(
-                            __dirname,
-                            'database',
-                            'migrations',
-                            '*.{ts,js}',
-                        ),
-                    ],
+                    synchronize: true,
                     ssl: sslConfig,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
@@ -113,6 +105,7 @@ import {UserProfileModule} from './modules/user-profile/user-profile.module';
         HealthModule,
         AdminModule,
         UserProfileModule,
+        ChannelsModule,
     ],
     controllers: [AppController],
     providers: [
