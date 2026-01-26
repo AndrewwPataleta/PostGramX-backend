@@ -4,6 +4,7 @@ import {AppService} from './app.service';
 import {AuthModule} from './modules/auth/auth.module';
 import {HealthModule} from './modules/health/health.module';
 import {AuthMiddleware} from './modules/auth/middleware/auth.middleware';
+import {RequestResponseLoggerMiddleware} from './common/middleware/request-response-logger.middleware';
 import {ConfigModule, ConfigService} from '@nestjs/config';
 import {ScheduleModule} from '@nestjs/schedule';
 import {TypeOrmModule, TypeOrmModuleOptions} from '@nestjs/typeorm';
@@ -117,6 +118,7 @@ import {ChannelsModule} from './modules/channels/channels.module';
 export class AppModule implements NestModule {
 
     configure(consumer: MiddlewareConsumer) {
+        consumer.apply(RequestResponseLoggerMiddleware).forRoutes('*');
         consumer.apply(AuthMiddleware).exclude('admin/(.*)').forRoutes('*');
     }
 }
