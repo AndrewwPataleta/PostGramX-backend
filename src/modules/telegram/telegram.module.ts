@@ -1,15 +1,16 @@
-import {Module} from "@nestjs/common";
-import {TelegramService} from "./telegram.service";
-import {TypeOrmModule} from "@nestjs/typeorm";
-import {User} from "../auth/entities/user.entity";
+import {Module} from '@nestjs/common';
+import {TypeOrmModule} from '@nestjs/typeorm';
+import {TelegramService} from './telegram.service';
+import {TelegramChatService} from './telegram-chat.service';
+import {User} from '../auth/entities/user.entity';
 
 @Module({
-    exports: [TelegramService],
+    exports: [TelegramService, TelegramChatService],
     imports: [
         TypeOrmModule.forFeature([
             User,
         ]),
     ],
-    providers: [TelegramService],
+    providers: [TelegramService, TelegramChatService],
 })
 export class TelegramModule {}

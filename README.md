@@ -58,6 +58,32 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Channel linking API
+
+All channel endpoints are prefixed with `/api` in production (for example, `https://postgramx.com/api/channels/preview`).
+
+### Preview channel
+
+```bash
+curl -X POST https://postgramx.com/api/channels/preview \\
+  -H "Content-Type: application/json" \\
+  -d '{"usernameOrLink":"https://t.me/examplechannel"}'
+```
+
+### Link channel
+
+```bash
+curl -X POST https://postgramx.com/api/channels/link \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"examplechannel"}'
+```
+
+### Verify channel
+
+```bash
+curl -X POST https://postgramx.com/api/channels/<channelId>/verify
+```
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
