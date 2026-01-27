@@ -39,6 +39,11 @@ import {
     TelegramAdminsSyncErrorCode,
 } from '../telegram/telegram-admins-sync.service';
 import {ChannelAdminRecheckService} from './guards/channel-admin-recheck.service';
+import {ListingEntity} from '../listings/entities/listing.entity';
+import {
+    ListingListItem,
+    mapListingToListItem,
+} from '../listings/types/listing-list-item.type';
 
 @Injectable()
 export class ChannelsService {
@@ -51,6 +56,8 @@ export class ChannelsService {
         private readonly membershipRepository: Repository<ChannelMembershipEntity>,
         @InjectRepository(ChannelTelegramAdminEntity)
         private readonly telegramAdminRepository: Repository<ChannelTelegramAdminEntity>,
+        @InjectRepository(ListingEntity)
+        private readonly listingRepository: Repository<ListingEntity>,
         private readonly telegramChatService: TelegramChatService,
         private readonly telegramAdminsSyncService: TelegramAdminsSyncService,
         private readonly channelAdminRecheckService: ChannelAdminRecheckService,
@@ -347,6 +354,13 @@ export class ChannelsService {
             };
         });
 
+        if (filters.includeListings && items.length > 0) {
+            await this.attachListingsToChannels(items, {
+                onlyActive: true,
+                limitPerChannel: 3,
+            });
+        }
+
         const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
 
         return {
@@ -363,6 +377,7 @@ export class ChannelsService {
     async getForUser(
         userId: string,
         channelId: string,
+        includeListings?: boolean,
     ): Promise<ChannelDetails> {
         const channel = await this.channelRepository.findOne({
             where: {id: channelId},
@@ -380,7 +395,7 @@ export class ChannelsService {
             throw new ForbiddenException('Access denied.');
         }
 
-        return {
+        const details: ChannelDetails = {
             id: channel.id,
             username: channel.username,
             title: channel.title,
@@ -398,6 +413,16 @@ export class ChannelsService {
                 lastRecheckAt: membership.lastRecheckAt,
             },
         };
+
+        if (includeListings) {
+            const listings = await this.listingRepository.find({
+                where: {channelId, isActive: true},
+                order: {createdAt: 'DESC'},
+            });
+            details.listings = listings.map(mapListingToListItem);
+        }
+
+        return details;
     }
 
     async listChannelAdmins(
@@ -652,6 +677,44 @@ export class ChannelsService {
         channel.verificationErrorCode = code;
         channel.verificationErrorMessage = messageKey;
         await this.channelRepository.save(channel);
+    }
+
+    private async attachListingsToChannels(
+        items: ChannelDetails[] | ChannelListResponse['items'],
+        options: {onlyActive: boolean; limitPerChannel?: number},
+    ): Promise<void> {
+        const channelIds = items.map((item) => item.id);
+        if (channelIds.length === 0) {
+            return;
+        }
+
+        const query = this.listingRepository
+            .createQueryBuilder('listing')
+            .where('listing.channelId IN (:...channelIds)', {channelIds});
+
+        if (options.onlyActive) {
+            query.andWhere('listing.isActive = :isActive', {isActive: true});
+        }
+
+        query.orderBy('listing.channelId', 'ASC');
+        query.addOrderBy('listing.createdAt', 'DESC');
+
+        const listings = await query.getMany();
+
+        const grouped = new Map<string, ListingListItem[]>();
+        for (const listing of listings) {
+            const list = grouped.get(listing.channelId) ?? [];
+            const limit = options.limitPerChannel ?? Number.POSITIVE_INFINITY;
+            if (list.length >= limit) {
+                continue;
+            }
+            list.push(mapListingToListItem(listing));
+            grouped.set(listing.channelId, list);
+        }
+
+        for (const item of items) {
+            item.listings = grouped.get(item.id) ?? [];
+        }
     }
 
 }

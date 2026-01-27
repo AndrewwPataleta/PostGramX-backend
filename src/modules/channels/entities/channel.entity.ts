@@ -3,10 +3,12 @@ import {
     CreateDateColumn,
     Entity,
     Index,
+    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import {ChannelStatus} from '../types/channel-status.enum';
+import {ListingEntity} from '../../listings/entities/listing.entity';
 
 @Entity({name: 'channels'})
 @Index('IDX_channels_username', ['username'])
@@ -58,4 +60,9 @@ export class ChannelEntity {
 
     @UpdateDateColumn({type: 'timestamptz'})
     updatedAt: Date;
+
+    @OneToMany(() => ListingEntity, (listing) => listing.channel, {
+        cascade: false,
+    })
+    listings: ListingEntity[];
 }

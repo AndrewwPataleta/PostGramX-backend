@@ -173,23 +173,7 @@ export class ChannelsController {
 
     @Post('list')
     @ApiOperation({summary: "List user's channels with filters and pagination"})
-    @ApiBody({
-        schema: {
-            example: {
-                platformType: 'telegram',
-                authType: 'telegram',
-                token: '<initData>',
-                data: {
-                    verifiedOnly: true,
-                    q: 'crypto',
-                    page: 1,
-                    limit: 20,
-                    sort: 'recent',
-                    order: 'desc',
-                },
-            },
-        },
-    })
+    @ApiBody({type: ListChannelsDto})
     async list(
         @Body(dtoValidationPipe) dto: ListChannelsDto,
         @Req() req: Request,
@@ -200,23 +184,18 @@ export class ChannelsController {
 
     @Post(':id')
     @ApiOperation({summary: 'Get channel details for current user'})
-    @ApiBody({
-        schema: {
-            example: {
-                platformType: 'telegram',
-                authType: 'telegram',
-                token: '<initData>',
-                data: {},
-            },
-        },
-    })
+    @ApiBody({type: ChannelDetailsDto})
     async getChannel(
         @Param('id') id: string,
         @Body(dtoValidationPipe) dto: ChannelDetailsDto,
         @Req() req: Request,
     ) {
         const user = assertUser(req);
-        return this.channelsService.getForUser(user.id, id);
+        return this.channelsService.getForUser(
+            user.id,
+            id,
+            dto.data.includeListings,
+        );
     }
 
     @Post(':id/disabled')

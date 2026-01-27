@@ -44,6 +44,13 @@ class ListChannelsDataDto {
     @IsBoolean()
     includeDisabled?: boolean;
 
+    @ApiPropertyOptional({
+        description: 'Include active listings for each channel.',
+    })
+    @IsOptional()
+    @IsBoolean()
+    includeListings?: boolean;
+
     @ApiPropertyOptional()
     @IsOptional()
     @IsString()

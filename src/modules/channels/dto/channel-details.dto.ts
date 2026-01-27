@@ -1,8 +1,15 @@
-import {ApiProperty} from '@nestjs/swagger';
+import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
-import {IsDefined, ValidateNested} from 'class-validator';
+import {IsBoolean, IsDefined, IsOptional, ValidateNested} from 'class-validator';
 
-class ChannelDetailsDataDto {}
+class ChannelDetailsDataDto {
+    @ApiPropertyOptional({
+        description: 'Include active listings for the channel.',
+    })
+    @IsOptional()
+    @IsBoolean()
+    includeListings?: boolean;
+}
 
 export class ChannelDetailsDto {
     @ApiProperty({type: () => ChannelDetailsDataDto})

@@ -2,6 +2,7 @@ import {ChannelRole} from './channel-role.enum';
 import {ChannelStatus} from './channel-status.enum';
 import {ChannelErrorCode} from './channel-error-code.enum';
 import {TelegramAdminStatus} from '../entities/channel-membership.entity';
+import {ListingListItem} from '../../listings/types/listing-list-item.type';
 
 export type ChannelPreview = {
     normalizedUsername: string;
@@ -47,6 +48,7 @@ export type ChannelListItem = {
         telegramAdminStatus: TelegramAdminStatus | null;
         lastRecheckAt: Date | null;
     };
+    listings?: ListingListItem[];
 };
 
 export type ChannelListResponse = {
@@ -76,6 +78,7 @@ export type ChannelDetails = {
         telegramAdminStatus: TelegramAdminStatus | null;
         lastRecheckAt: Date | null;
     };
+    listings?: ListingListItem[];
 };
 
 export type ChannelDisabledResult = {

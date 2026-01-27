@@ -1,13 +1,19 @@
 import {Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Repository} from 'typeorm';
+import {In, Repository} from 'typeorm';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {ChannelStatus} from '../channels/types/channel-status.enum';
+import {ChannelRole} from '../channels/types/channel-role.enum';
 import {ListingEntity, ListingFormat} from './entities/listing.entity';
 import {
     ListingServiceError,
     ListingServiceErrorCode,
 } from './errors/listing.errors';
+import {
+    ListingListItem,
+    mapListingToListItem,
+} from './types/listing-list-item.type';
 
 const REQUIRED_TAG = 'Must be pre-approved';
 
@@ -18,6 +24,8 @@ export class ListingsService {
         private readonly listingRepository: Repository<ListingEntity>,
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
+        @InjectRepository(ChannelMembershipEntity)
+        private readonly membershipRepository: Repository<ChannelMembershipEntity>,
     ) {}
 
     async createListing(
@@ -141,6 +149,88 @@ export class ListingsService {
             allowPinnedPlacement: saved.allowPinnedPlacement,
             createdAt: saved.createdAt,
             updatedAt: saved.updatedAt,
+        };
+    }
+
+    async listByChannel(
+        channelId: string,
+        userId: string,
+        options?: {
+            page?: number;
+            limit?: number;
+            onlyActive?: boolean;
+            sort?: 'recent' | 'price_asc' | 'price_desc';
+        },
+    ): Promise<{
+        items: ListingListItem[];
+        page: number;
+        limit: number;
+        total: number;
+    }> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.CHANNEL_NOT_FOUND,
+            );
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {
+                channelId,
+                userId,
+                isActive: true,
+                isManuallyDisabled: false,
+                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+            },
+        });
+
+        if (!membership) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
+            );
+        }
+
+        const page = options?.page ?? 1;
+        const limit = Math.min(options?.limit ?? 20, 50);
+        const offset = (page - 1) * limit;
+        const onlyActive = options?.onlyActive ?? true;
+        const sort = options?.sort ?? 'recent';
+
+        const query = this.listingRepository
+            .createQueryBuilder('listing')
+            .where('listing.channelId = :channelId', {channelId});
+
+        if (onlyActive) {
+            query.andWhere('listing.isActive = :isActive', {isActive: true});
+        }
+
+        switch (sort) {
+            case 'price_asc':
+                query.orderBy('listing.priceNano', 'ASC');
+                query.addOrderBy('listing.createdAt', 'DESC');
+                break;
+            case 'price_desc':
+                query.orderBy('listing.priceNano', 'DESC');
+                query.addOrderBy('listing.createdAt', 'DESC');
+                break;
+            case 'recent':
+            default:
+                query.orderBy('listing.createdAt', 'DESC');
+                break;
+        }
+
+        query.skip(offset).take(limit);
+
+        const [listings, total] = await query.getManyAndCount();
+
+        return {
+            items: listings.map(mapListingToListItem),
+            page,
+            limit,
+            total,
         };
     }
 

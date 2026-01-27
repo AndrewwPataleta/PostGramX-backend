@@ -5,6 +5,7 @@ import {I18n, I18nContext} from 'nestjs-i18n';
 import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {CreateListingDto} from './dto/create-listing.dto';
+import {ListingsByChannelDto} from './dto/listings-by-channel.dto';
 import {ListingServiceError} from './errors/listing.errors';
 import {
     mapListingErrorToMessageKey,
@@ -29,6 +30,36 @@ export class ListingsController {
 
         try {
             return await this.listingsService.createListing(dto.data, user.id);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: ListingServiceError,
+                mapStatus: mapListingErrorToStatus,
+                mapMessageKey: mapListingErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('by-channel')
+    @ApiOperation({summary: 'Get listings for a channel (owner/manage)'})
+    @ApiBody({type: ListingsByChannelDto})
+    async listByChannel(
+        @Body(dtoValidationPipe) dto: ListingsByChannelDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.listingsService.listByChannel(
+                dto.data.channelId,
+                user.id,
+                {
+                    page: dto.data.page,
+                    limit: dto.data.limit,
+                    onlyActive: dto.data.onlyActive,
+                    sort: dto.data.sort,
+                },
+            );
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: ListingServiceError,
