@@ -97,5 +97,18 @@
       "unauthorized": "Нет доступа к этой сделке.",
       "invalidScheduleTime": "Время размещения должно быть в будущем."
     }
+  },
+  "listings": {
+    "errors": {
+      "channelNotFound": "Канал не найден.",
+      "unauthorized": "Нет доступа к этому каналу.",
+      "channelNotVerified": "Канал не подтверждён.",
+      "invalidFormat": "Неверный формат листинга.",
+      "invalidAvailability": "Некорректный период доступности.",
+      "invalidPinnedRule": "Настройки закрепления не совпадают.",
+      "tagsMissingRequired": "Отсутствует обязательный тег.",
+      "invalidRequiresApproval": "Листинги должны требовать подтверждения в MVP.",
+      "invalidPrice": "Некорректная цена листинга."
+    }
   }
 }

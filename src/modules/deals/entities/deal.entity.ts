@@ -11,7 +11,7 @@ import {
 import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
 import {DealInitiatorSide} from '../types/deal-initiator-side.enum';
 import {DealStatus} from '../types/deal-status.enum';
-import {ListingEntity} from './listing.entity';
+import {ListingEntity} from '../../listings/entities/listing.entity';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
 
 @Entity({name: 'deals'})
