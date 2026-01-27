@@ -14,6 +14,7 @@ import {ChannelDetailsDto} from './dto/channel-details.dto';
 import {ListChannelAdminsDto} from './dto/list-channel-admins.dto';
 import {SyncChannelAdminsDto} from './dto/sync-channel-admins.dto';
 import {UpdateChannelDisabledDto} from './dto/update-channel-disabled.dto';
+import {UnlinkChannelDto} from './dto/unlink-channel.dto';
 import {
     mapChannelErrorToMessageKey,
     mapChannelErrorToStatus,
@@ -86,6 +87,30 @@ export class ChannelsController {
                 dto.data.id,
                 user.id,
                 user.telegramId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('unlink')
+    @ApiOperation({summary: 'Unlink a channel from the current user'})
+    @ApiBody({type: UnlinkChannelDto})
+    async unlink(
+        @Body(dtoValidationPipe) dto: UnlinkChannelDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.channelsService.unlinkChannel(
+                dto.data.channelId,
+                user.id,
             );
         } catch (error) {
             await handleMappedError(error, i18n, {

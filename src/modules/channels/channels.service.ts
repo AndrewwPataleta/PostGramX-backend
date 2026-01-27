@@ -22,6 +22,7 @@ import {
     ChannelLinkResult,
     ChannelListResponse,
     ChannelPreview,
+    ChannelUnlinkResult,
     ChannelVerifyResult,
 } from './types/channel-service.types';
 import {
@@ -475,6 +476,35 @@ export class ChannelsService {
         await this.channelRepository.save(channel);
 
         return {channelId: channel.id, isDisabled: channel.isDisabled};
+    }
+
+    async unlinkChannel(
+        channelId: string,
+        userId: string,
+    ): Promise<ChannelUnlinkResult> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new ChannelServiceError(ChannelErrorCode.CHANNEL_NOT_FOUND);
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {channelId, userId},
+        });
+
+        if (!membership) {
+            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_MEMBER);
+        }
+
+        membership.isActive = false;
+        membership.isManuallyDisabled = true;
+        membership.lastRecheckAt = new Date();
+
+        await this.membershipRepository.save(membership);
+
+        return {channelId: channel.id, unlinked: true};
     }
 
     private findUserAdmin(
