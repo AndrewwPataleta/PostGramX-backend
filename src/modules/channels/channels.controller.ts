@@ -11,6 +11,8 @@ import {LinkChannelDto} from './dto/link-channel.dto';
 import {VerifyChannelDto} from './dto/verify-channel.dto';
 import {ListChannelsDto} from './dto/list-channels.dto';
 import {ChannelDetailsDto} from './dto/channel-details.dto';
+import {ListChannelAdminsDto} from './dto/list-channel-admins.dto';
+import {SyncChannelAdminsDto} from './dto/sync-channel-admins.dto';
 import {UpdateChannelDisabledDto} from './dto/update-channel-disabled.dto';
 import {
     mapChannelErrorToMessageKey,
@@ -82,6 +84,56 @@ export class ChannelsController {
         try {
             return await this.channelsService.verifyChannel(
                 dto.data.id,
+                user.id,
+                user.telegramId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('admins/list')
+    @ApiOperation({summary: 'List synced Telegram admins for a channel'})
+    @ApiBody({type: ListChannelAdminsDto})
+    async listAdmins(
+        @Body(dtoValidationPipe) dto: ListChannelAdminsDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.channelsService.listChannelAdmins(
+                dto.data.channelId,
+                user.id,
+                user.telegramId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: ChannelServiceError,
+                mapStatus: mapChannelErrorToStatus,
+                mapMessageKey: mapChannelErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('admins/sync')
+    @ApiOperation({summary: 'Sync Telegram admins for a channel'})
+    @ApiBody({type: SyncChannelAdminsDto})
+    async syncAdmins(
+        @Body(dtoValidationPipe) dto: SyncChannelAdminsDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.channelsService.syncChannelAdminsForUser(
+                dto.data.channelId,
                 user.id,
                 user.telegramId,
             );

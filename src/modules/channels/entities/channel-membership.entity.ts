@@ -45,6 +45,9 @@ export class ChannelMembershipEntity {
     @Column({default: true})
     isActive: boolean;
 
+    @Column({default: false})
+    isManuallyDisabled: boolean;
+
     @Column({type: 'timestamptz', nullable: true})
     lastRecheckAt: Date | null;
 

@@ -13,6 +13,12 @@ export const mapChannelErrorToStatus = (
         case ChannelErrorCode.USER_NOT_ADMIN:
         case ChannelErrorCode.BOT_NOT_ADMIN:
         case ChannelErrorCode.BOT_MISSING_RIGHTS:
+        case ChannelErrorCode.USER_NOT_MEMBER:
+        case ChannelErrorCode.MEMBERSHIP_DISABLED:
+        case ChannelErrorCode.MEMBERSHIP_INACTIVE:
+        case ChannelErrorCode.NOT_ADMIN_ANYMORE:
+        case ChannelErrorCode.MISSING_RIGHTS:
+        case ChannelErrorCode.USER_NOT_CREATOR:
             return HttpStatus.FORBIDDEN;
         case ChannelErrorCode.NOT_A_CHANNEL:
         case ChannelErrorCode.CHANNEL_PRIVATE_OR_NO_USERNAME:
@@ -42,6 +48,18 @@ export const mapChannelErrorToMessageKey = (
             return 'channels.errors.bot_not_admin';
         case ChannelErrorCode.BOT_MISSING_RIGHTS:
             return 'channels.errors.bot_missing_rights';
+        case ChannelErrorCode.USER_NOT_MEMBER:
+            return 'channels.errors.user_not_member';
+        case ChannelErrorCode.MEMBERSHIP_DISABLED:
+            return 'channels.errors.membership_disabled';
+        case ChannelErrorCode.MEMBERSHIP_INACTIVE:
+            return 'channels.errors.membership_inactive';
+        case ChannelErrorCode.NOT_ADMIN_ANYMORE:
+            return 'channels.errors.not_admin_anymore';
+        case ChannelErrorCode.MISSING_RIGHTS:
+            return 'channels.errors.missing_rights';
+        case ChannelErrorCode.USER_NOT_CREATOR:
+            return 'channels.errors.user_not_creator';
         default:
             return 'channels.errors.channel_not_found';
     }

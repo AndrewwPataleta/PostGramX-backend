@@ -25,6 +25,7 @@ import {AdminRule} from './modules/admin/entities/admin-rule.entity';
 import {AdminUser} from './modules/admin/entities/admin-user.entity';
 import {ChannelEntity} from './modules/channels/entities/channel.entity';
 import {ChannelMembershipEntity} from './modules/channels/entities/channel-membership.entity';
+import {ChannelTelegramAdminEntity} from './modules/channels/entities/channel-telegram-admin.entity';
 import {PaymentsModule} from './modules/payments/payments.module';
 import {TransactionEntity} from './modules/payments/entities/transaction.entity';
 import {DealEntity} from './modules/deals/entities/deal.entity';
@@ -115,6 +116,7 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
                         AdminUser,
                         ChannelEntity,
                         ChannelMembershipEntity,
+                        ChannelTelegramAdminEntity,
                         TransactionEntity,
                         DealEntity,
                         EscrowWalletEntity,
@@ -140,6 +142,7 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
             AdminUser,
             ChannelEntity,
             ChannelMembershipEntity,
+            ChannelTelegramAdminEntity,
             TransactionEntity,
             DealEntity,
             EscrowWalletEntity,

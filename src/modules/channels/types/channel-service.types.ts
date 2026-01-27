@@ -28,6 +28,7 @@ export type ChannelVerifyResult = {
     verifiedAt?: string;
     error?: {code: ChannelErrorCode; message: string};
     permissions?: Record<string, unknown>;
+    adminsSync?: 'ok' | 'failed';
 };
 
 export type ChannelListItem = {
