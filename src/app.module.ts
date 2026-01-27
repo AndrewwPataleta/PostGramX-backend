@@ -25,6 +25,8 @@ import {AdminRule} from './modules/admin/entities/admin-rule.entity';
 import {AdminUser} from './modules/admin/entities/admin-user.entity';
 import {ChannelEntity} from './modules/channels/entities/channel.entity';
 import {ChannelMembershipEntity} from './modules/channels/entities/channel-membership.entity';
+import {PaymentsModule} from './modules/payments/payments.module';
+import {TransactionEntity} from './modules/payments/entities/transaction.entity';
 
 
 @Module({
@@ -110,6 +112,7 @@ import {ChannelMembershipEntity} from './modules/channels/entities/channel-membe
                         AdminUser,
                         ChannelEntity,
                         ChannelMembershipEntity,
+                        TransactionEntity,
                     ],
                     autoLoadEntities: true,
                     synchronize: false,
@@ -131,12 +134,14 @@ import {ChannelMembershipEntity} from './modules/channels/entities/channel-membe
             AdminUser,
             ChannelEntity,
             ChannelMembershipEntity,
+            TransactionEntity,
         ]),
         AuthModule,
         HealthModule,
         AdminModule,
         UserProfileModule,
         ChannelsModule,
+        PaymentsModule,
     ],
     controllers: [AppController],
     providers: [
