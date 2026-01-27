@@ -41,6 +41,9 @@ export class ChannelEntity {
     @Column({type: 'integer', nullable: true})
     avgViews: number | null;
 
+    @Column({default: false})
+    isDisabled: boolean;
+
     @Column({type: 'jsonb', nullable: true})
     languageStats: Record<string, unknown> | null;
 

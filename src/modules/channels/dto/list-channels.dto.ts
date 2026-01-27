@@ -37,6 +37,13 @@ class ListChannelsDataDto {
     @IsBoolean()
     verifiedOnly?: boolean;
 
+    @ApiPropertyOptional({
+        description: 'Include disabled channels in the response.',
+    })
+    @IsOptional()
+    @IsBoolean()
+    includeDisabled?: boolean;
+
     @ApiPropertyOptional()
     @IsOptional()
     @IsString()

@@ -11,6 +11,7 @@ import {LinkChannelDto} from './dto/link-channel.dto';
 import {VerifyChannelDto} from './dto/verify-channel.dto';
 import {ListChannelsDto} from './dto/list-channels.dto';
 import {ChannelDetailsDto} from './dto/channel-details.dto';
+import {UpdateChannelDisabledDto} from './dto/update-channel-disabled.dto';
 import {
     mapChannelErrorToMessageKey,
     mapChannelErrorToStatus,
@@ -139,5 +140,32 @@ export class ChannelsController {
     ) {
         const user = assertUser(req);
         return this.channelsService.getForUser(user.id, id);
+    }
+
+    @Post(':id/disabled')
+    @ApiOperation({summary: 'Disable or enable a channel'})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {
+                    disabled: true,
+                },
+            },
+        },
+    })
+    async updateDisabledStatus(
+        @Param('id') id: string,
+        @Body(dtoValidationPipe) dto: UpdateChannelDisabledDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+        return this.channelsService.updateDisabledStatus(
+            user.id,
+            id,
+            dto.data.disabled,
+        );
     }
 }
