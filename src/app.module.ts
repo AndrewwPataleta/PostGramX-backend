@@ -30,6 +30,8 @@ import {TransactionEntity} from './modules/payments/entities/transaction.entity'
 import {DealEntity} from './modules/deals/entities/deal.entity';
 import {EscrowWalletEntity} from './modules/payments/entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-key.entity';
+import {DealsModule} from './modules/deals/deals.module';
+import {ListingEntity} from './modules/deals/entities/listing.entity';
 
 
 @Module({
@@ -118,6 +120,7 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
                         ChannelTelegramAdminEntity,
                         TransactionEntity,
                         DealEntity,
+                        ListingEntity,
                         EscrowWalletEntity,
                         EscrowWalletKeyEntity,
                     ],
@@ -144,6 +147,7 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
             ChannelTelegramAdminEntity,
             TransactionEntity,
             DealEntity,
+            ListingEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
         ]),
@@ -151,6 +155,7 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
         HealthModule,
         AdminModule,
         ChannelsModule,
+        DealsModule,
         PaymentsModule,
     ],
     controllers: [AppController],

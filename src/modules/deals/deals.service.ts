@@ -1,0 +1,250 @@
+import {Injectable} from '@nestjs/common';
+import {InjectRepository} from '@nestjs/typeorm';
+import {Brackets, DataSource, Repository} from 'typeorm';
+import {DealEntity} from './entities/deal.entity';
+import {ListingEntity} from './entities/listing.entity';
+import {DealEscrowStatus} from './types/deal-escrow-status.enum';
+import {DealInitiatorSide} from './types/deal-initiator-side.enum';
+import {DealStatus} from './types/deal-status.enum';
+import {ListingStatus} from './types/listing-status.enum';
+import {DealErrorCode, DealServiceError} from './errors/deal-service.error';
+import {ChannelEntity} from '../channels/entities/channel.entity';
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+
+const PENDING_ESCROW_STATUSES = [
+    DealEscrowStatus.NEGOTIATING,
+    DealEscrowStatus.AWAITING_PAYMENT,
+    DealEscrowStatus.CREATIVE_PENDING,
+    DealEscrowStatus.CREATIVE_REVIEW,
+];
+
+const ACTIVE_ESCROW_STATUSES = [
+    DealEscrowStatus.FUNDS_CONFIRMED,
+    DealEscrowStatus.APPROVED_SCHEDULED,
+    DealEscrowStatus.POSTED_VERIFYING,
+];
+
+const COMPLETED_ESCROW_STATUSES = [
+    DealEscrowStatus.COMPLETED,
+    DealEscrowStatus.CANCELED,
+    DealEscrowStatus.REFUNDED,
+];
+
+@Injectable()
+export class DealsService {
+    constructor(
+        private readonly dataSource: DataSource,
+        @InjectRepository(DealEntity)
+        private readonly dealRepository: Repository<DealEntity>,
+        @InjectRepository(ListingEntity)
+        private readonly listingRepository: Repository<ListingEntity>,
+        @InjectRepository(ChannelEntity)
+        private readonly channelRepository: Repository<ChannelEntity>,
+    ) {}
+
+    async createDeal(
+        userId: string,
+        listingId: string,
+        brief?: string,
+        scheduledAt?: string,
+    ) {
+        const listing = await this.listingRepository.findOne({
+            where: {id: listingId},
+        });
+
+        if (!listing) {
+            throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
+        }
+
+        if (listing.status !== ListingStatus.ACTIVE) {
+            throw new DealServiceError(DealErrorCode.LISTING_DISABLED);
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: listing.channelId},
+        });
+
+        if (!channel) {
+            throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
+        }
+
+        const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+        if (parsedScheduledAt && parsedScheduledAt.getTime() <= Date.now()) {
+            throw new DealServiceError(DealErrorCode.INVALID_SCHEDULE_TIME);
+        }
+
+        const now = new Date();
+
+        const deal = await this.dataSource.transaction(async (manager) => {
+            const repo = manager.getRepository(DealEntity);
+            const created = repo.create({
+                listingId: listing.id,
+                channelId: listing.channelId,
+                advertiserUserId: userId,
+                publisherOwnerUserId: channel.createdByUserId,
+                createdByUserId: userId,
+                sideInitiator: DealInitiatorSide.ADVERTISER,
+                status: DealStatus.PENDING,
+                escrowStatus: DealEscrowStatus.NEGOTIATING,
+                offerSnapshot: {
+                    priceNano: listing.priceNano,
+                    currency: listing.currency,
+                    format: listing.format,
+                    placementHours: listing.placementHours,
+                    lifetimeHours: listing.lifetimeHours,
+                    tags: listing.tags,
+                },
+                brief: brief ?? null,
+                scheduledAt: parsedScheduledAt,
+                lastActivityAt: now,
+            });
+
+            return repo.save(created);
+        });
+
+        return {
+            id: deal.id,
+            status: deal.status,
+            escrowStatus: deal.escrowStatus,
+            listingId: deal.listingId,
+            channelId: deal.channelId,
+            initiatorSide: deal.sideInitiator,
+        };
+    }
+
+    async listDeals(
+        userId: string,
+        options: {
+            role?: 'all' | 'advertiser' | 'publisher';
+            pendingPage?: number;
+            pendingLimit?: number;
+            activePage?: number;
+            activeLimit?: number;
+            completedPage?: number;
+            completedLimit?: number;
+        },
+    ) {
+        const role = options.role ?? 'all';
+
+        const pending = await this.fetchDealsGroup(userId, role, {
+            page: options.pendingPage ?? DEFAULT_PAGE,
+            limit: options.pendingLimit ?? DEFAULT_LIMIT,
+            statuses: [DealStatus.PENDING],
+            escrowStatuses: PENDING_ESCROW_STATUSES,
+        });
+
+        const active = await this.fetchDealsGroup(userId, role, {
+            page: options.activePage ?? DEFAULT_PAGE,
+            limit: options.activeLimit ?? DEFAULT_LIMIT,
+            statuses: [DealStatus.ACTIVE],
+            escrowStatuses: ACTIVE_ESCROW_STATUSES,
+        });
+
+        const completed = await this.fetchDealsGroup(userId, role, {
+            page: options.completedPage ?? DEFAULT_PAGE,
+            limit: options.completedLimit ?? DEFAULT_LIMIT,
+            statuses: [DealStatus.COMPLETED, DealStatus.CANCELED],
+            escrowStatuses: COMPLETED_ESCROW_STATUSES,
+        });
+
+        return {
+            pending,
+            active,
+            completed,
+        };
+    }
+
+    private async fetchDealsGroup(
+        userId: string,
+        role: 'all' | 'advertiser' | 'publisher',
+        group: {
+            page: number;
+            limit: number;
+            statuses: DealStatus[];
+            escrowStatuses: DealEscrowStatus[];
+        },
+    ) {
+        const qb = this.dealRepository
+            .createQueryBuilder('deal')
+            .leftJoinAndSelect('deal.listing', 'listing')
+            .leftJoinAndSelect('deal.channel', 'channel')
+            .orderBy('deal.lastActivityAt', 'DESC')
+            .skip((group.page - 1) * group.limit)
+            .take(group.limit);
+
+        if (role === 'advertiser') {
+            qb.where('deal.advertiserUserId = :userId', {userId});
+        } else if (role === 'publisher') {
+            qb.where('deal.publisherOwnerUserId = :userId', {userId});
+        } else {
+            qb.where(
+                '(deal.advertiserUserId = :userId OR deal.publisherOwnerUserId = :userId)',
+                {userId},
+            );
+        }
+
+        qb.andWhere(
+            new Brackets((builder) => {
+                builder.where('deal.status IN (:...statuses)', {
+                    statuses: group.statuses,
+                });
+                builder.orWhere(
+                    'deal.status IS NULL AND deal.escrowStatus IN (:...escrowStatuses)',
+                    {escrowStatuses: group.escrowStatuses},
+                );
+            }),
+        );
+
+        const [deals, total] = await qb.getManyAndCount();
+
+        const items = deals.map((deal) => {
+            const listing = deal.listing;
+            const channel = deal.channel;
+
+            return {
+                id: deal.id,
+                status: deal.status,
+                escrowStatus: deal.escrowStatus,
+                initiatorSide: deal.sideInitiator,
+                userRoleInDeal:
+                    deal.advertiserUserId === userId
+                        ? 'advertiser'
+                        : deal.publisherOwnerUserId === userId
+                          ? 'publisher'
+                          : 'unknown',
+                channel: channel
+                    ? {
+                          id: channel.id,
+                          name: channel.title,
+                          username: channel.username,
+                          avatarUrl: null,
+                          verified: Boolean(channel.verifiedAt),
+                      }
+                    : null,
+                listing: listing
+                    ? {
+                          id: listing.id,
+                          priceNano: listing.priceNano,
+                          currency: listing.currency,
+                          format: listing.format,
+                          tags: listing.tags,
+                          placementHours: listing.placementHours,
+                          lifetimeHours: listing.lifetimeHours,
+                      }
+                    : null,
+                createdAt: deal.createdAt,
+                lastActivityAt: deal.lastActivityAt,
+                scheduledAt: deal.scheduledAt,
+            };
+        });
+
+        return {
+            items,
+            page: group.page,
+            limit: group.limit,
+            total,
+        };
+    }
+}

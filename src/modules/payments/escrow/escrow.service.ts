@@ -112,7 +112,7 @@ export class EscrowService {
 
         if (
             deal.advertiserUserId !== userId &&
-            deal.channelOwnerUserId !== userId
+            deal.publisherOwnerUserId !== userId
         ) {
             throw new EscrowServiceError(EscrowServiceErrorCode.FORBIDDEN);
         }

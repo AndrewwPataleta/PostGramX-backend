@@ -88,5 +88,14 @@
       "escrow_amount_missing": "Сумма эскроу не задана для этой сделки.",
       "mock_disabled": "Тестовые операции эскроу отключены в продакшене."
     }
+  },
+  "deals": {
+    "errors": {
+      "dealNotFound": "Сделка не найдена.",
+      "listingNotFound": "Листинг не найден.",
+      "listingDisabled": "Листинг отключён.",
+      "unauthorized": "Нет доступа к этой сделке.",
+      "invalidScheduleTime": "Время размещения должно быть в будущем."
+    }
   }
 }
