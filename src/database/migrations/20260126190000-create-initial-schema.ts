@@ -37,7 +37,7 @@ export class CreateInitialSchema20260126190000
     );
 
     await queryRunner.query(`
-      CREATE TABLE "users" (
+      CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "username" character varying,
         "email" character varying,
@@ -59,7 +59,7 @@ export class CreateInitialSchema20260126190000
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "admin_page" (
+      CREATE TABLE IF NOT EXISTS "admin_page" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "key" character varying NOT NULL,
         "name" text NOT NULL,
@@ -72,7 +72,7 @@ export class CreateInitialSchema20260126190000
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "admin_user" (
+      CREATE TABLE IF NOT EXISTS "admin_user" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "name" text NOT NULL,
         "login" text NOT NULL,
@@ -91,7 +91,7 @@ export class CreateInitialSchema20260126190000
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "admin_rule" (
+      CREATE TABLE IF NOT EXISTS "admin_rule" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "name" text NOT NULL,
         "type" "admin_rule_type_enum" NOT NULL DEFAULT 'view',
@@ -104,18 +104,18 @@ export class CreateInitialSchema20260126190000
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "admin_user_rules" (
+      CREATE TABLE IF NOT EXISTS "admin_user_rules" (
         "admin_user_id" uuid NOT NULL,
         "admin_rule_id" uuid NOT NULL,
         CONSTRAINT "PK_admin_user_rules" PRIMARY KEY ("admin_user_id", "admin_rule_id")
       )
     `);
     await queryRunner.query(
-      'CREATE INDEX "IDX_admin_user_rules_rule" ON "admin_user_rules" ("admin_rule_id")',
+      'CREATE INDEX IF NOT EXISTS "IDX_admin_user_rules_rule" ON "admin_user_rules" ("admin_rule_id")',
     );
 
     await queryRunner.query(`
-      CREATE TABLE "channels" (
+      CREATE TABLE IF NOT EXISTS "channels" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "username" character varying(64) NOT NULL,
         "telegramChatId" bigint,
@@ -137,11 +137,11 @@ export class CreateInitialSchema20260126190000
       )
     `);
     await queryRunner.query(
-      'CREATE INDEX "IDX_channels_username" ON "channels" ("username")',
+      'CREATE INDEX IF NOT EXISTS "IDX_channels_username" ON "channels" ("username")',
     );
 
     await queryRunner.query(`
-      CREATE TABLE "channel_memberships" (
+      CREATE TABLE IF NOT EXISTS "channel_memberships" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "channelId" uuid NOT NULL,
         "userId" uuid NOT NULL,
@@ -157,27 +157,47 @@ export class CreateInitialSchema20260126190000
       )
     `);
     await queryRunner.query(
-      'CREATE INDEX "IDX_channel_memberships_channel_id" ON "channel_memberships" ("channelId")',
+      'CREATE INDEX IF NOT EXISTS "IDX_channel_memberships_channel_id" ON "channel_memberships" ("channelId")',
     );
     await queryRunner.query(
-      'CREATE INDEX "IDX_channel_memberships_user_id" ON "channel_memberships" ("userId")',
+      'CREATE INDEX IF NOT EXISTS "IDX_channel_memberships_user_id" ON "channel_memberships" ("userId")',
     );
 
-    await queryRunner.query(
-      'ALTER TABLE "admin_user" ADD CONSTRAINT "FK_admin_user_created_by" FOREIGN KEY ("created_by_id") REFERENCES "admin_user"("id") ON DELETE SET NULL',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "admin_rule" ADD CONSTRAINT "FK_admin_rule_page" FOREIGN KEY ("page_id") REFERENCES "admin_page"("id") ON DELETE CASCADE',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "admin_rule" ADD CONSTRAINT "FK_admin_rule_created_by" FOREIGN KEY ("created_by_id") REFERENCES "admin_user"("id") ON DELETE SET NULL',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "admin_user_rules" ADD CONSTRAINT "FK_admin_user_rules_user" FOREIGN KEY ("admin_user_id") REFERENCES "admin_user"("id") ON DELETE CASCADE',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "admin_user_rules" ADD CONSTRAINT "FK_admin_user_rules_rule" FOREIGN KEY ("admin_rule_id") REFERENCES "admin_rule"("id") ON DELETE CASCADE',
-    );
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_admin_user_created_by') THEN
+          ALTER TABLE "admin_user" ADD CONSTRAINT "FK_admin_user_created_by" FOREIGN KEY ("created_by_id") REFERENCES "admin_user"("id") ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_admin_rule_page') THEN
+          ALTER TABLE "admin_rule" ADD CONSTRAINT "FK_admin_rule_page" FOREIGN KEY ("page_id") REFERENCES "admin_page"("id") ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_admin_rule_created_by') THEN
+          ALTER TABLE "admin_rule" ADD CONSTRAINT "FK_admin_rule_created_by" FOREIGN KEY ("created_by_id") REFERENCES "admin_user"("id") ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_admin_user_rules_user') THEN
+          ALTER TABLE "admin_user_rules" ADD CONSTRAINT "FK_admin_user_rules_user" FOREIGN KEY ("admin_user_id") REFERENCES "admin_user"("id") ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_admin_user_rules_rule') THEN
+          ALTER TABLE "admin_user_rules" ADD CONSTRAINT "FK_admin_user_rules_rule" FOREIGN KEY ("admin_rule_id") REFERENCES "admin_rule"("id") ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
