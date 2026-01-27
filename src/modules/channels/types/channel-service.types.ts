@@ -11,6 +11,9 @@ export type ChannelPreview = {
     type: 'channel';
     isPublic: true;
     nextStep: 'ADD_BOT_AS_ADMIN';
+    memberCount: number | null;
+    avatarUrl: string | null;
+    description: string | null;
 };
 
 export type ChannelLinkResult = {

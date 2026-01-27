@@ -32,6 +32,17 @@ export interface TelegramChat {
     username?: string;
 }
 
+export interface TelegramChatPhoto {
+    small_file_id: string;
+    big_file_id: string;
+}
+
+export interface TelegramChatFullInfo extends TelegramChat {
+    description?: string;
+    invite_link?: string;
+    photo?: TelegramChatPhoto;
+}
+
 export interface TelegramUser {
     id: number;
     is_bot: boolean;
@@ -54,9 +65,17 @@ export interface TelegramChatMember {
     can_promote_members?: boolean;
 }
 
+export interface TelegramFile {
+    file_id: string;
+    file_unique_id: string;
+    file_size?: number;
+    file_path?: string;
+}
+
 @Injectable()
 export class TelegramChatService {
     private readonly apiBaseUrl: string;
+    private readonly fileBaseUrl: string;
     private botInfoPromise?: Promise<TelegramUser>;
 
     constructor(private readonly configService: ConfigService) {
@@ -66,6 +85,11 @@ export class TelegramChatService {
         }
         const baseUrl = this.configService.get<string>('TELEGRAM_BOT_API_BASE_URL');
         this.apiBaseUrl = baseUrl ?? `https://api.telegram.org/bot${token}`;
+        const fileBaseUrl = this.configService.get<string>(
+            'TELEGRAM_BOT_FILE_API_BASE_URL',
+        );
+        this.fileBaseUrl =
+            fileBaseUrl ?? this.resolveFileBaseUrl(this.apiBaseUrl, token);
     }
 
     normalizeUsernameOrLink(input: string): string {
@@ -99,10 +123,29 @@ export class TelegramChatService {
         return normalized;
     }
 
-    async getChatByUsername(username: string): Promise<TelegramChat> {
-        return this.request<TelegramChat>('getChat', {
+    async getChatByUsername(username: string): Promise<TelegramChatFullInfo> {
+        return this.request<TelegramChatFullInfo>('getChat', {
             chat_id: `@${username}`,
         });
+    }
+
+    async getChatMemberCount(
+        usernameOrId: string | number,
+    ): Promise<number> {
+        return this.request<number>('getChatMemberCount', {
+            chat_id:
+                typeof usernameOrId === 'string'
+                    ? `@${usernameOrId}`
+                    : String(usernameOrId),
+        });
+    }
+
+    async getFile(fileId: string): Promise<TelegramFile> {
+        return this.request<TelegramFile>('getFile', {file_id: fileId});
+    }
+
+    buildFileUrl(filePath: string): string {
+        return `${this.fileBaseUrl}/${filePath}`;
     }
 
     async getChatAdministratorsByUsername(
@@ -113,7 +156,9 @@ export class TelegramChatService {
         });
     }
 
-    assertPublicChannel(chat: TelegramChat | null | undefined): TelegramChat {
+    assertPublicChannel(
+        chat: TelegramChatFullInfo | null | undefined,
+    ): TelegramChatFullInfo {
         if (!chat) {
             throw new TelegramChatServiceError(
                 TelegramChatErrorCode.CHANNEL_NOT_FOUND,
@@ -210,5 +255,12 @@ export class TelegramChatService {
         throw new TelegramChatServiceError(
             TelegramChatErrorCode.BOT_FORBIDDEN,
         );
+    }
+
+    private resolveFileBaseUrl(apiBaseUrl: string, token: string): string {
+        if (apiBaseUrl.includes('/bot')) {
+            return apiBaseUrl.replace('/bot', '/file/bot');
+        }
+        return `https://api.telegram.org/file/bot${token}`;
     }
 }

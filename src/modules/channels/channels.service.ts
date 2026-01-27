@@ -46,6 +46,22 @@ export class ChannelsService {
                 normalizedUsername,
             );
             const publicChat = this.telegramChatService.assertPublicChannel(chat);
+            const memberCount =
+                await this.telegramChatService.getChatMemberCount(
+                    publicChat.id ?? normalizedUsername,
+                );
+
+            let avatarUrl: string | null = null;
+            if (publicChat.photo?.big_file_id) {
+                const file = await this.telegramChatService.getFile(
+                    publicChat.photo.big_file_id,
+                );
+                if (file.file_path) {
+                    avatarUrl = this.telegramChatService.buildFileUrl(
+                        file.file_path,
+                    );
+                }
+            }
 
             return {
                 normalizedUsername,
@@ -55,6 +71,9 @@ export class ChannelsService {
                 type: 'channel',
                 isPublic: true,
                 nextStep: 'ADD_BOT_AS_ADMIN',
+                memberCount,
+                avatarUrl,
+                description: publicChat.description ?? null,
             };
         } catch (error) {
             this.throwMappedError(error);
