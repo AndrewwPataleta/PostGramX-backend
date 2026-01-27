@@ -1,12 +1,14 @@
 import {
     BadRequestException,
     Injectable,
+    Logger,
     UnauthorizedException,
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {User} from './entities/user.entity';
 import {I18nService} from 'nestjs-i18n';
+import {MembershipsAutoLinkService} from '../channels/memberships-auto-link.service';
 
 
 import {
@@ -32,10 +34,13 @@ const isSupportedPlatformType = (
 
 @Injectable()
 export class AuthService {
+    private readonly logger = new Logger(AuthService.name);
+
     constructor(
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         private readonly i18n: I18nService,
+        private readonly membershipsAutoLinkService: MembershipsAutoLinkService,
     ) {
 
     }
@@ -161,6 +166,21 @@ export class AuthService {
         }
 
         user = await this.userRepository.save(user);
+
+        if (normalizedAuthType === 'telegram' && user.telegramId) {
+            try {
+                await this.membershipsAutoLinkService.autoLinkMembershipsForTelegramAdmin(
+                    user.id,
+                    user.telegramId,
+                );
+            } catch (error) {
+                this.logger.warn(
+                    `Failed to auto-link channel memberships for user ${user.id}: ${String(
+                        error,
+                    )}`,
+                );
+            }
+        }
 
         return user;
     }

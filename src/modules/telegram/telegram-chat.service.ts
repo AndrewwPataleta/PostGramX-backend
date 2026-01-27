@@ -156,6 +156,14 @@ export class TelegramChatService {
         });
     }
 
+    async getChatAdministrators(
+        chatId: string | number,
+    ): Promise<TelegramChatMember[]> {
+        return this.request<TelegramChatMember[]>('getChatAdministrators', {
+            chat_id: this.normalizeChatId(chatId),
+        });
+    }
+
     assertPublicChannel(
         chat: TelegramChatFullInfo | null | undefined,
     ): TelegramChatFullInfo {
@@ -262,5 +270,23 @@ export class TelegramChatService {
             return apiBaseUrl.replace('/bot', '/file/bot');
         }
         return `https://api.telegram.org/file/bot${token}`;
+    }
+
+    private normalizeChatId(chatId: string | number): string {
+        if (typeof chatId === 'number') {
+            return String(chatId);
+        }
+
+        const trimmed = chatId.trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        if (trimmed.startsWith('@')) {
+            return trimmed;
+        }
+
+        const isNumeric = /^-?\\d+$/.test(trimmed);
+        return isNumeric ? trimmed : `@${trimmed}`;
     }
 }

@@ -68,7 +68,13 @@
       "bot_forbidden": "Bot is forbidden from accessing the channel.",
       "user_not_admin": "User is not an administrator of the channel.",
       "bot_not_admin": "Bot is not an administrator of the channel.",
-      "bot_missing_rights": "Bot is missing required permissions."
+      "bot_missing_rights": "Bot is missing required permissions.",
+      "user_not_member": "User is not a member of the channel.",
+      "membership_disabled": "Channel access is disabled for this user.",
+      "membership_inactive": "Channel membership is inactive.",
+      "not_admin_anymore": "User is no longer an administrator of the channel.",
+      "missing_rights": "User lacks required administrator rights.",
+      "user_not_creator": "User is not the channel creator."
     }
   },
   "payments": {

@@ -1,4 +1,9 @@
-import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
+import {
+    ForbiddenException,
+    Injectable,
+    Logger,
+    NotFoundException,
+} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {ChannelEntity} from './entities/channel.entity';
@@ -25,15 +30,28 @@ import {
     TelegramChatMember,
 } from '../telegram/telegram-chat.service';
 import {mapChannelErrorToMessageKey} from './channel-error-mapper';
+import {ChannelTelegramAdminEntity} from './entities/channel-telegram-admin.entity';
+import {
+    TelegramAdminsSyncService,
+    TelegramAdminsSyncError,
+    TelegramAdminsSyncErrorCode,
+} from '../telegram/telegram-admins-sync.service';
+import {ChannelAdminRecheckService} from './guards/channel-admin-recheck.service';
 
 @Injectable()
 export class ChannelsService {
+    private readonly logger = new Logger(ChannelsService.name);
+
     constructor(
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(ChannelMembershipEntity)
         private readonly membershipRepository: Repository<ChannelMembershipEntity>,
+        @InjectRepository(ChannelTelegramAdminEntity)
+        private readonly telegramAdminRepository: Repository<ChannelTelegramAdminEntity>,
         private readonly telegramChatService: TelegramChatService,
+        private readonly telegramAdminsSyncService: TelegramAdminsSyncService,
+        private readonly channelAdminRecheckService: ChannelAdminRecheckService,
     ) {}
 
     async previewChannel(usernameOrLink: string): Promise<ChannelPreview> {
@@ -116,6 +134,10 @@ export class ChannelsService {
         userId: string,
         telegramUserId?: string | null,
     ): Promise<ChannelVerifyResult> {
+        if (!telegramUserId) {
+            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_ADMIN);
+        }
+
         const channel = await this.channelRepository.findOne({
             where: {id: channelId},
         });
@@ -127,6 +149,13 @@ export class ChannelsService {
         }
 
         try {
+            await this.channelAdminRecheckService.requireChannelRights({
+                channelId,
+                userId,
+                telegramId: Number(telegramUserId),
+                required: {mustBeCreator: true},
+            });
+
             const chat = await this.telegramChatService.getChatByUsername(
                 channel.username,
             );
@@ -164,12 +193,26 @@ export class ChannelsService {
                 permissionsSnapshot,
             );
 
+            let adminsSync: 'ok' | 'failed' | undefined;
+            try {
+                await this.telegramAdminsSyncService.syncChannelAdmins(channel.id);
+                adminsSync = 'ok';
+            } catch (error) {
+                adminsSync = 'failed';
+                this.logger.warn(
+                    `Failed to sync Telegram admins for channel ${channel.id}: ${String(
+                        error,
+                    )}`,
+                );
+            }
+
             return {
                 channelId: channel.id,
                 status: channel.status,
                 role: ChannelRole.OWNER,
                 verifiedAt: channel.verifiedAt?.toISOString(),
                 permissions: permissionsSnapshot,
+                adminsSync,
             };
         } catch (error) {
             const mapped = this.mapError(error);
@@ -201,7 +244,7 @@ export class ChannelsService {
                 'channel.membership',
                 ChannelMembershipEntity,
                 'membership',
-                'membership.channelId = channel.id AND membership.userId = :userId AND membership.isActive = true',
+                'membership.channelId = channel.id AND membership.userId = :userId AND membership.isActive = true AND membership.isManuallyDisabled = false',
                 {userId},
             )
             .select([
@@ -320,7 +363,7 @@ export class ChannelsService {
         }
 
         const membership = await this.membershipRepository.findOne({
-            where: {channelId, userId, isActive: true},
+            where: {channelId, userId, isActive: true, isManuallyDisabled: false},
         });
 
         if (!membership) {
@@ -344,6 +387,53 @@ export class ChannelsService {
                 lastRecheckAt: membership.lastRecheckAt,
             },
         };
+    }
+
+    async listChannelAdmins(
+        channelId: string,
+        userId: string,
+        telegramUserId: string | number,
+    ) {
+        await this.channelAdminRecheckService.requireChannelRights({
+            channelId,
+            userId,
+            telegramId: Number(telegramUserId),
+            required: {anyAdmin: true, allowManager: true},
+        });
+
+        const admins = await this.telegramAdminRepository.find({
+            where: {channelId},
+            order: {lastSeenAt: 'DESC'},
+        });
+
+        return {
+            items: admins.map((admin) => ({
+                telegramUserId: admin.telegramUserId,
+                username: admin.username,
+                firstName: admin.firstName,
+                lastName: admin.lastName,
+                telegramRole: admin.telegramRole,
+                isActive: admin.isActive,
+                rights: admin.rights,
+                lastSeenAt: admin.lastSeenAt,
+            })),
+        };
+    }
+
+    async syncChannelAdminsForUser(
+        channelId: string,
+        userId: string,
+        telegramUserId: string | number,
+    ) {
+        await this.channelAdminRecheckService.requireChannelRights({
+            channelId,
+            userId,
+            telegramId: Number(telegramUserId),
+            required: {anyAdmin: true, rights: ['can_promote_members'], allowManager: true},
+        });
+
+        await this.telegramAdminsSyncService.syncChannelAdmins(channelId);
+        return {ok: true};
     }
 
     private findUserAdmin(
@@ -405,7 +495,9 @@ export class ChannelsService {
         }
 
         membership.role = role;
-        membership.isActive = true;
+        if (!membership.isManuallyDisabled) {
+            membership.isActive = true;
+        }
         membership.lastRecheckAt = new Date();
 
         if (userAdmin) {
@@ -429,6 +521,10 @@ export class ChannelsService {
 
         if (error instanceof TelegramChatServiceError) {
             return this.mapTelegramError(error);
+        }
+
+        if (error instanceof TelegramAdminsSyncError) {
+            return this.mapTelegramAdminsSyncError(error);
         }
 
         return null;
@@ -458,6 +554,19 @@ export class ChannelsService {
         };
 
         const code = mapping[error.code] ?? ChannelErrorCode.CHANNEL_NOT_FOUND;
+        return new ChannelServiceError(code);
+    }
+
+    private mapTelegramAdminsSyncError(
+        error: TelegramAdminsSyncError,
+    ): ChannelServiceError {
+        const mapping: Record<TelegramAdminsSyncErrorCode, ChannelErrorCode> = {
+            [TelegramAdminsSyncErrorCode.BOT_FORBIDDEN]: ChannelErrorCode.BOT_FORBIDDEN,
+            [TelegramAdminsSyncErrorCode.CHANNEL_NOT_FOUND]:
+                ChannelErrorCode.CHANNEL_NOT_FOUND,
+        };
+
+        const code = mapping[error.code] ?? ChannelErrorCode.BOT_FORBIDDEN;
         return new ChannelServiceError(code);
     }
 
