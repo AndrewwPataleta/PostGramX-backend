@@ -237,8 +237,9 @@ export class DealsService {
                           currency: listing.currency,
                           format: listing.format,
                           tags: listing.tags,
-                          placementHours: listing.placementHours,
-                          lifetimeHours: listing.lifetimeHours,
+                          pinDurationHours: listing.pinDurationHours,
+                          visibilityDurationHours:
+                              listing.visibilityDurationHours,
                       }
                     : null,
                 createdAt: deal.createdAt,
