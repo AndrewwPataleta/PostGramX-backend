@@ -88,5 +88,14 @@
       "escrow_amount_missing": "Escrow amount is not set for this deal.",
       "mock_disabled": "Mock escrow actions are disabled in production."
     }
+  },
+  "deals": {
+    "errors": {
+      "dealNotFound": "Deal not found.",
+      "listingNotFound": "Listing not found.",
+      "listingDisabled": "Listing is disabled.",
+      "unauthorized": "You do not have access to this deal.",
+      "invalidScheduleTime": "Scheduled time must be in the future."
+    }
   }
 }
