@@ -101,8 +101,12 @@ export class ChannelAdminRecheckService {
 
         if (required.rights && required.rights.length > 0) {
             if (admin.status !== 'creator') {
+                const adminRights = admin as unknown as Record<
+                    string,
+                    boolean | undefined
+                >;
                 const hasRights = required.rights.every((right) =>
-                    Boolean((admin as Record<string, boolean | undefined>)[right]),
+                    Boolean(adminRights[right]),
                 );
                 if (!hasRights) {
                     throw new ChannelServiceError(ChannelErrorCode.MISSING_RIGHTS);
