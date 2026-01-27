@@ -63,9 +63,7 @@ export class TelegramBotUpdate {
         }
 
         const command = text.split(' ')[0].replace('/', '').toLowerCase();
-        return [
-            TELEGRAM_BOT_COMMANDS.start,
-            TELEGRAM_BOT_COMMANDS.help,
-        ].includes(command);
+        const knownCommands = Object.values(TELEGRAM_BOT_COMMANDS) as string[];
+        return knownCommands.includes(command);
     }
 }
