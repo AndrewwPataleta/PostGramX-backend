@@ -70,5 +70,17 @@
       "bot_not_admin": "Bot is not an administrator of the channel.",
       "bot_missing_rights": "Bot is missing required permissions."
     }
+  },
+  "payments": {
+    "errors": {
+      "deal_not_found": "Deal not found.",
+      "forbidden": "You do not have access to this deal.",
+      "invalid_transition": "The deal is not in the expected state.",
+      "escrow_already_initialized": "Escrow has already been initialized for this deal.",
+      "escrow_amount_mismatch": "Escrow amount does not match the deal.",
+      "escrow_wallet_missing": "Escrow wallet is missing for this deal.",
+      "escrow_amount_missing": "Escrow amount is not set for this deal.",
+      "mock_disabled": "Mock escrow actions are disabled in production."
+    }
   }
 }
