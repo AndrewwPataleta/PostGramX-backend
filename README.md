@@ -84,6 +84,26 @@ curl -X POST https://postgramx.com/api/channels/link \\
 curl -X POST https://postgramx.com/api/channels/<channelId>/verify
 ```
 
+## Payments ledger API
+
+### List transactions
+
+```bash
+curl -X POST http://localhost:8080/payments/transactions/list \\
+  -H "Content-Type: application/json" \\
+  -H "X-Telegram-Mock: true" \\
+  -d '{ "platformType":"telegram", "authType":"telegram", "token":"<initData>", "data": { "page":1, "limit":20 } }'
+```
+
+### Get transaction
+
+```bash
+curl -X POST http://localhost:8080/payments/transactions/<ID> \\
+  -H "Content-Type: application/json" \\
+  -H "X-Telegram-Mock: true" \\
+  -d '{ "platformType":"telegram", "authType":"telegram", "token":"<initData>", "data": {} }'
+```
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
