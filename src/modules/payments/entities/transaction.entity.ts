@@ -45,6 +45,9 @@ export class TransactionEntity {
     dealId: string | null;
 
     @Column({type: 'uuid', nullable: true})
+    escrowWalletId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
     channelId: string | null;
 
     @Column({type: 'uuid', nullable: true})

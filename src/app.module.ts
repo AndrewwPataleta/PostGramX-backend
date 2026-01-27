@@ -27,6 +27,9 @@ import {ChannelEntity} from './modules/channels/entities/channel.entity';
 import {ChannelMembershipEntity} from './modules/channels/entities/channel-membership.entity';
 import {PaymentsModule} from './modules/payments/payments.module';
 import {TransactionEntity} from './modules/payments/entities/transaction.entity';
+import {DealEntity} from './modules/deals/entities/deal.entity';
+import {EscrowWalletEntity} from './modules/payments/entities/escrow-wallet.entity';
+import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-key.entity';
 
 
 @Module({
@@ -113,6 +116,9 @@ import {TransactionEntity} from './modules/payments/entities/transaction.entity'
                         ChannelEntity,
                         ChannelMembershipEntity,
                         TransactionEntity,
+                        DealEntity,
+                        EscrowWalletEntity,
+                        EscrowWalletKeyEntity,
                     ],
                     autoLoadEntities: true,
                     synchronize: false,
@@ -135,6 +141,9 @@ import {TransactionEntity} from './modules/payments/entities/transaction.entity'
             ChannelEntity,
             ChannelMembershipEntity,
             TransactionEntity,
+            DealEntity,
+            EscrowWalletEntity,
+            EscrowWalletKeyEntity,
         ]),
         AuthModule,
         HealthModule,
