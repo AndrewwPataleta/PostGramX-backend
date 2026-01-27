@@ -8,6 +8,7 @@ import {TelegramModule} from '../telegram/telegram.module';
 import {ChannelTelegramAdminEntity} from './entities/channel-telegram-admin.entity';
 import {MembershipsAutoLinkService} from './memberships-auto-link.service';
 import {ChannelAdminRecheckService} from './guards/channel-admin-recheck.service';
+import {ListingEntity} from '../listings/entities/listing.entity';
 
 @Module({
     imports: [
@@ -15,6 +16,7 @@ import {ChannelAdminRecheckService} from './guards/channel-admin-recheck.service
             ChannelEntity,
             ChannelMembershipEntity,
             ChannelTelegramAdminEntity,
+            ListingEntity,
         ]),
         TelegramModule,
     ],

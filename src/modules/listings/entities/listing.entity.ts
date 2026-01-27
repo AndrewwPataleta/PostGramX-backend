@@ -16,7 +16,11 @@ export enum ListingFormat {
 }
 
 @Entity({name: 'listings'})
-@Index('IDX_listings_channel_active', ['channelId', 'isActive'])
+@Index('IDX_listings_channel_active_created_at', [
+    'channelId',
+    'isActive',
+    'createdAt',
+])
 @Index('IDX_listings_created_by_created_at', ['createdByUserId', 'createdAt'])
 export class ListingEntity {
     @PrimaryGeneratedColumn('uuid')
@@ -28,9 +32,12 @@ export class ListingEntity {
     @Column({type: 'uuid'})
     createdByUserId: string;
 
-    @ManyToOne(() => ChannelEntity, {nullable: true})
+    @ManyToOne(() => ChannelEntity, (channel) => channel.listings, {
+        nullable: false,
+        onDelete: 'CASCADE',
+    })
     @JoinColumn({name: 'channelId'})
-    channel: ChannelEntity | null;
+    channel: ChannelEntity;
 
     @ManyToOne(() => User, {nullable: true})
     @JoinColumn({name: 'createdByUserId'})
