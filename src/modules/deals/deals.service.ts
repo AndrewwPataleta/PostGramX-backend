@@ -2,11 +2,10 @@ import {Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Brackets, DataSource, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
-import {ListingEntity} from './entities/listing.entity';
+import {ListingEntity} from '../listings/entities/listing.entity';
 import {DealEscrowStatus} from './types/deal-escrow-status.enum';
 import {DealInitiatorSide} from './types/deal-initiator-side.enum';
 import {DealStatus} from './types/deal-status.enum';
-import {ListingStatus} from './types/listing-status.enum';
 import {DealErrorCode, DealServiceError} from './errors/deal-service.error';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 
@@ -58,7 +57,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
         }
 
-        if (listing.status !== ListingStatus.ACTIVE) {
+        if (!listing.isActive) {
             throw new DealServiceError(DealErrorCode.LISTING_DISABLED);
         }
 
@@ -92,9 +91,17 @@ export class DealsService {
                     priceNano: listing.priceNano,
                     currency: listing.currency,
                     format: listing.format,
-                    placementHours: listing.placementHours,
-                    lifetimeHours: listing.lifetimeHours,
+                    availabilityFrom: listing.availabilityFrom,
+                    availabilityTo: listing.availabilityTo,
+                    pinDurationHours: listing.pinDurationHours,
+                    visibilityDurationHours: listing.visibilityDurationHours,
+                    allowEdits: listing.allowEdits,
+                    allowLinkTracking: listing.allowLinkTracking,
+                    allowPinnedPlacement: listing.allowPinnedPlacement,
+                    requiresApproval: listing.requiresApproval,
+                    contentRulesText: listing.contentRulesText,
                     tags: listing.tags,
+                    isActive: listing.isActive,
                 },
                 brief: brief ?? null,
                 scheduledAt: parsedScheduledAt,

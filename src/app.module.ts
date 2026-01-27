@@ -31,7 +31,8 @@ import {DealEntity} from './modules/deals/entities/deal.entity';
 import {EscrowWalletEntity} from './modules/payments/entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-key.entity';
 import {DealsModule} from './modules/deals/deals.module';
-import {ListingEntity} from './modules/deals/entities/listing.entity';
+import {ListingEntity} from './modules/listings/entities/listing.entity';
+import {ListingsModule} from './modules/listings/listings.module';
 
 
 @Module({
@@ -161,6 +162,7 @@ import {ListingEntity} from './modules/deals/entities/listing.entity';
         AdminModule,
         ChannelsModule,
         DealsModule,
+        ListingsModule,
         PaymentsModule,
     ],
     controllers: [AppController],

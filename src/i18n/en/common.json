@@ -97,5 +97,18 @@
       "unauthorized": "You do not have access to this deal.",
       "invalidScheduleTime": "Scheduled time must be in the future."
     }
+  },
+  "listings": {
+    "errors": {
+      "channelNotFound": "Channel not found.",
+      "unauthorized": "You do not have access to this channel.",
+      "channelNotVerified": "Channel is not verified.",
+      "invalidFormat": "Listing format is invalid.",
+      "invalidAvailability": "Availability window is invalid.",
+      "invalidPinnedRule": "Pinned placement settings do not match.",
+      "tagsMissingRequired": "Required tag is missing.",
+      "invalidRequiresApproval": "Listings must require approval in MVP.",
+      "invalidPrice": "Listing price is invalid."
+    }
   }
 }

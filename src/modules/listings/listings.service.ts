@@ -1,0 +1,211 @@
+import {Injectable} from '@nestjs/common';
+import {InjectRepository} from '@nestjs/typeorm';
+import {Repository} from 'typeorm';
+import {ChannelEntity} from '../channels/entities/channel.entity';
+import {ChannelStatus} from '../channels/types/channel-status.enum';
+import {ListingEntity, ListingFormat} from './entities/listing.entity';
+import {
+    ListingServiceError,
+    ListingServiceErrorCode,
+} from './errors/listing.errors';
+
+const REQUIRED_TAG = 'Must be pre-approved';
+
+@Injectable()
+export class ListingsService {
+    constructor(
+        @InjectRepository(ListingEntity)
+        private readonly listingRepository: Repository<ListingEntity>,
+        @InjectRepository(ChannelEntity)
+        private readonly channelRepository: Repository<ChannelEntity>,
+    ) {}
+
+    async createListing(
+        data: {
+            channelId: string;
+            format: string;
+            priceTon: number;
+            availabilityFrom: string;
+            availabilityTo: string;
+            pinDurationHours?: number | null;
+            visibilityDurationHours: number;
+            allowEdits: boolean;
+            allowLinkTracking: boolean;
+            allowPinnedPlacement: boolean;
+            requiresApproval: boolean;
+            contentRulesText?: string;
+            tags: string[];
+            isActive: boolean;
+        },
+        userId: string,
+    ) {
+        const channel = await this.channelRepository.findOne({
+            where: {id: data.channelId},
+        });
+
+        if (!channel) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.CHANNEL_NOT_FOUND,
+            );
+        }
+
+        if (channel.createdByUserId !== userId) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
+            );
+        }
+
+        if (channel.status !== ChannelStatus.VERIFIED || channel.isDisabled) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.CHANNEL_NOT_VERIFIED,
+            );
+        }
+
+        if (data.format !== ListingFormat.POST) {
+            throw new ListingServiceError(ListingServiceErrorCode.INVALID_FORMAT);
+        }
+
+        if (data.requiresApproval !== true) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL,
+            );
+        }
+
+        const availabilityFrom = new Date(data.availabilityFrom);
+        const availabilityTo = new Date(data.availabilityTo);
+
+        if (
+            Number.isNaN(availabilityFrom.getTime()) ||
+            Number.isNaN(availabilityTo.getTime()) ||
+            availabilityTo.getTime() <= availabilityFrom.getTime()
+        ) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE,
+            );
+        }
+
+        const isPinnedPlacement = data.pinDurationHours !== null &&
+            data.pinDurationHours !== undefined;
+        if (data.allowPinnedPlacement !== isPinnedPlacement) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_PIN_RULE,
+            );
+        }
+
+        const normalizedTags = this.normalizeTags(data.tags);
+        if (!this.hasRequiredTag(normalizedTags)) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.TAGS_MISSING_REQUIRED,
+            );
+        }
+
+        const priceNano = this.parseTonToNano(data.priceTon);
+
+        const listing = this.listingRepository.create({
+            channelId: data.channelId,
+            createdByUserId: userId,
+            format: ListingFormat.POST,
+            priceNano,
+            currency: 'TON',
+            availabilityFrom,
+            availabilityTo,
+            pinDurationHours: data.pinDurationHours ?? null,
+            visibilityDurationHours: data.visibilityDurationHours,
+            allowEdits: data.allowEdits,
+            allowLinkTracking: data.allowLinkTracking,
+            allowPinnedPlacement: data.allowPinnedPlacement,
+            requiresApproval: data.requiresApproval,
+            contentRulesText: data.contentRulesText ?? '',
+            tags: normalizedTags,
+            isActive: data.isActive,
+        });
+
+        const saved = await this.listingRepository.save(listing);
+
+        return {
+            id: saved.id,
+            channelId: saved.channelId,
+            format: saved.format,
+            priceNano: saved.priceNano,
+            currency: saved.currency,
+            availabilityFrom: saved.availabilityFrom,
+            availabilityTo: saved.availabilityTo,
+            pinDurationHours: saved.pinDurationHours,
+            visibilityDurationHours: saved.visibilityDurationHours,
+            allowEdits: saved.allowEdits,
+            requiresApproval: saved.requiresApproval,
+            contentRulesText: saved.contentRulesText,
+            tags: saved.tags,
+            isActive: saved.isActive,
+            allowLinkTracking: saved.allowLinkTracking,
+            allowPinnedPlacement: saved.allowPinnedPlacement,
+            createdAt: saved.createdAt,
+            updatedAt: saved.updatedAt,
+        };
+    }
+
+    private normalizeTags(tags: string[]): string[] {
+        const unique = new Map<string, string>();
+
+        for (const tag of tags) {
+            const trimmed = tag.trim();
+            if (!trimmed) {
+                continue;
+            }
+            const key = trimmed.toLowerCase();
+            if (!unique.has(key)) {
+                unique.set(key, trimmed);
+            }
+        }
+
+        return Array.from(unique.values());
+    }
+
+    private hasRequiredTag(tags: string[]): boolean {
+        const required = REQUIRED_TAG.toLowerCase();
+        return tags.some((tag) => tag.toLowerCase() === required);
+    }
+
+    private parseTonToNano(value: number): string {
+        if (!Number.isFinite(value) || value <= 0) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_PRICE,
+            );
+        }
+
+        let normalized = value.toString();
+        if (normalized.includes('e') || normalized.includes('E')) {
+            normalized = value.toFixed(9);
+        }
+
+        normalized = normalized.replace(/(\.\d*?)0+$/, '$1');
+        normalized = normalized.replace(/\.$/, '');
+
+        const match = /^(\d+)(?:\.(\d{1,9}))?$/.exec(normalized);
+        if (!match) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_PRICE,
+            );
+        }
+
+        const wholePart = match[1];
+        const fractionPart = match[2] ?? '';
+        if (fractionPart.length > 9) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_PRICE,
+            );
+        }
+
+        const fractionPadded = fractionPart.padEnd(9, '0');
+        const nano = BigInt(wholePart) * 1000000000n +
+            BigInt(fractionPadded || '0');
+
+        if (nano <= 0n) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.INVALID_PRICE,
+            );
+        }
+
+        return nano.toString();
+    }
+}
