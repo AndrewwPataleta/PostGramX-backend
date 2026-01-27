@@ -82,3 +82,8 @@ export type ChannelDisabledResult = {
     channelId: string;
     isDisabled: boolean;
 };
+
+export type ChannelUnlinkResult = {
+    channelId: string;
+    unlinked: boolean;
+};
