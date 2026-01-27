@@ -18,6 +18,9 @@ const sslConfig = isProdLike
     }
   : false;
 
+const rawSchema = process.env.POSTGRES_SCHEMA;
+const schema = rawSchema?.trim() || process.env.POSTGRES_USER || undefined;
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.POSTGRES_HOST,
@@ -30,4 +33,6 @@ export const AppDataSource = new DataSource({
   entities: [__dirname + '/../modules/**/*.entity.{ts,js}'],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   ssl: sslConfig,
+  schema,
+  extra: schema ? { searchPath: schema } : undefined,
 });

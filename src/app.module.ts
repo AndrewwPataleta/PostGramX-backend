@@ -89,6 +89,8 @@ import {ListingEntity} from './modules/deals/entities/listing.entity';
                 const connectionTimeout = Number(
                     config.get<number>('POSTGRES_CONNECTION_TIMEOUT_MS') ?? 10000,
                 );
+                const rawSchema = config.get<string>('POSTGRES_SCHEMA');
+                const schema = rawSchema?.trim() || username || undefined;
 
                 logger.log(
                     [
@@ -97,6 +99,7 @@ import {ListingEntity} from './modules/deals/entities/listing.entity';
                         `port=${port}`,
                         `database=${database}`,
                         `username=${username}`,
+                        `schema=${schema ?? 'default'}`,
                         `ssl=${Boolean(sslConfig)}`,
                         `timeoutMs=${connectionTimeout}`,
                         `synchronize=${synchronize}`,
@@ -131,8 +134,10 @@ import {ListingEntity} from './modules/deals/entities/listing.entity';
                         join(__dirname, 'database', 'migrations', '*{.ts,.js}'),
                     ],
                     ssl: sslConfig,
+                    schema,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
+                        ...(schema ? {searchPath: schema} : {}),
                     },
                 } as TypeOrmModuleOptions;
             },
