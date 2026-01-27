@@ -8,16 +8,32 @@ export class CreateInitialSchema20260126190000
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await queryRunner.query(
-      "CREATE TYPE \"admin_rule_type_enum\" AS ENUM('view', 'edit')",
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_rule_type_enum') THEN
+          CREATE TYPE "admin_rule_type_enum" AS ENUM('view', 'edit');
+        END IF;
+      END $$;`,
     );
     await queryRunner.query(
-      "CREATE TYPE \"channels_status_enum\" AS ENUM('DRAFT', 'PENDING_VERIFY', 'VERIFIED', 'FAILED', 'REVOKED')",
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'channels_status_enum') THEN
+          CREATE TYPE "channels_status_enum" AS ENUM('DRAFT', 'PENDING_VERIFY', 'VERIFIED', 'FAILED', 'REVOKED');
+        END IF;
+      END $$;`,
     );
     await queryRunner.query(
-      "CREATE TYPE \"channel_memberships_role_enum\" AS ENUM('OWNER', 'MANAGER')",
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'channel_memberships_role_enum') THEN
+          CREATE TYPE "channel_memberships_role_enum" AS ENUM('OWNER', 'MANAGER');
+        END IF;
+      END $$;`,
     );
     await queryRunner.query(
-      "CREATE TYPE \"channel_memberships_telegramAdminStatus_enum\" AS ENUM('creator', 'administrator')",
+      `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'channel_memberships_telegramAdminStatus_enum') THEN
+          CREATE TYPE "channel_memberships_telegramAdminStatus_enum" AS ENUM('creator', 'administrator');
+        END IF;
+      END $$;`,
     );
 
     await queryRunner.query(`
