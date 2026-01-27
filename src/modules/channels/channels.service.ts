@@ -10,87 +10,21 @@ import {ChannelStatus} from './types/channel-status.enum';
 import {ChannelRole} from './types/channel-role.enum';
 import {ChannelErrorCode} from './types/channel-error-code.enum';
 import {ListChannelsFilters} from './dto/list-channels.dto';
+import {ChannelServiceError} from './errors/channel-service.error';
+import {
+    ChannelDetails,
+    ChannelLinkResult,
+    ChannelListResponse,
+    ChannelPreview,
+    ChannelVerifyResult,
+} from './types/channel-service.types';
 import {
     TelegramChatService,
     TelegramChatServiceError,
     TelegramChatErrorCode,
     TelegramChatMember,
 } from '../telegram/telegram-chat.service';
-
-export class ChannelServiceError extends Error {
-    constructor(public readonly code: ChannelErrorCode) {
-        super(code);
-    }
-}
-
-export type ChannelPreview = {
-    normalizedUsername: string;
-    title: string;
-    username: string;
-    telegramChatId: number | null;
-    type: 'channel';
-    isPublic: true;
-    nextStep: 'ADD_BOT_AS_ADMIN';
-};
-
-export type ChannelLinkResult = {
-    channelId: string;
-    status: ChannelStatus;
-};
-
-export type ChannelVerifyResult = {
-    channelId: string;
-    status: ChannelStatus;
-    role: ChannelRole;
-    verifiedAt?: string;
-    error?: {code: ChannelErrorCode; message: string};
-    permissions?: Record<string, unknown>;
-};
-
-export type ChannelListItem = {
-    id: string;
-    username: string;
-    title: string;
-    status: ChannelStatus;
-    telegramChatId: string | null;
-    memberCount: number | null;
-    avgViews: number | null;
-    verifiedAt: Date | null;
-    lastCheckedAt: Date | null;
-    membership: {
-        role: ChannelRole;
-        telegramAdminStatus: TelegramAdminStatus | null;
-        lastRecheckAt: Date | null;
-    };
-};
-
-export type ChannelListResponse = {
-    items: ChannelListItem[];
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-};
-
-export type ChannelDetails = {
-    id: string;
-    username: string;
-    title: string;
-    status: ChannelStatus;
-    telegramChatId: string | null;
-    memberCount: number | null;
-    avgViews: number | null;
-    verifiedAt: Date | null;
-    lastCheckedAt: Date | null;
-    languageStats: Record<string, unknown> | null;
-    membership: {
-        role: ChannelRole;
-        telegramAdminStatus: TelegramAdminStatus | null;
-        lastRecheckAt: Date | null;
-    };
-};
+import {mapChannelErrorToMessageKey} from './channel-error-mapper';
 
 @Injectable()
 export class ChannelsService {
@@ -224,7 +158,7 @@ export class ChannelsService {
                 await this.markChannelFailed(
                     channel,
                     mapped.code,
-                    this.getMessageKey(mapped.code),
+                    mapChannelErrorToMessageKey(mapped.code),
                 );
                 throw mapped;
             }
@@ -521,26 +455,4 @@ export class ChannelsService {
         await this.channelRepository.save(channel);
     }
 
-    private getMessageKey(code: ChannelErrorCode): string {
-        switch (code) {
-            case ChannelErrorCode.INVALID_USERNAME:
-                return 'channels.errors.invalid_username';
-            case ChannelErrorCode.CHANNEL_NOT_FOUND:
-                return 'channels.errors.channel_not_found';
-            case ChannelErrorCode.NOT_A_CHANNEL:
-                return 'channels.errors.not_a_channel';
-            case ChannelErrorCode.CHANNEL_PRIVATE_OR_NO_USERNAME:
-                return 'channels.errors.channel_private_or_no_username';
-            case ChannelErrorCode.BOT_FORBIDDEN:
-                return 'channels.errors.bot_forbidden';
-            case ChannelErrorCode.USER_NOT_ADMIN:
-                return 'channels.errors.user_not_admin';
-            case ChannelErrorCode.BOT_NOT_ADMIN:
-                return 'channels.errors.bot_not_admin';
-            case ChannelErrorCode.BOT_MISSING_RIGHTS:
-                return 'channels.errors.bot_missing_rights';
-            default:
-                return 'channels.errors.channel_not_found';
-        }
-    }
 }

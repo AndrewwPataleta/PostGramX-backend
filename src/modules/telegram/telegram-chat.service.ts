@@ -1,5 +1,6 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
+import {ServiceError} from '../../core/service-error';
 
 export enum TelegramChatErrorCode {
     CHANNEL_NOT_FOUND = 'CHANNEL_NOT_FOUND',
@@ -11,8 +12,8 @@ export enum TelegramChatErrorCode {
     INVALID_USERNAME = 'INVALID_USERNAME',
 }
 
-export class TelegramChatServiceError extends Error {
-    constructor(public readonly code: TelegramChatErrorCode) {
+export class TelegramChatServiceError extends ServiceError<TelegramChatErrorCode> {
+    constructor(code: TelegramChatErrorCode) {
         super(code);
     }
 }
