@@ -1,0 +1,18 @@
+import {Module} from '@nestjs/common';
+import {ConfigModule} from '@nestjs/config';
+import {HelpHandler} from './handlers/help.handler';
+import {StartHandler} from './handlers/start.handler';
+import {TelegramBotService} from './telegram-bot.service';
+import {TelegramBotUpdate} from './telegram-bot.update';
+
+@Module({
+    imports: [ConfigModule],
+    providers: [
+        TelegramBotService,
+        TelegramBotUpdate,
+        StartHandler,
+        HelpHandler,
+    ],
+    exports: [TelegramBotService],
+})
+export class TelegramBotModule {}

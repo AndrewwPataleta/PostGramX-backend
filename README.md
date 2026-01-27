@@ -45,6 +45,34 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Telegram Bot (Polling MVP)
+
+Set the required environment variables before starting the backend:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_BOT_USERNAME=DealgramXBot
+TELEGRAM_MINI_APP_URL=https://t.me/DealgramXBot?startapp=marketplace
+TELEGRAM_BOT_MODE=polling
+TELEGRAM_WEBHOOK_URL=
+TELEGRAM_ALLOWED_UPDATES=message,callback_query
+```
+
+Run the backend locally (the bot will start polling automatically):
+
+```bash
+pnpm start:dev
+```
+
+Test the bot in Telegram:
+
+1. Open the bot chat.
+2. Send `/start`.
+3. Send `/help`.
+4. Tap “Open Mini App”.
+
+> ⚠️ Polling should run in a single instance. For production, prefer webhooks or a dedicated bot worker.
+
 ## Test
 
 ```bash
