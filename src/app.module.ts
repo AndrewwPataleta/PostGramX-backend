@@ -18,7 +18,6 @@ import {User} from './modules/auth/entities/user.entity';
 import {CacheModule, CacheInterceptor} from '@nestjs/cache-manager';
 import {APP_INTERCEPTOR} from '@nestjs/core';
 import {CacheInvalidationSubscriber} from './database/cache-invalidation.subscriber';
-import {UserProfileModule} from './modules/user-profile/user-profile.module';
 import {ChannelsModule} from './modules/channels/channels.module';
 import {AdminPage} from './modules/admin/entities/admin-page.entity';
 import {AdminRule} from './modules/admin/entities/admin-rule.entity';
@@ -151,7 +150,6 @@ import {EscrowWalletKeyEntity} from './modules/payments/entities/escrow-wallet-k
         AuthModule,
         HealthModule,
         AdminModule,
-        UserProfileModule,
         ChannelsModule,
         PaymentsModule,
     ],

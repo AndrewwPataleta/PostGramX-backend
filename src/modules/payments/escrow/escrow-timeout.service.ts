@@ -19,7 +19,7 @@ export class EscrowTimeoutService {
         private readonly dealRepository: Repository<DealEntity>,
     ) {}
 
-    @Cron(process.env.DEAL_ESCROW_SWEEP_CRON ?? CronExpression.EVERY_2_MINUTES)
+    @Cron(process.env.DEAL_ESCROW_SWEEP_CRON ?? CronExpression.EVERY_5_MINUTES)
     async handleEscrowTimeouts() {
         await this.handlePaymentTimeouts();
         await this.handleStallTimeouts();
