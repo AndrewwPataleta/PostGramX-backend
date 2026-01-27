@@ -20,6 +20,11 @@ import {APP_INTERCEPTOR} from '@nestjs/core';
 import {CacheInvalidationSubscriber} from './database/cache-invalidation.subscriber';
 import {UserProfileModule} from './modules/user-profile/user-profile.module';
 import {ChannelsModule} from './modules/channels/channels.module';
+import {AdminPage} from './modules/admin/entities/admin-page.entity';
+import {AdminRule} from './modules/admin/entities/admin-rule.entity';
+import {AdminUser} from './modules/admin/entities/admin-user.entity';
+import {ChannelEntity} from './modules/channels/entities/channel.entity';
+import {ChannelMembershipEntity} from './modules/channels/entities/channel-membership.entity';
 
 
 @Module({
@@ -98,9 +103,20 @@ import {ChannelsModule} from './modules/channels/channels.module';
                     username,
                     password: config.get('POSTGRES_PASSWORD'),
                     database,
-                    entities: [User],
-                    autoLoadEntities: false,
+                    entities: [
+                        User,
+                        AdminPage,
+                        AdminRule,
+                        AdminUser,
+                        ChannelEntity,
+                        ChannelMembershipEntity,
+                    ],
+                    autoLoadEntities: true,
                     synchronize: false,
+                    migrationsRun: true,
+                    migrations: [
+                        join(__dirname, 'database', 'migrations', '*{.ts,.js}'),
+                    ],
                     ssl: sslConfig,
                     extra: {
                         connectionTimeoutMillis: connectionTimeout,
@@ -108,7 +124,14 @@ import {ChannelsModule} from './modules/channels/channels.module';
                 } as TypeOrmModuleOptions;
             },
         }),
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([
+            User,
+            AdminPage,
+            AdminRule,
+            AdminUser,
+            ChannelEntity,
+            ChannelMembershipEntity,
+        ]),
         AuthModule,
         HealthModule,
         AdminModule,
