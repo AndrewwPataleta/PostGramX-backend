@@ -13,6 +13,7 @@ import {ListChannelsFilters} from './dto/list-channels.dto';
 import {ChannelServiceError} from './errors/channel-service.error';
 import {
     ChannelDetails,
+    ChannelDisabledResult,
     ChannelLinkResult,
     ChannelListResponse,
     ChannelPreview,
@@ -212,6 +213,7 @@ export class ChannelsService {
                 'channel.telegramChatId',
                 'channel.memberCount',
                 'channel.avgViews',
+                'channel.isDisabled',
                 'channel.verifiedAt',
                 'channel.lastCheckedAt',
                 'channel.updatedAt',
@@ -235,6 +237,12 @@ export class ChannelsService {
         if (filters.verifiedOnly) {
             query.andWhere('channel.status = :verifiedStatus', {
                 verifiedStatus: ChannelStatus.VERIFIED,
+            });
+        }
+
+        if (!filters.includeDisabled) {
+            query.andWhere('channel.isDisabled = :isDisabled', {
+                isDisabled: false,
             });
         }
 
@@ -284,6 +292,7 @@ export class ChannelsService {
                 telegramChatId: channel.telegramChatId,
                 memberCount: channel.memberCount,
                 avgViews: channel.avgViews,
+                isDisabled: channel.isDisabled,
                 verifiedAt: channel.verifiedAt,
                 lastCheckedAt: channel.lastCheckedAt,
                 membership: {
@@ -335,6 +344,7 @@ export class ChannelsService {
             telegramChatId: channel.telegramChatId,
             memberCount: channel.memberCount,
             avgViews: channel.avgViews,
+            isDisabled: channel.isDisabled,
             verifiedAt: channel.verifiedAt,
             lastCheckedAt: channel.lastCheckedAt,
             languageStats: channel.languageStats,
@@ -344,6 +354,37 @@ export class ChannelsService {
                 lastRecheckAt: membership.lastRecheckAt,
             },
         };
+    }
+
+    async updateDisabledStatus(
+        userId: string,
+        channelId: string,
+        disabled: boolean,
+    ): Promise<ChannelDisabledResult> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new NotFoundException('Channel not found.');
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {channelId, userId, isActive: true},
+        });
+
+        if (!membership) {
+            throw new ForbiddenException('Access denied.');
+        }
+
+        if (![ChannelRole.OWNER, ChannelRole.MANAGER].includes(membership.role)) {
+            throw new ForbiddenException('Access denied.');
+        }
+
+        channel.isDisabled = disabled;
+        await this.channelRepository.save(channel);
+
+        return {channelId: channel.id, isDisabled: channel.isDisabled};
     }
 
     private findUserAdmin(

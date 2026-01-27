@@ -38,6 +38,7 @@ export type ChannelListItem = {
     telegramChatId: string | null;
     memberCount: number | null;
     avgViews: number | null;
+    isDisabled: boolean;
     verifiedAt: Date | null;
     lastCheckedAt: Date | null;
     membership: {
@@ -65,6 +66,7 @@ export type ChannelDetails = {
     telegramChatId: string | null;
     memberCount: number | null;
     avgViews: number | null;
+    isDisabled: boolean;
     verifiedAt: Date | null;
     lastCheckedAt: Date | null;
     languageStats: Record<string, unknown> | null;
@@ -73,4 +75,9 @@ export type ChannelDetails = {
         telegramAdminStatus: TelegramAdminStatus | null;
         lastRecheckAt: Date | null;
     };
+};
+
+export type ChannelDisabledResult = {
+    channelId: string;
+    isDisabled: boolean;
 };
