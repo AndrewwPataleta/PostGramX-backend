@@ -51,9 +51,9 @@ Set the required environment variables before starting the backend:
 
 ```bash
 TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_BOT_USERNAME=DealgramXBot
-TELEGRAM_MINI_APP_URL=https://t.me/DealgramXBot?startapp=marketplace
-TELEGRAM_MINIAPP_SHORT_NAME=DealgramX
+TELEGRAM_BOT_USERNAME=Postgramx_bot
+TELEGRAM_MINI_APP_URL=https://t.me/postgramx_bot?startapp=marketplace
+TELEGRAM_MINIAPP_SHORT_NAME=PostgramX
 TELEGRAM_BOT_MODE=polling
 TELEGRAM_WEBHOOK_URL=
 TELEGRAM_ALLOWED_UPDATES=message,callback_query

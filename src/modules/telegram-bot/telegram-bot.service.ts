@@ -156,7 +156,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
             : [...TELEGRAM_BOT_ALLOWED_UPDATES_DEFAULT];
 
         return {
-            token: this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '',
+            token: this.configService.get<string>('BOT_TOKEN') || '',
             username: this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
             miniAppUrl: this.configService.get<string>('TELEGRAM_MINI_APP_URL'),
             mode,

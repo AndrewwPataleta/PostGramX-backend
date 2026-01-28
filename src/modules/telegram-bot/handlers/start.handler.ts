@@ -11,7 +11,7 @@ export class StartHandler {
 
     getMessage(): string {
         return [
-            'Welcome to DealgramX 👋',
+            'Welcome to PostgramX',
             'Buy and sell Telegram ads with escrow and auto-posting.',
             '',
             'Use the buttons below to open the Mini App.',
