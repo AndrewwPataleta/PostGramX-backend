@@ -34,6 +34,7 @@ import {DealsModule} from './modules/deals/deals.module';
 import {ListingEntity} from './modules/listings/entities/listing.entity';
 import {ListingsModule} from './modules/listings/listings.module';
 import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
+import {MarketplaceModule} from './modules/marketplace/marketplace.module';
 
 
 @Module({
@@ -163,6 +164,7 @@ import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
         HealthModule,
         AdminModule,
         ChannelsModule,
+        MarketplaceModule,
         DealsModule,
         ListingsModule,
         PaymentsModule,
