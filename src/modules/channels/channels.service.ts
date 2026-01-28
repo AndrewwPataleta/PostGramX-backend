@@ -73,10 +73,9 @@ export class ChannelsService {
                 normalizedUsername,
             );
             const publicChat = this.telegramChatService.assertPublicChannel(chat);
-            const memberCount =
-                await this.telegramChatService.getChatMemberCount(
-                    publicChat.id ?? normalizedUsername,
-                );
+            const subscribers = this.normalizeSubscribersCount(
+                publicChat.members_count,
+            );
 
             let avatarUrl: string | null = null;
             if (publicChat.photo?.big_file_id) {
@@ -98,7 +97,7 @@ export class ChannelsService {
                 type: 'channel',
                 isPublic: true,
                 nextStep: 'ADD_BOT_AS_ADMIN',
-                memberCount,
+                subscribers,
                 avatarUrl,
                 description: publicChat.description ?? null,
             };
@@ -186,6 +185,12 @@ export class ChannelsService {
             channel.lastCheckedAt = new Date();
             channel.verificationErrorCode = null;
             channel.verificationErrorMessage = null;
+            const subscribers = this.normalizeSubscribersCount(
+                publicChat.members_count,
+            );
+            if (subscribers !== null) {
+                channel.subscribersCount = subscribers;
+            }
 
             await this.channelRepository.save(channel);
 
@@ -262,7 +267,7 @@ export class ChannelsService {
                 'channel.title',
                 'channel.status',
                 'channel.telegramChatId',
-                'channel.memberCount',
+                'channel.subscribersCount',
                 'channel.avgViews',
                 'channel.isDisabled',
                 'channel.verifiedAt',
@@ -316,7 +321,11 @@ export class ChannelsService {
                 query.addOrderBy('channel.id', 'DESC');
                 break;
             case 'subscribers':
-                query.orderBy('channel.memberCount', 'DESC', 'NULLS LAST');
+                query.orderBy(
+                    'channel.subscribersCount',
+                    'DESC',
+                    'NULLS LAST',
+                );
                 query.addOrderBy('channel.id', 'DESC');
                 break;
             case 'recent':
@@ -341,7 +350,7 @@ export class ChannelsService {
                 title: channel.title,
                 status: channel.status,
                 telegramChatId: channel.telegramChatId,
-                memberCount: channel.memberCount,
+                subscribers: channel.subscribersCount,
                 avgViews: channel.avgViews,
                 isDisabled: channel.isDisabled,
                 verifiedAt: channel.verifiedAt,
@@ -401,7 +410,7 @@ export class ChannelsService {
             title: channel.title,
             status: channel.status,
             telegramChatId: channel.telegramChatId,
-            memberCount: channel.memberCount,
+            subscribers: channel.subscribersCount,
             avgViews: channel.avgViews,
             isDisabled: channel.isDisabled,
             verifiedAt: channel.verifiedAt,
@@ -532,6 +541,36 @@ export class ChannelsService {
         return {channelId: channel.id, unlinked: true};
     }
 
+    async refreshStats(
+        channelId: string,
+    ): Promise<{channelId: string; subscribers: number | null}> {
+        // TODO: wire this method into a cron job for periodic refreshes.
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new NotFoundException('Channel not found.');
+        }
+
+        const chat = await this.telegramChatService.getChatByUsername(
+            channel.username,
+        );
+        const publicChat = this.telegramChatService.assertPublicChannel(chat);
+        const subscribers = this.normalizeSubscribersCount(
+            publicChat.members_count,
+        );
+
+        channel.lastCheckedAt = new Date();
+        if (subscribers !== null) {
+            channel.subscribersCount = subscribers;
+        }
+
+        await this.channelRepository.save(channel);
+
+        return {channelId: channel.id, subscribers: channel.subscribersCount};
+    }
+
     private findUserAdmin(
         admins: TelegramChatMember[],
         telegramUserId?: string | null,
@@ -608,6 +647,18 @@ export class ChannelsService {
         }
 
         await this.membershipRepository.save(membership);
+    }
+
+    private normalizeSubscribersCount(value: unknown): number | null {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            return null;
+        }
+
+        if (value < 0) {
+            return null;
+        }
+
+        return Math.trunc(value);
     }
 
     private mapError(error: unknown): ChannelServiceError | null {

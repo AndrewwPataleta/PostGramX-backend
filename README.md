@@ -138,6 +138,64 @@ curl -X POST http://localhost:8080/payments/transactions/<ID> \\
   -d '{ "platformType":"telegram", "authType":"telegram", "token":"<initData>", "data": {} }'
 ```
 
+## Testing TON Payments (MVP)
+
+For the MVP we support TON testnet or mainnet with small-value testing only.
+Recommended wallet: **Tonkeeper** (mobile). Supported wallets include Tonkeeper, Telegram Wallet (if supported), and Tonhub.
+
+### Create a test wallet
+
+1. Install Tonkeeper from the iOS App Store or Google Play.
+2. Create a new wallet and **save your seed phrase securely**.
+3. Do **not** use real funds for MVP testing.
+4. If you are using testnet mode: Tonkeeper → Settings → Network → Testnet.
+
+### Get test TON (testnet)
+
+Use a faucet bot such as: https://t.me/testgiver_ton_bot
+
+1. Open the bot and run `/start`.
+2. Paste your wallet address.
+3. Receive free test TON for testing.
+
+### Connect wallet to the Mini App
+
+The Mini App opens a TonConnect modal. Users must:
+
+1. Approve the connection.
+2. Confirm address sharing.
+
+### Payment flow (MVP)
+
+Current escrow flow:
+
+1. Advertiser creates a deal.
+2. Clicks **Pay**.
+3. Wallet opens via TonConnect.
+4. User sends TON to the generated escrow address.
+5. Backend waits for on-chain confirmation.
+6. After post verification, funds are released.
+
+### Important warnings
+
+- MVP environment — **do not** send large amounts.
+- Payments are not production-hardened yet.
+- Refunds or manual recovery may be required.
+- Always use testnet or minimal TON.
+
+### Environment configuration
+
+```bash
+TON_NETWORK=testnet
+TON_HOT_WALLET_ADDRESS=EQBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TON_API_PROVIDER=toncenter
+```
+
+Notes:
+
+- The hot wallet is only for aggregation/settlement.
+- Deal wallets should be generated per deal (recommended).
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
