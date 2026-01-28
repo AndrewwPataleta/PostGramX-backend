@@ -10,6 +10,7 @@ export const mapDealErrorToStatus = (code: DealErrorCode): HttpStatus => {
             return HttpStatus.FORBIDDEN;
         case DealErrorCode.INVALID_SCHEDULE_TIME:
         case DealErrorCode.LISTING_DISABLED:
+        case DealErrorCode.SELF_DEAL_NOT_ALLOWED:
             return HttpStatus.BAD_REQUEST;
         default:
             return HttpStatus.BAD_REQUEST;
@@ -28,6 +29,8 @@ export const mapDealErrorToMessageKey = (code: DealErrorCode): string => {
             return 'deals.errors.invalidScheduleTime';
         case DealErrorCode.DEAL_NOT_FOUND:
             return 'deals.errors.dealNotFound';
+        case DealErrorCode.SELF_DEAL_NOT_ALLOWED:
+            return 'deals.errors.selfDealNotAllowed';
         default:
             return 'errors.validation_failed';
     }
