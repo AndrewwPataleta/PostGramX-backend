@@ -9,6 +9,8 @@ import {DealStatus} from './types/deal-status.enum';
 import {DealErrorCode, DealServiceError} from './errors/deal-service.error';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
+import {ChannelRole} from '../channels/types/channel-role.enum';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -44,6 +46,8 @@ export class DealsService {
         private readonly listingRepository: Repository<ListingEntity>,
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
+        @InjectRepository(ChannelMembershipEntity)
+        private readonly membershipRepository: Repository<ChannelMembershipEntity>,
         private readonly dealsNotificationsService: DealsNotificationsService,
     ) {}
 
@@ -71,6 +75,31 @@ export class DealsService {
 
         if (!channel) {
             throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
+        }
+
+        if (channel.createdByUserId === userId) {
+            throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
+        }
+
+        if (listing.createdByUserId === userId) {
+            throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
+        }
+
+        const hasActiveMembership =
+            (await this.membershipRepository
+                .createQueryBuilder('membership')
+                .where('membership.channelId = :channelId', {
+                    channelId: listing.channelId,
+                })
+                .andWhere('membership.userId = :userId', {userId})
+                .andWhere('membership.isActive = true')
+                .andWhere('membership.role IN (:...roles)', {
+                    roles: [ChannelRole.OWNER, ChannelRole.MANAGER],
+                })
+                .getCount()) > 0;
+
+        if (hasActiveMembership) {
+            throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
         }
 
         const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;

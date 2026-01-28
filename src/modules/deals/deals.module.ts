@@ -5,6 +5,7 @@ import {ListingEntity} from '../listings/entities/listing.entity';
 import {DealsService} from './deals.service';
 import {DealsController} from './deals.controller';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {ChannelsModule} from '../channels/channels.module';
@@ -12,7 +13,12 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([DealEntity, ListingEntity, ChannelEntity]),
+        TypeOrmModule.forFeature([
+            DealEntity,
+            ListingEntity,
+            ChannelEntity,
+            ChannelMembershipEntity,
+        ]),
         ChannelsModule,
         TelegramBotModule,
     ],

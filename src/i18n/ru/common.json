@@ -95,7 +95,8 @@
       "listingNotFound": "Листинг не найден.",
       "listingDisabled": "Листинг отключён.",
       "unauthorized": "Нет доступа к этой сделке.",
-      "invalidScheduleTime": "Время размещения должно быть в будущем."
+      "invalidScheduleTime": "Время размещения должно быть в будущем.",
+      "selfDealNotAllowed": "Нельзя создавать сделку со своим каналом."
     }
   },
   "listings": {
