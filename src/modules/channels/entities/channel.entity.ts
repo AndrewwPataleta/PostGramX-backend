@@ -12,6 +12,7 @@ import {ListingEntity} from '../../listings/entities/listing.entity';
 
 @Entity({name: 'channels'})
 @Index('IDX_channels_username', ['username'])
+@Index('IDX_channels_subscribers_count', ['subscribersCount'])
 export class ChannelEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -39,6 +40,9 @@ export class ChannelEntity {
 
     @Column({type: 'integer', nullable: true})
     memberCount: number | null;
+
+    @Column({type: 'integer', nullable: true})
+    subscribersCount: number | null;
 
     @Column({type: 'integer', nullable: true})
     avgViews: number | null;

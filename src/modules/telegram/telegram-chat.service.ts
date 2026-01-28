@@ -41,6 +41,7 @@ export interface TelegramChatFullInfo extends TelegramChat {
     description?: string;
     invite_link?: string;
     photo?: TelegramChatPhoto;
+    members_count?: number;
 }
 
 export interface TelegramUser {

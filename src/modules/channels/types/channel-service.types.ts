@@ -12,7 +12,7 @@ export type ChannelPreview = {
     type: 'channel';
     isPublic: true;
     nextStep: 'ADD_BOT_AS_ADMIN';
-    memberCount: number | null;
+    subscribers: number | null;
     avatarUrl: string | null;
     description: string | null;
 };
@@ -38,7 +38,7 @@ export type ChannelListItem = {
     title: string;
     status: ChannelStatus;
     telegramChatId: string | null;
-    memberCount: number | null;
+    subscribers: number | null;
     avgViews: number | null;
     isDisabled: boolean;
     verifiedAt: Date | null;
@@ -67,7 +67,7 @@ export type ChannelDetails = {
     title: string;
     status: ChannelStatus;
     telegramChatId: string | null;
-    memberCount: number | null;
+    subscribers: number | null;
     avgViews: number | null;
     isDisabled: boolean;
     verifiedAt: Date | null;
