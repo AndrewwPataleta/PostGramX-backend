@@ -45,14 +45,28 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     }
 
     async sendMessage(
-        userTelegramId: string,
+        userTelegramId: string | number,
         text: string,
-        buttons?: TelegramInlineButton[][],
+        options?: {
+            reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
+            parse_mode?: 'HTML' | 'Markdown';
+        },
     ): Promise<void> {
-        void userTelegramId;
-        void text;
-        void buttons;
-        this.logger.warn('sendMessage is not implemented yet.');
+        if (!this.config?.token) {
+            this.logger.warn('Telegram bot token not configured; skipping send.');
+            return;
+        }
+
+        try {
+            const bot = this.getBot();
+            await bot.telegram.sendMessage(String(userTelegramId), text, options);
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Failed to send Telegram message to ${userTelegramId}: ${errorMessage}`,
+            );
+        }
     }
 
     async sendDealStatusUpdate(
@@ -60,10 +74,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         dealId: string,
         status: string,
     ): Promise<void> {
-        void userTelegramId;
-        void dealId;
-        void status;
-        this.logger.warn('sendDealStatusUpdate is not implemented yet.');
+        const message = `Deal ${dealId} status updated: ${status}`;
+        await this.sendMessage(userTelegramId, message);
     }
 
     private initializeBot(): void {
@@ -105,6 +117,14 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
                 );
                 this.scheduleReconnect();
             });
+    }
+
+    private getBot(): Telegraf<Context> {
+        if (!this.bot) {
+            this.bot = new Telegraf<Context>(this.config.token);
+        }
+
+        return this.bot;
     }
 
     private scheduleReconnect(): void {

@@ -53,6 +53,7 @@ Set the required environment variables before starting the backend:
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_BOT_USERNAME=DealgramXBot
 TELEGRAM_MINI_APP_URL=https://t.me/DealgramXBot?startapp=marketplace
+TELEGRAM_MINIAPP_SHORT_NAME=DealgramX
 TELEGRAM_BOT_MODE=polling
 TELEGRAM_WEBHOOK_URL=
 TELEGRAM_ALLOWED_UPDATES=message,callback_query
@@ -72,6 +73,11 @@ Test the bot in Telegram:
 4. Tap “Open Mini App”.
 
 > ⚠️ Polling should run in a single instance. For production, prefer webhooks or a dedicated bot worker.
+
+### Mini App deep links
+
+Deal notifications use the `startapp` payload format `deal_<dealId>`. The Mini App should parse
+`initData.start_param` and route users to `/deals/:id` accordingly.
 
 ## Test
 
