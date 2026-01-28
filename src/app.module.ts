@@ -92,7 +92,8 @@ import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
                     config.get<number>('POSTGRES_CONNECTION_TIMEOUT_MS') ?? 10000,
                 );
                 const rawSchema = config.get<string>('POSTGRES_SCHEMA');
-                const schema = rawSchema?.trim() || username || undefined;
+                const schema = (config.get<string>('POSTGRES_SCHEMA') || 'public').trim();
+
 
                 logger.log(
                     [
