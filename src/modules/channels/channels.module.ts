@@ -9,6 +9,8 @@ import {ChannelTelegramAdminEntity} from './entities/channel-telegram-admin.enti
 import {MembershipsAutoLinkService} from './memberships-auto-link.service';
 import {ChannelAdminRecheckService} from './guards/channel-admin-recheck.service';
 import {ListingEntity} from '../listings/entities/listing.entity';
+import {ChannelParticipantsService} from './channel-participants.service';
+import {User} from '../auth/entities/user.entity';
 
 @Module({
     imports: [
@@ -17,6 +19,7 @@ import {ListingEntity} from '../listings/entities/listing.entity';
             ChannelMembershipEntity,
             ChannelTelegramAdminEntity,
             ListingEntity,
+            User,
         ]),
         TelegramModule,
     ],
@@ -25,7 +28,12 @@ import {ListingEntity} from '../listings/entities/listing.entity';
         ChannelsService,
         MembershipsAutoLinkService,
         ChannelAdminRecheckService,
+        ChannelParticipantsService,
     ],
-    exports: [ChannelsService, MembershipsAutoLinkService],
+    exports: [
+        ChannelsService,
+        MembershipsAutoLinkService,
+        ChannelParticipantsService,
+    ],
 })
 export class ChannelsModule {}

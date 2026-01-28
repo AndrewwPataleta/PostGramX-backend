@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Brackets, DataSource, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
@@ -8,6 +8,7 @@ import {DealInitiatorSide} from './types/deal-initiator-side.enum';
 import {DealStatus} from './types/deal-status.enum';
 import {DealErrorCode, DealServiceError} from './errors/deal-service.error';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {DealsNotificationsService} from './deals-notifications.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -33,6 +34,8 @@ const COMPLETED_ESCROW_STATUSES = [
 
 @Injectable()
 export class DealsService {
+    private readonly logger = new Logger(DealsService.name);
+
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(DealEntity)
@@ -41,6 +44,7 @@ export class DealsService {
         private readonly listingRepository: Repository<ListingEntity>,
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
+        private readonly dealsNotificationsService: DealsNotificationsService,
     ) {}
 
     async createDeal(
@@ -110,6 +114,18 @@ export class DealsService {
 
             return repo.save(created);
         });
+
+        try {
+            await this.dealsNotificationsService.notifyDealCreated(deal);
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
+
+        // TODO: notify when escrow status moves to verification/approval steps.
 
         return {
             id: deal.id,
