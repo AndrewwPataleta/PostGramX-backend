@@ -3,6 +3,7 @@ declare module 'telegraf' {
 
     export class Telegraf<TContext = Context> {
         constructor(token: string);
+        telegram: Telegram;
         start(handler: MiddlewareFn<TContext>): void;
         command(command: string, handler: MiddlewareFn<TContext>): void;
         on(event: string, handler: MiddlewareFn<TContext>): void;
@@ -21,6 +22,17 @@ declare module 'telegraf' {
         message: {text?: string};
         reply(text: string, extra?: unknown): Promise<void>;
         answerCbQuery(): Promise<void>;
+    }
+
+    export interface Telegram {
+        sendMessage(
+            chatId: string,
+            text: string,
+            options?: {
+                reply_markup?: {inline_keyboard: unknown[][]};
+                parse_mode?: 'HTML' | 'Markdown';
+            },
+        ): Promise<unknown>;
     }
 
     export class Markup {
