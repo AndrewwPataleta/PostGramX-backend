@@ -20,6 +20,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(TELEGRAM_BOT_MODULE_NAME);
     private bot?: Telegraf<Context>;
     private reconnectTimeout?: NodeJS.Timeout;
+    private pollingState: 'idle' | 'launching' | 'running' = 'idle';
     private config!: TelegramBotConfig;
 
     constructor(
@@ -37,6 +38,8 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
         }
+
+        this.pollingState = 'idle';
 
         if (this.bot) {
             await this.bot.stop('SIGTERM');
@@ -105,16 +108,33 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
             return;
         }
 
+        if (this.pollingState !== 'idle') {
+            this.logger.warn(
+                `Telegram bot polling is already ${this.pollingState}; skipping launch.`,
+            );
+            return;
+        }
+
+        this.pollingState = 'launching';
+
         this.bot
             .launch({allowedUpdates: this.config.allowedUpdates})
             .then(() => {
+                this.pollingState = 'running';
                 this.logger.log('Telegram bot started with polling.');
             })
             .catch((error: Error) => {
+                this.pollingState = 'idle';
                 this.logger.error(
                     `Failed to start Telegram bot: ${error.message}`,
                     error.stack,
                 );
+                if (error.message.includes('409')) {
+                    this.logger.warn(
+                        'Telegram polling conflict detected. Another bot instance may be running; retry skipped.',
+                    );
+                    return;
+                }
                 this.scheduleReconnect();
             });
     }
@@ -129,6 +149,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
     private scheduleReconnect(): void {
         if (this.reconnectTimeout) {
+            return;
+        }
+
+        if (this.pollingState !== 'idle') {
+            this.logger.warn(
+                `Telegram bot polling is ${this.pollingState}; reconnect skipped.`,
+            );
             return;
         }
 
