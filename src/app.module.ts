@@ -35,6 +35,7 @@ import {ListingEntity} from './modules/listings/entities/listing.entity';
 import {ListingsModule} from './modules/listings/listings.module';
 import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
 import {MarketplaceModule} from './modules/marketplace/marketplace.module';
+import {PreDealsModule} from './modules/predeals/predeals.module';
 
 
 @Module({
@@ -169,6 +170,7 @@ import {MarketplaceModule} from './modules/marketplace/marketplace.module';
         ListingsModule,
         PaymentsModule,
         TelegramBotModule,
+        PreDealsModule,
     ],
     controllers: [AppController],
     providers: [
