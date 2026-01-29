@@ -2,7 +2,7 @@ import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Brackets, DataSource, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
-import {ListingEntity} from '../listings/entities/listing.entity';
+import {ListingEntity, ListingFormat} from '../listings/entities/listing.entity';
 import {DealEscrowStatus} from './types/deal-escrow-status.enum';
 import {DealInitiatorSide} from './types/deal-initiator-side.enum';
 import {DealStatus} from './types/deal-status.enum';
@@ -11,6 +11,7 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {ChannelRole} from '../channels/types/channel-role.enum';
+import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -108,6 +109,7 @@ export class DealsService {
         }
 
         const now = new Date();
+        const listingSnapshot = this.buildListingSnapshot(listing, now);
 
         const deal = await this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(DealEntity);
@@ -136,6 +138,7 @@ export class DealsService {
                     tags: listing.tags,
                     isActive: listing.isActive,
                 },
+                listingSnapshot,
                 brief: brief ?? null,
                 scheduledAt: parsedScheduledAt,
                 lastActivityAt: now,
@@ -253,7 +256,14 @@ export class DealsService {
 
         const items = deals.map((deal) => {
             const listing = deal.listing;
+            const listingSnapshot = deal.listingSnapshot as
+                | Partial<DealListingSnapshot>
+                | null;
             const channel = deal.channel;
+
+            const hasSnapshot = Boolean(
+                listingSnapshot?.listingId && listingSnapshot?.priceNano,
+            );
 
             return {
                 id: deal.id,
@@ -275,18 +285,39 @@ export class DealsService {
                           verified: Boolean(channel.verifiedAt),
                       }
                     : null,
-                listing: listing
+                listing: hasSnapshot
                     ? {
-                          id: listing.id,
-                          priceNano: listing.priceNano,
-                          currency: listing.currency,
-                          format: listing.format,
-                          tags: listing.tags,
-                          pinDurationHours: listing.pinDurationHours,
+                          id: listingSnapshot?.listingId ?? '',
+                          priceNano: listingSnapshot?.priceNano ?? '',
+                          currency: listingSnapshot?.currency ?? '',
+                          format:
+                              listingSnapshot?.format ?? ListingFormat.POST,
+                          tags: listingSnapshot?.tags ?? [],
+                          pinDurationHours:
+                              listingSnapshot?.pinDurationHours ?? null,
                           visibilityDurationHours:
-                              listing.visibilityDurationHours,
+                              listingSnapshot?.visibilityDurationHours ?? 0,
+                          allowEdits: listingSnapshot?.allowEdits ?? false,
+                          allowLinkTracking:
+                              listingSnapshot?.allowLinkTracking ?? false,
+                          contentRulesText:
+                              listingSnapshot?.contentRulesText ?? '',
                       }
-                    : null,
+                    : listing
+                      ? {
+                            id: listing.id,
+                            priceNano: listing.priceNano,
+                            currency: listing.currency,
+                            format: listing.format,
+                            tags: listing.tags,
+                            pinDurationHours: listing.pinDurationHours,
+                            visibilityDurationHours:
+                                listing.visibilityDurationHours,
+                            allowEdits: listing.allowEdits,
+                            allowLinkTracking: listing.allowLinkTracking,
+                            contentRulesText: listing.contentRulesText,
+                        }
+                      : null,
                 createdAt: deal.createdAt,
                 lastActivityAt: deal.lastActivityAt,
                 scheduledAt: deal.scheduledAt,
@@ -298,6 +329,29 @@ export class DealsService {
             page: group.page,
             limit: group.limit,
             total,
+        };
+    }
+
+    private buildListingSnapshot(
+        listing: ListingEntity,
+        snapshotAt: Date,
+    ): DealListingSnapshot {
+        return {
+            listingId: listing.id,
+            channelId: listing.channelId,
+            format: listing.format,
+            priceNano: listing.priceNano,
+            currency: listing.currency,
+            tags: listing.tags,
+            pinDurationHours: listing.pinDurationHours,
+            visibilityDurationHours: listing.visibilityDurationHours,
+            allowEdits: listing.allowEdits,
+            allowLinkTracking: listing.allowLinkTracking,
+            allowPinnedPlacement: listing.allowPinnedPlacement,
+            requiresApproval: listing.requiresApproval,
+            contentRulesText: listing.contentRulesText,
+            version: listing.version ?? 1,
+            snapshotAt: snapshotAt.toISOString(),
         };
     }
 }

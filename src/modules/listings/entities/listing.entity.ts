@@ -85,6 +85,9 @@ export class ListingEntity {
     @Column({type: 'text', array: true, default: () => "'{}'"})
     tags: string[];
 
+    @Column({type: 'int', default: 1})
+    version: number;
+
     @CreateDateColumn({type: 'timestamptz'})
     createdAt: Date;
 

@@ -9,13 +9,17 @@ export const mapListingErrorToStatus = (
             return HttpStatus.NOT_FOUND;
         case ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS:
         case ListingServiceErrorCode.CHANNEL_NOT_VERIFIED:
+        case ListingServiceErrorCode.LISTING_FORBIDDEN:
             return HttpStatus.FORBIDDEN;
+        case ListingServiceErrorCode.LISTING_NOT_FOUND:
+            return HttpStatus.NOT_FOUND;
         case ListingServiceErrorCode.INVALID_FORMAT:
         case ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE:
         case ListingServiceErrorCode.INVALID_PIN_RULE:
         case ListingServiceErrorCode.TAGS_MISSING_REQUIRED:
         case ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL:
         case ListingServiceErrorCode.INVALID_PRICE:
+        case ListingServiceErrorCode.LISTING_UPDATE_INVALID:
         default:
             return HttpStatus.BAD_REQUEST;
     }
@@ -43,6 +47,12 @@ export const mapListingErrorToMessageKey = (
             return 'listings.errors.invalidRequiresApproval';
         case ListingServiceErrorCode.INVALID_PRICE:
             return 'listings.errors.invalidPrice';
+        case ListingServiceErrorCode.LISTING_NOT_FOUND:
+            return 'listings.errors.notFound';
+        case ListingServiceErrorCode.LISTING_FORBIDDEN:
+            return 'listings.errors.forbidden';
+        case ListingServiceErrorCode.LISTING_UPDATE_INVALID:
+            return 'listings.errors.invalidUpdate';
         default:
             return 'listings.errors.invalidAvailability';
     }

@@ -234,6 +234,109 @@ export class ListingsService {
         };
     }
 
+    async updateListing(
+        data: {
+            id: string;
+            priceTon?: number;
+            pinDurationHours?: number | null;
+            visibilityDurationHours?: number;
+            allowEdits?: boolean;
+            allowLinkTracking?: boolean;
+            tags?: string[];
+            contentRulesText?: string;
+            isActive?: boolean;
+        },
+        userId: string,
+    ) {
+        const listing = await this.listingRepository
+            .createQueryBuilder('listing')
+            .leftJoinAndSelect('listing.channel', 'channel')
+            .where('listing.id = :id', {id: data.id})
+            .getOne();
+
+        if (!listing) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.LISTING_NOT_FOUND,
+            );
+        }
+
+        const isOwner = listing.channel?.createdByUserId === userId;
+        const membership = await this.membershipRepository.findOne({
+            where: {
+                channelId: listing.channelId,
+                userId,
+                isActive: true,
+                isManuallyDisabled: false,
+                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+            },
+        });
+
+        if (!isOwner && !membership) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.LISTING_FORBIDDEN,
+            );
+        }
+
+        const updatePayload: Partial<ListingEntity> = {};
+
+        if (data.priceTon !== undefined) {
+            updatePayload.priceNano = this.parseTonToNano(data.priceTon);
+        }
+
+        if (data.pinDurationHours !== undefined) {
+            updatePayload.pinDurationHours = data.pinDurationHours ?? null;
+            updatePayload.allowPinnedPlacement =
+                data.pinDurationHours !== null &&
+                data.pinDurationHours !== undefined;
+        }
+
+        if (data.visibilityDurationHours !== undefined) {
+            updatePayload.visibilityDurationHours =
+                data.visibilityDurationHours;
+        }
+
+        if (data.allowEdits !== undefined) {
+            updatePayload.allowEdits = data.allowEdits;
+        }
+
+        if (data.allowLinkTracking !== undefined) {
+            updatePayload.allowLinkTracking = data.allowLinkTracking;
+        }
+
+        if (data.tags !== undefined) {
+            const normalizedTags = this.normalizeTags(data.tags);
+            if (!this.hasRequiredTag(normalizedTags)) {
+                throw new ListingServiceError(
+                    ListingServiceErrorCode.TAGS_MISSING_REQUIRED,
+                );
+            }
+            updatePayload.tags = normalizedTags;
+        }
+
+        if (data.contentRulesText !== undefined) {
+            updatePayload.contentRulesText = data.contentRulesText ?? '';
+        }
+
+        if (data.isActive !== undefined) {
+            updatePayload.isActive = data.isActive;
+        }
+
+        if (Object.keys(updatePayload).length === 0) {
+            throw new ListingServiceError(
+                ListingServiceErrorCode.LISTING_UPDATE_INVALID,
+            );
+        }
+
+        updatePayload.version = (listing.version ?? 1) + 1;
+
+        const saved = await this.listingRepository.save({
+            ...listing,
+            ...updatePayload,
+        });
+
+        return mapListingToListItem(saved);
+    }
+
     private normalizeTags(tags: string[]): string[] {
         const unique = new Map<string, string>();
 

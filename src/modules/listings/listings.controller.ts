@@ -6,6 +6,7 @@ import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {CreateListingDto} from './dto/create-listing.dto';
 import {ListingsByChannelDto} from './dto/listings-by-channel.dto';
+import {UpdateListingDto} from './dto/update-listing.dto';
 import {ListingServiceError} from './errors/listing.errors';
 import {
     mapListingErrorToMessageKey,
@@ -60,6 +61,27 @@ export class ListingsController {
                     sort: dto.data.sort,
                 },
             );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: ListingServiceError,
+                mapStatus: mapListingErrorToStatus,
+                mapMessageKey: mapListingErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('update')
+    @ApiOperation({summary: 'Update listing for channel (owner/manage)'})
+    @ApiBody({type: UpdateListingDto})
+    async updateListing(
+        @Body(dtoValidationPipe) dto: UpdateListingDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.listingsService.updateListing(dto.data, user.id);
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: ListingServiceError,
