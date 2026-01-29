@@ -99,6 +99,17 @@
       "selfDealNotAllowed": "Нельзя создавать сделку со своим каналом."
     }
   },
+  "predeals": {
+    "errors": {
+      "predealNotFound": "Предсделка не найдена.",
+      "listingNotFound": "Листинг не найден.",
+      "listingDisabled": "Листинг отключён.",
+      "unauthorized": "Нет доступа к этой предсделке.",
+      "invalidScheduleTime": "Время размещения должно быть в будущем.",
+      "selfDealNotAllowed": "Нельзя создавать предсделку со своим каналом.",
+      "invalidStatus": "Предсделка находится в неверном состоянии."
+    }
+  },
   "listings": {
     "errors": {
       "channelNotFound": "Канал не найден.",

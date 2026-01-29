@@ -99,6 +99,17 @@
       "selfDealNotAllowed": "You can’t create a deal with your own channel."
     }
   },
+  "predeals": {
+    "errors": {
+      "predealNotFound": "Pre-deal not found.",
+      "listingNotFound": "Listing not found.",
+      "listingDisabled": "Listing is disabled.",
+      "unauthorized": "You do not have access to this pre-deal.",
+      "invalidScheduleTime": "Scheduled time must be in the future.",
+      "selfDealNotAllowed": "You can’t create a pre-deal with your own channel.",
+      "invalidStatus": "Pre-deal is in an invalid state."
+    }
+  },
   "listings": {
     "errors": {
       "channelNotFound": "Channel not found.",

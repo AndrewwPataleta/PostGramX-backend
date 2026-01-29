@@ -3,16 +3,23 @@ import {Context, Telegraf} from 'telegraf';
 import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TELEGRAM_BOT_COMMANDS} from './telegram-bot.constants';
+import {PreDealsBotHandler} from '../predeals/predeals-bot.handler';
 
 @Injectable()
 export class TelegramBotUpdate {
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
+        private readonly preDealsBotHandler: PreDealsBotHandler,
     ) {}
 
     register(bot: Telegraf<Context>): void {
         bot.start(async (context) => {
+            const handled = await this.preDealsBotHandler.handleStart(context);
+            if (handled) {
+                return;
+            }
+
             await context.reply(
                 this.startHandler.getMessage(),
                 this.startHandler.getKeyboard(),
@@ -27,6 +34,11 @@ export class TelegramBotUpdate {
         });
 
         bot.on('callback_query', async (context) => {
+            const handled = await this.preDealsBotHandler.handleCallback(context);
+            if (handled) {
+                return;
+            }
+
             const data =
                 'data' in context.callbackQuery
                     ? context.callbackQuery.data
@@ -40,9 +52,29 @@ export class TelegramBotUpdate {
             }
         });
 
+        bot.on('message', async (context) => {
+            if ('text' in context.message) {
+                return;
+            }
+
+            const handled = await this.preDealsBotHandler.handleCreativeMessage(
+                context,
+            );
+            if (handled) {
+                return;
+            }
+        });
+
         bot.on('text', async (context) => {
             const messageText = context.message.text?.trim() ?? '';
             if (this.isKnownCommand(messageText)) {
+                return;
+            }
+
+            const handled = await this.preDealsBotHandler.handleCreativeMessage(
+                context,
+            );
+            if (handled) {
                 return;
             }
 
