@@ -178,22 +178,6 @@ export class ListingsService {
             );
         }
 
-        const membership = await this.membershipRepository.findOne({
-            where: {
-                channelId,
-                userId,
-                isActive: true,
-                isManuallyDisabled: false,
-                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
-            },
-        });
-
-        if (!membership) {
-            throw new ListingServiceError(
-                ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
-            );
-        }
-
         const page = options?.page ?? 1;
         const limit = Math.min(options?.limit ?? 20, 50);
         const offset = (page - 1) * limit;
@@ -304,6 +288,7 @@ export class ListingsService {
             tags: normalizedTags,
             contentRulesText: data.contentRulesText,
             isActive: data.isActive,
+            version:  listing.version
         });
 
         if (Object.keys(updatePayload).length === 0) {
