@@ -4,7 +4,12 @@ import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, Repository} from 'typeorm';
 import {DealEntity} from '../../deals/entities/deal.entity';
 import {DealEscrowStatus} from '../../deals/types/deal-escrow-status.enum';
-import {canTransitionDealEscrowStatus} from '../../deals/deal-escrow.guard';
+import {
+    assertTransitionAllowed,
+    DealStateError,
+    isTransitionAllowed,
+} from '../../deals/state/deal-state.machine';
+import {mapEscrowToDealStatus} from '../../deals/state/deal-status.mapper';
 import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 import {TransactionEntity} from '../entities/transaction.entity';
 import {TransactionDirection} from '../types/transaction-direction.enum';
@@ -39,7 +44,7 @@ export class EscrowService {
             throw new EscrowServiceError(EscrowServiceErrorCode.FORBIDDEN);
         }
 
-        if (deal.escrowStatus === DealEscrowStatus.AWAITING_PAYMENT) {
+        if (deal.escrowStatus === DealEscrowStatus.PAYMENT_AWAITING) {
             if (deal.escrowAmountNano && deal.escrowAmountNano !== amountNano) {
                 throw new EscrowServiceError(
                     EscrowServiceErrorCode.ESCROW_AMOUNT_MISMATCH,
@@ -60,15 +65,10 @@ export class EscrowService {
             }
         }
 
-        if (
-            deal.escrowStatus !== DealEscrowStatus.AWAITING_PAYMENT &&
-            !canTransitionDealEscrowStatus(
+        if (deal.escrowStatus !== DealEscrowStatus.PAYMENT_AWAITING) {
+            this.ensureTransitionAllowed(
                 deal.escrowStatus,
-                DealEscrowStatus.AWAITING_PAYMENT,
-            )
-        ) {
-            throw new EscrowServiceError(
-                EscrowServiceErrorCode.INVALID_TRANSITION,
+                DealEscrowStatus.PAYMENT_AWAITING,
             );
         }
 
@@ -82,7 +82,10 @@ export class EscrowService {
             );
 
             await manager.getRepository(DealEntity).update(deal.id, {
-                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                status: mapEscrowToDealStatus(
+                    DealEscrowStatus.PAYMENT_AWAITING,
+                ),
                 escrowWalletId: createdWallet.id,
                 escrowAmountNano: amountNano,
                 escrowCurrency: 'TON',
@@ -97,7 +100,7 @@ export class EscrowService {
 
         return {
             dealId: deal.id,
-            escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+            escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
             depositAddress: wallet.address,
             expiresAt,
         };
@@ -160,11 +163,18 @@ export class EscrowService {
             );
         }
 
-        const canMoveToPending = canTransitionDealEscrowStatus(
+        if (deal.escrowStatus === DealEscrowStatus.FUNDS_CONFIRMED) {
+            return {
+                dealId: deal.id,
+                escrowStatus: deal.escrowStatus,
+            };
+        }
+
+        const canMoveToPending = isTransitionAllowed(
             deal.escrowStatus,
             DealEscrowStatus.FUNDS_PENDING,
         );
-        const canMoveToConfirmed = canTransitionDealEscrowStatus(
+        const canMoveToConfirmed = isTransitionAllowed(
             deal.escrowStatus,
             DealEscrowStatus.FUNDS_CONFIRMED,
         );
@@ -191,16 +201,32 @@ export class EscrowService {
             const dealRepository = manager.getRepository(DealEntity);
 
             if (canMoveToPending) {
+                this.ensureTransitionAllowed(
+                    deal.escrowStatus,
+                    DealEscrowStatus.FUNDS_PENDING,
+                );
                 await dealRepository.update(deal.id, {
                     escrowStatus: DealEscrowStatus.FUNDS_PENDING,
+                    status: mapEscrowToDealStatus(
+                        DealEscrowStatus.FUNDS_PENDING,
+                    ),
                     lastActivityAt: now,
                     stalledAt: null,
                     cancelReason: null,
                 });
             }
 
+            this.ensureTransitionAllowed(
+                canMoveToPending
+                    ? DealEscrowStatus.FUNDS_PENDING
+                    : deal.escrowStatus,
+                DealEscrowStatus.FUNDS_CONFIRMED,
+            );
             await dealRepository.update(deal.id, {
                 escrowStatus: DealEscrowStatus.FUNDS_CONFIRMED,
+                status: mapEscrowToDealStatus(
+                    DealEscrowStatus.FUNDS_CONFIRMED,
+                ),
                 lastActivityAt: now,
                 stalledAt: null,
                 cancelReason: null,
@@ -257,5 +283,21 @@ export class EscrowService {
         const expiresAt = new Date(now.getTime());
         expiresAt.setMinutes(expiresAt.getMinutes() + timeoutMinutes);
         return expiresAt;
+    }
+
+    private ensureTransitionAllowed(
+        from: DealEscrowStatus,
+        to: DealEscrowStatus,
+    ) {
+        try {
+            assertTransitionAllowed(from, to);
+        } catch (error) {
+            if (error instanceof DealStateError) {
+                throw new EscrowServiceError(
+                    EscrowServiceErrorCode.INVALID_TRANSITION,
+                );
+            }
+            throw error;
+        }
     }
 }

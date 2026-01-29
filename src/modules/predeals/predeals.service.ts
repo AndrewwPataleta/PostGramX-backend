@@ -10,7 +10,7 @@ import {User} from '../auth/entities/user.entity';
 import {DealEntity} from '../deals/entities/deal.entity';
 import {DealEscrowStatus} from '../deals/types/deal-escrow-status.enum';
 import {DealInitiatorSide} from '../deals/types/deal-initiator-side.enum';
-import {DealStatus} from '../deals/types/deal-status.enum';
+import {mapEscrowToDealStatus} from '../deals/state/deal-status.mapper';
 import {WalletsService} from '../payments/wallets/wallets.service';
 import {EscrowWalletEntity} from '../payments/entities/escrow-wallet.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
@@ -858,8 +858,8 @@ export class PreDealsService {
             publisherOwnerUserId: channel.createdByUserId,
             createdByUserId: preDeal.advertiserUserId,
             sideInitiator: DealInitiatorSide.ADVERTISER,
-            status: DealStatus.PENDING,
-            escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+            status: mapEscrowToDealStatus(DealEscrowStatus.PAYMENT_AWAITING),
+            escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
             escrowAmountNano: amountNano,
             escrowCurrency: preDeal.listingSnapshot?.currency ?? 'TON',
             escrowExpiresAt: paymentExpiresAt,

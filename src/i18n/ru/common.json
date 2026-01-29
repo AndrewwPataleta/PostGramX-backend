@@ -96,7 +96,28 @@
       "listingDisabled": "Листинг отключён.",
       "unauthorized": "Нет доступа к этой сделке.",
       "invalidScheduleTime": "Время размещения должно быть в будущем.",
+      "invalidTransition": "Сделка находится в неверном состоянии.",
       "selfDealNotAllowed": "Нельзя создавать сделку со своим каналом."
+    },
+    "stages": {
+      "unknown": "Неизвестный статус",
+      "draft": "Черновик",
+      "scheduling_pending": "Выберите время",
+      "creative_awaiting_submit": "Отправьте креатив",
+      "creative_awaiting_confirm": "Подтвердите креатив",
+      "admin_review": "Ожидает одобрения администратора",
+      "payment_window_pending": "Выберите окно оплаты",
+      "payment_awaiting": "Ожидается оплата",
+      "funds_pending": "Платёж обрабатывается",
+      "funds_confirmed": "Платёж подтверждён",
+      "creative_pending": "Нужны правки креатива",
+      "creative_review": "Проверка креатива",
+      "approved_scheduled": "Запланировано",
+      "posted_verifying": "Проверка публикации",
+      "completed": "Завершено",
+      "canceled": "Отменено",
+      "refunded": "Возвращено",
+      "disputed": "Спор"
     }
   },
   "predeals": {

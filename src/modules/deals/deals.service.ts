@@ -12,27 +12,36 @@ import {DealsNotificationsService} from './deals-notifications.service';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {ChannelRole} from '../channels/types/channel-role.enum';
 import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
+import {mapEscrowToDealStatus} from './state/deal-status.mapper';
+import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
 const PENDING_ESCROW_STATUSES = [
-    DealEscrowStatus.NEGOTIATING,
-    DealEscrowStatus.AWAITING_PAYMENT,
-    DealEscrowStatus.CREATIVE_PENDING,
-    DealEscrowStatus.CREATIVE_REVIEW,
+    DealEscrowStatus.DRAFT,
+    DealEscrowStatus.SCHEDULING_PENDING,
+    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    DealEscrowStatus.ADMIN_REVIEW,
+    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.FUNDS_PENDING,
 ];
 
 const ACTIVE_ESCROW_STATUSES = [
     DealEscrowStatus.FUNDS_CONFIRMED,
     DealEscrowStatus.APPROVED_SCHEDULED,
     DealEscrowStatus.POSTED_VERIFYING,
+    DealEscrowStatus.CREATIVE_PENDING,
+    DealEscrowStatus.CREATIVE_REVIEW,
 ];
 
 const COMPLETED_ESCROW_STATUSES = [
     DealEscrowStatus.COMPLETED,
     DealEscrowStatus.CANCELED,
     DealEscrowStatus.REFUNDED,
+    DealEscrowStatus.DISPUTED,
 ];
 
 @Injectable()
@@ -110,6 +119,9 @@ export class DealsService {
 
         const now = new Date();
         const listingSnapshot = this.buildListingSnapshot(listing, now);
+        const escrowStatus = parsedScheduledAt
+            ? DealEscrowStatus.CREATIVE_AWAITING_SUBMIT
+            : DealEscrowStatus.SCHEDULING_PENDING;
 
         const deal = await this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(DealEntity);
@@ -120,8 +132,8 @@ export class DealsService {
                 publisherOwnerUserId: channel.createdByUserId,
                 createdByUserId: userId,
                 sideInitiator: DealInitiatorSide.ADVERTISER,
-                status: DealStatus.PENDING,
-                escrowStatus: DealEscrowStatus.NEGOTIATING,
+                status: mapEscrowToDealStatus(escrowStatus),
+                escrowStatus,
                 offerSnapshot: {
                     priceNano: listing.priceNano,
                     currency: listing.currency,
@@ -166,6 +178,163 @@ export class DealsService {
             listingId: deal.listingId,
             channelId: deal.channelId,
             initiatorSide: deal.sideInitiator,
+        };
+    }
+
+    async scheduleDeal(userId: string, dealId: string, scheduledAt: string) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.advertiserUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const parsedScheduledAt = new Date(scheduledAt);
+        if (parsedScheduledAt.getTime() <= Date.now()) {
+            throw new DealServiceError(DealErrorCode.INVALID_SCHEDULE_TIME);
+        }
+
+        this.ensureTransitionAllowed(
+            deal.escrowStatus,
+            DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+        );
+
+        const now = new Date();
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
+
+        await this.dealRepository.update(deal.id, {
+            scheduledAt: parsedScheduledAt,
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            lastActivityAt: now,
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+            scheduledAt: parsedScheduledAt,
+        };
+    }
+
+    async attachCreative(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.advertiserUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_CONFIRM;
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            lastActivityAt: now,
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+        };
+    }
+
+    async confirmCreative(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.advertiserUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const escrowStatus = DealEscrowStatus.ADMIN_REVIEW;
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            lastActivityAt: now,
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+        };
+    }
+
+    async approveByAdmin(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.publisherOwnerUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            lastActivityAt: now,
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+        };
+    }
+
+    async setPaymentWindow(
+        userId: string,
+        dealId: string,
+        expiresAt: Date,
+    ) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.publisherOwnerUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowExpiresAt: expiresAt,
+            lastActivityAt: now,
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+            escrowExpiresAt: expiresAt,
         };
     }
 
@@ -353,5 +522,19 @@ export class DealsService {
             version: listing.version ?? 1,
             snapshotAt: snapshotAt.toISOString(),
         };
+    }
+
+    private ensureTransitionAllowed(
+        from: DealEscrowStatus,
+        to: DealEscrowStatus,
+    ) {
+        try {
+            assertTransitionAllowed(from, to);
+        } catch (error) {
+            if (error instanceof DealStateError) {
+                throw new DealServiceError(DealErrorCode.INVALID_TRANSITION);
+            }
+            throw error;
+        }
     }
 }

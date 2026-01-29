@@ -6,6 +6,8 @@ import {DataSource, In, LessThan, Repository} from 'typeorm';
 import {DealEntity} from '../../deals/entities/deal.entity';
 import {DealEscrowStatus} from '../../deals/types/deal-escrow-status.enum';
 import {WalletsService} from '../wallets/wallets.service';
+import {mapEscrowToDealStatus} from '../../deals/state/deal-status.mapper';
+import {assertTransitionAllowed} from '../../deals/state/deal-state.machine';
 
 @Injectable()
 export class EscrowTimeoutService {
@@ -29,7 +31,7 @@ export class EscrowTimeoutService {
         const now = new Date();
         const expiredDeals = await this.dealRepository.find({
             where: {
-                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
                 escrowExpiresAt: LessThan(now),
             },
         });
@@ -40,8 +42,13 @@ export class EscrowTimeoutService {
 
         for (const deal of expiredDeals) {
             await this.dataSource.transaction(async (manager) => {
+                assertTransitionAllowed(
+                    deal.escrowStatus,
+                    DealEscrowStatus.CANCELED,
+                );
                 await manager.getRepository(DealEntity).update(deal.id, {
                     escrowStatus: DealEscrowStatus.CANCELED,
+                    status: mapEscrowToDealStatus(DealEscrowStatus.CANCELED),
                     cancelReason: 'PAYMENT_TIMEOUT',
                     lastActivityAt: now,
                     stalledAt: now,
@@ -68,7 +75,13 @@ export class EscrowTimeoutService {
         threshold.setHours(threshold.getHours() - stallHours);
 
         const preFundingStatuses = [
-            DealEscrowStatus.NEGOTIATING,
+            DealEscrowStatus.DRAFT,
+            DealEscrowStatus.SCHEDULING_PENDING,
+            DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+            DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+            DealEscrowStatus.ADMIN_REVIEW,
+            DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+            DealEscrowStatus.PAYMENT_AWAITING,
             DealEscrowStatus.FUNDS_PENDING,
         ];
 
@@ -81,8 +94,13 @@ export class EscrowTimeoutService {
 
         for (const deal of stalledBeforeFunding) {
             await this.dataSource.transaction(async (manager) => {
+                assertTransitionAllowed(
+                    deal.escrowStatus,
+                    DealEscrowStatus.CANCELED,
+                );
                 await manager.getRepository(DealEntity).update(deal.id, {
                     escrowStatus: DealEscrowStatus.CANCELED,
+                    status: mapEscrowToDealStatus(DealEscrowStatus.CANCELED),
                     cancelReason: 'STALL_TIMEOUT',
                     lastActivityAt: now,
                     stalledAt: now,
@@ -111,8 +129,13 @@ export class EscrowTimeoutService {
 
         for (const deal of stalledAfterFunding) {
             await this.dataSource.transaction(async (manager) => {
+                assertTransitionAllowed(
+                    deal.escrowStatus,
+                    DealEscrowStatus.DISPUTED,
+                );
                 await manager.getRepository(DealEntity).update(deal.id, {
                     escrowStatus: DealEscrowStatus.DISPUTED,
+                    status: mapEscrowToDealStatus(DealEscrowStatus.DISPUTED),
                     cancelReason: 'STALL_TIMEOUT',
                     lastActivityAt: now,
                     stalledAt: now,

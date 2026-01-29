@@ -96,7 +96,28 @@
       "listingDisabled": "Listing is disabled.",
       "unauthorized": "You do not have access to this deal.",
       "invalidScheduleTime": "Scheduled time must be in the future.",
+      "invalidTransition": "The deal is not in the expected state.",
       "selfDealNotAllowed": "You can’t create a deal with your own channel."
+    },
+    "stages": {
+      "unknown": "Unknown status",
+      "draft": "Draft",
+      "scheduling_pending": "Choose time",
+      "creative_awaiting_submit": "Send creative",
+      "creative_awaiting_confirm": "Confirm creative",
+      "admin_review": "Awaiting admin approval",
+      "payment_window_pending": "Choose payment window",
+      "payment_awaiting": "Awaiting payment",
+      "funds_pending": "Payment processing",
+      "funds_confirmed": "Payment confirmed",
+      "creative_pending": "Creative edits needed",
+      "creative_review": "Creative review",
+      "approved_scheduled": "Scheduled",
+      "posted_verifying": "Verifying post",
+      "completed": "Completed",
+      "canceled": "Canceled",
+      "refunded": "Refunded",
+      "disputed": "Disputed"
     }
   },
   "predeals": {
