@@ -9,6 +9,7 @@ import {CreateTransactionDto} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from './types/transaction-status.enum';
+import {definedOnly} from '../../common/utils/defined-only';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -154,10 +155,12 @@ export class PaymentsService {
             completedAt?: Date | null;
         },
     ) {
-        await this.transactionRepository.update(id, {
+        const updatePayload = definedOnly({
             status,
-            confirmedAt: timestamps?.confirmedAt ?? undefined,
-            completedAt: timestamps?.completedAt ?? undefined,
+            confirmedAt: timestamps?.confirmedAt,
+            completedAt: timestamps?.completedAt,
         });
+
+        await this.transactionRepository.update(id, updatePayload);
     }
 }
