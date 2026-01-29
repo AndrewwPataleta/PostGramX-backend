@@ -4,6 +4,7 @@ import {TypeOrmModuleOptions} from '@nestjs/typeorm';
 import {join} from 'path';
 import * as fs from 'fs';
 import * as path from 'path';
+import {PostgresConnectionOptions} from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import {AdminPage} from '../modules/admin/entities/admin-page.entity';
 import {AdminRule} from '../modules/admin/entities/admin-rule.entity';
 import {AdminUser} from '../modules/admin/entities/admin-user.entity';
@@ -32,7 +33,7 @@ export const typeOrmEntities = [
     EscrowWalletKeyEntity,
 ];
 
-const getSslConfig = (nodeEnv: string): TypeOrmModuleOptions['ssl'] => {
+const getSslConfig = (nodeEnv: string): PostgresConnectionOptions['ssl'] => {
     const isProdLike = ['production', 'stage'].includes(nodeEnv);
 
     if (!isProdLike) {
