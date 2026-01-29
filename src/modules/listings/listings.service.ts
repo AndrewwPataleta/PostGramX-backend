@@ -14,6 +14,7 @@ import {
     ListingListItem,
     mapListingToListItem,
 } from './types/listing-list-item.type';
+import {definedOnly} from '../../common/utils/defined-only';
 
 const REQUIRED_TAG = 'Must be pre-approved';
 
@@ -277,49 +278,33 @@ export class ListingsService {
             );
         }
 
-        const updatePayload: Partial<ListingEntity> = {};
-
-        if (data.priceTon !== undefined) {
-            updatePayload.priceNano = this.parseTonToNano(data.priceTon);
-        }
-
-        if (data.pinDurationHours !== undefined) {
-            updatePayload.pinDurationHours = data.pinDurationHours ?? null;
-            updatePayload.allowPinnedPlacement =
-                data.pinDurationHours !== null &&
-                data.pinDurationHours !== undefined;
-        }
-
-        if (data.visibilityDurationHours !== undefined) {
-            updatePayload.visibilityDurationHours =
-                data.visibilityDurationHours;
-        }
-
-        if (data.allowEdits !== undefined) {
-            updatePayload.allowEdits = data.allowEdits;
-        }
-
-        if (data.allowLinkTracking !== undefined) {
-            updatePayload.allowLinkTracking = data.allowLinkTracking;
-        }
-
+        let normalizedTags: string[] | undefined;
         if (data.tags !== undefined) {
-            const normalizedTags = this.normalizeTags(data.tags);
+            normalizedTags = this.normalizeTags(data.tags);
             if (!this.hasRequiredTag(normalizedTags)) {
                 throw new ListingServiceError(
                     ListingServiceErrorCode.TAGS_MISSING_REQUIRED,
                 );
             }
-            updatePayload.tags = normalizedTags;
         }
 
-        if (data.contentRulesText !== undefined) {
-            updatePayload.contentRulesText = data.contentRulesText ?? '';
-        }
-
-        if (data.isActive !== undefined) {
-            updatePayload.isActive = data.isActive;
-        }
+        const updatePayload = definedOnly({
+            priceNano:
+                data.priceTon !== undefined
+                    ? this.parseTonToNano(data.priceTon)
+                    : undefined,
+            pinDurationHours: data.pinDurationHours,
+            allowPinnedPlacement:
+                data.pinDurationHours !== undefined
+                    ? data.pinDurationHours !== null
+                    : undefined,
+            visibilityDurationHours: data.visibilityDurationHours,
+            allowEdits: data.allowEdits,
+            allowLinkTracking: data.allowLinkTracking,
+            tags: normalizedTags,
+            contentRulesText: data.contentRulesText,
+            isActive: data.isActive,
+        });
 
         if (Object.keys(updatePayload).length === 0) {
             throw new ListingServiceError(

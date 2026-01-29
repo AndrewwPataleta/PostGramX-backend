@@ -1,5 +1,5 @@
 import {ApiProperty} from '@nestjs/swagger';
-import {Type} from 'class-transformer';
+import {Transform, Type} from 'class-transformer';
 import {
     ArrayMaxSize,
     ArrayUnique,
@@ -64,10 +64,12 @@ class UpdateListingDataDto {
     @ArrayUnique()
     @IsString({each: true})
     @MaxLength(32, {each: true})
+    @Transform(({value}) => (value === null ? [] : value))
     tags?: string[];
 
     @ApiProperty({required: false, maxLength: 2000})
     @IsOptional()
+    @Transform(({value}) => (value === null ? '' : value))
     @IsString()
     @MaxLength(2000)
     contentRulesText?: string;
