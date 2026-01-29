@@ -13,6 +13,7 @@ import {DealInitiatorSide} from '../types/deal-initiator-side.enum';
 import {DealStatus} from '../types/deal-status.enum';
 import {ListingEntity} from '../../listings/entities/listing.entity';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
+import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 
 @Entity({name: 'deals'})
 @Index('IDX_deals_advertiser_status', ['advertiserUserId', 'status'])
@@ -92,6 +93,9 @@ export class DealEntity {
 
     @Column({type: 'jsonb', nullable: true})
     offerSnapshot: Record<string, unknown> | null;
+
+    @Column({type: 'jsonb', default: () => "'{}'"})
+    listingSnapshot: DealListingSnapshot;
 
     @Column({type: 'text', nullable: true})
     brief: string | null;

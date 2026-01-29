@@ -109,7 +109,10 @@
       "invalidPinnedRule": "Pinned placement settings do not match.",
       "tagsMissingRequired": "Required tag is missing.",
       "invalidRequiresApproval": "Listings must require approval in MVP.",
-      "invalidPrice": "Listing price is invalid."
+      "invalidPrice": "Listing price is invalid.",
+      "notFound": "Listing not found.",
+      "forbidden": "You do not have access to this listing.",
+      "invalidUpdate": "Listing update is invalid."
     }
   }
 }
