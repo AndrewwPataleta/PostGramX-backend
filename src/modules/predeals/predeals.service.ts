@@ -1,4 +1,4 @@
-import {Injectable, Logger} from '@nestjs/common';
+import {forwardRef, Inject, Injectable, Logger} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, In, Repository} from 'typeorm';
@@ -40,6 +40,7 @@ export class PreDealsService {
         private readonly deepLinkService: PreDealsDeepLinkService,
         private readonly walletsService: WalletsService,
         private readonly participantsService: ChannelParticipantsService,
+        @Inject(forwardRef(() => TelegramBotService))
         private readonly telegramBotService: TelegramBotService,
         @InjectRepository(PreDealEntity)
         private readonly preDealRepository: Repository<PreDealEntity>,
