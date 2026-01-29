@@ -112,3 +112,7 @@ export class DealEntity {
     @UpdateDateColumn({type: 'timestamptz'})
     updatedAt: Date;
 }
+
+export interface DealEntity {
+    sideInitiator: DealInitiatorSide | null;
+}
