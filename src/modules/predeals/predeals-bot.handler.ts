@@ -9,16 +9,31 @@ const CALLBACK_APPROVE = 'predeal_approve';
 const CALLBACK_REJECT = 'predeal_reject';
 const CALLBACK_PAYMENT_WINDOW = 'predeal_payment_window';
 
+const getStartPayload = (context: Context): string | undefined => {
+    if (!('startPayload' in context)) {
+        return undefined;
+    }
+
+    const value = (context as {startPayload?: unknown}).startPayload;
+    return typeof value === 'string' ? value : undefined;
+};
+
+const getTelegramUserId = (context: Context): string => {
+    const fromId = (context as {from?: {id?: number}}).from?.id;
+    return String(fromId ?? '');
+};
+
+const getChatId = (context: Context): string => {
+    const chatId = (context as {chat?: {id?: number}}).chat?.id;
+    return String(chatId ?? '');
+};
+
 @Injectable()
 export class PreDealsBotHandler {
     constructor(private readonly preDealsService: PreDealsService) {}
 
     async handleStart(context: Context): Promise<boolean> {
-        if (!('startPayload' in context)) {
-            return false;
-        }
-
-        const payload = context.startPayload?.trim();
+        const payload = getStartPayload(context)?.trim();
         if (!payload?.startsWith('predeal_')) {
             return false;
         }
@@ -29,8 +44,8 @@ export class PreDealsBotHandler {
             return true;
         }
 
-        const telegramUserId = String(context.from?.id ?? '');
-        const chatId = String(context.chat?.id ?? '');
+        const telegramUserId = getTelegramUserId(context);
+        const chatId = getChatId(context);
         const result = await this.preDealsService.handleBotStart(
             telegramUserId,
             chatId,
@@ -78,8 +93,8 @@ export class PreDealsBotHandler {
         }
 
         const result = await this.preDealsService.handleCreativeMessage({
-            telegramUserId: String(context.from?.id ?? ''),
-            chatId: String(context.chat?.id ?? ''),
+            telegramUserId: getTelegramUserId(context),
+            chatId: getChatId(context),
             messageId: message.message_id,
             text: message.text ?? message.caption ?? null,
             attachments: attachments.length > 0 ? attachments : null,
@@ -133,7 +148,7 @@ export class PreDealsBotHandler {
             return false;
         }
 
-        const telegramUserId = String(context.from?.id ?? '');
+        const telegramUserId = getTelegramUserId(context);
 
         if (action === CALLBACK_CONFIRM) {
             const result = await this.preDealsService.handleAdvertiserConfirm(
