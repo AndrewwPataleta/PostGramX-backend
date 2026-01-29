@@ -39,7 +39,7 @@ export class MarketplaceController {
         @Body(dtoValidationPipe) dto: MarketplaceListChannelsDto,
         @Req() req: Request,
     ) {
-        assertUser(req);
-        return this.marketplaceService.listChannels(dto.data);
+        const user = assertUser(req);
+        return this.marketplaceService.listChannels(dto.data, user.id);
     }
 }
