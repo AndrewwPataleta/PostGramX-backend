@@ -67,7 +67,7 @@ export class DealEntity extends BaseEntity {
         type: 'enum',
         enum: DealEscrowStatus,
         enumName: 'deals_escrow_status_enum',
-        default: DealEscrowStatus.WAITING_SCHEDULE,
+        default: DealEscrowStatus.SCHEDULING_PENDING,
     })
     escrowStatus: DealEscrowStatus;
 

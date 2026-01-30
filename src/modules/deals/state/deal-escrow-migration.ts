@@ -5,11 +5,11 @@ export function mapLegacyNegotiatingStatus(
     brief: string | null,
 ): DealEscrowStatus {
     if (!scheduledAt) {
-        return DealEscrowStatus.WAITING_SCHEDULE;
+        return DealEscrowStatus.SCHEDULING_PENDING;
     }
 
     if (!brief || brief.trim().length === 0) {
-        return DealEscrowStatus.WAITING_CREATIVE;
+        return DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
     }
 
     return DealEscrowStatus.ADMIN_REVIEW;

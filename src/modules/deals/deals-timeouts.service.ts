@@ -21,18 +21,17 @@ import {WalletsService} from '../payments/wallets/wallets.service';
 import {ConfigService} from '@nestjs/config';
 
 const AGREEMENT_ESCROW_STATUSES = [
-    DealEscrowStatus.WAITING_SCHEDULE,
-    DealEscrowStatus.WAITING_CREATIVE,
-    DealEscrowStatus.CREATIVE_SUBMITTED,
+    DealEscrowStatus.SCHEDULING_PENDING,
+    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
     DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.CHANGES_REQUESTED,
-    DealEscrowStatus.AWAITING_PAYMENT,
-    DealEscrowStatus.PAYMENT_PENDING,
+    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.FUNDS_PENDING,
 ];
 
 const CREATIVE_PENDING_STATUSES = [
-    DealEscrowStatus.WAITING_CREATIVE,
-    DealEscrowStatus.CHANGES_REQUESTED,
+    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
 ];
 
 type CancelReason =
@@ -125,8 +124,11 @@ export class DealsTimeoutsService {
         const expiredDeals = await this.dealRepository
             .createQueryBuilder('deal')
             .where('deal.status = :status', {status: DealStatus.PENDING})
-            .andWhere('deal.escrowStatus = :escrowStatus', {
-                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+            .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
+                escrowStatuses: [
+                    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+                    DealEscrowStatus.PAYMENT_AWAITING,
+                ],
             })
             .andWhere(
                 '(deal.paymentDeadlineAt IS NOT NULL AND deal.paymentDeadlineAt <= :now)' +
@@ -137,7 +139,10 @@ export class DealsTimeoutsService {
 
         await this.cancelDeals(expiredDeals, {
             reason: 'PAYMENT_TIMEOUT',
-            allowedEscrowStatuses: [DealEscrowStatus.AWAITING_PAYMENT],
+            allowedEscrowStatuses: [
+                DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+                DealEscrowStatus.PAYMENT_AWAITING,
+            ],
             closeWallet: true,
         });
     }
@@ -334,8 +339,11 @@ export class DealsTimeoutsService {
             )
             .where('reminder.id IS NULL')
             .andWhere('deal.status = :status', {status: DealStatus.PENDING})
-            .andWhere('deal.escrowStatus = :escrowStatus', {
-                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
+            .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
+                escrowStatuses: [
+                    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+                    DealEscrowStatus.PAYMENT_AWAITING,
+                ],
             })
             .andWhere(
                 '(deal.paymentDeadlineAt IS NOT NULL AND deal.paymentDeadlineAt > :now AND deal.paymentDeadlineAt <= :cutoff)' +
