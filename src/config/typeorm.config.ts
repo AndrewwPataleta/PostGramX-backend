@@ -81,6 +81,9 @@ export const buildTypeOrmOptions = (
     const synchronizeEnv = config
         .get<string>('POSTGRES_SYNCHRONIZE')
         ?.toLowerCase();
+
+    const migrationRun = config
+        .get<boolean>('POSTGRES_MIGRATION');
     const synchronize =
         synchronizeEnv !== undefined
             ? synchronizeEnv === 'true'
@@ -119,8 +122,8 @@ export const buildTypeOrmOptions = (
         database,
         entities: typeOrmEntities,
         autoLoadEntities: true,
-        synchronize: false,
-        migrationsRun: true,
+        synchronize: synchronize,
+        migrationsRun: migrationRun,
         migrations: [join(__dirname, '..', 'database', 'migrations', '*{.ts,.js}')],
         ssl: sslConfig,
         schema,
