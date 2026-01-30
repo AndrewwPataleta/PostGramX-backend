@@ -36,6 +36,11 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     onModuleInit(): void {
         this.config = this.loadConfig();
         this.ensureValidConfig(this.config);
+        this.logger.log(
+            `Bot started, webhook: ${this.config.webhookUrl ?? 'none'}, polling: ${
+                this.config.mode === 'polling'
+            }`,
+        );
         this.initializeBot();
     }
 

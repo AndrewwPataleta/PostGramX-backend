@@ -351,15 +351,29 @@ export class DealsService {
     }
 
     async handleCreativeMessage(payload: {
+        traceId: string;
         telegramUserId: string;
         type: DealCreativeType | null;
         text: string | null;
         caption: string | null;
         mediaFileId: string | null;
         rawPayload: Record<string, unknown> | null;
-    }): Promise<{handled: boolean; message?: string}> {
+    }): Promise<{
+        handled: boolean;
+        message?: string;
+        dealId?: string;
+        success?: boolean;
+    }> {
         if (!payload.type) {
-            return {handled: false};
+            this.logger.warn('DealsBot creative missing type', {
+                traceId: payload.traceId,
+                telegramId: payload.telegramUserId,
+            });
+            return {
+                handled: true,
+                message:
+                    '⚠️ Unsupported format.\nSend: text, photo+caption, or video+caption.',
+            };
         }
 
         const user = await this.userRepository.findOne({
@@ -367,9 +381,14 @@ export class DealsService {
         });
 
         if (!user) {
+            this.logger.warn('DealsBot creative user not found', {
+                traceId: payload.traceId,
+                telegramId: payload.telegramUserId,
+            });
             return {
                 handled: true,
-                message: 'No active deal waiting for creative submission.',
+                message:
+                    '⚠️ I can’t find a deal waiting for creative from you.\nOpen the Mini App → Deals → pick your deal → Schedule time first, then send creative here.',
             };
         }
 
@@ -378,13 +397,38 @@ export class DealsService {
                 advertiserUserId: user.id,
                 escrowStatus: DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
             },
-            order: {lastActivityAt: 'DESC'},
+            order: {updatedAt: 'DESC'},
         });
 
         if (!deal) {
+            const latestDeal = await this.dealRepository.findOne({
+                where: {advertiserUserId: user.id},
+                order: {updatedAt: 'DESC'},
+            });
+
+            if (latestDeal) {
+                this.logger.warn('DealsBot creative not awaiting submit', {
+                    traceId: payload.traceId,
+                    telegramId: payload.telegramUserId,
+                    dealId: latestDeal.id,
+                    escrowStatus: latestDeal.escrowStatus,
+                });
+                return {
+                    handled: true,
+                    message:
+                        'ℹ️ Creative is already received for this deal.\nOpen Mini App → press "Submit Creative" to continue.',
+                };
+            }
+
+            this.logger.warn('No matching deal for creative', {
+                traceId: payload.traceId,
+                telegramId: payload.telegramUserId,
+                text: payload.text,
+            });
             return {
                 handled: true,
-                message: 'No active deal waiting for creative submission.',
+                message:
+                    '⚠️ I can’t find a deal waiting for creative from you.\nOpen the Mini App → Deals → pick your deal → Schedule time first, then send creative here.',
             };
         }
 
@@ -392,37 +436,107 @@ export class DealsService {
         try {
             this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
         } catch (error) {
+            this.logger.warn('DealsBot creative status mismatch', {
+                traceId: payload.traceId,
+                telegramId: payload.telegramUserId,
+                dealId: deal.id,
+                escrowStatus: deal.escrowStatus,
+            });
             return {
                 handled: true,
-                message: 'This deal is not ready to accept creative right now.',
+                message:
+                    'ℹ️ Creative is already received for this deal.\nOpen Mini App → press "Submit Creative" to continue.',
             };
         }
 
-        const creative =
-            (await this.creativeRepository.findOne({
-                where: {dealId: deal.id},
-            })) ?? this.creativeRepository.create({dealId: deal.id});
-
-        creative.type = payload.type;
-        creative.text = payload.type === DealCreativeType.TEXT ? payload.text : null;
-        creative.mediaFileId = payload.mediaFileId;
-        creative.caption = payload.caption;
-        creative.rawPayload = payload.rawPayload;
-
-        await this.creativeRepository.save(creative);
-
-        const now = new Date();
-        await this.dealRepository.update(deal.id, {
-            escrowStatus,
-            status: mapEscrowToDealStatus(escrowStatus),
-            creativeDeadlineAt: null,
-            ...this.buildActivityUpdate(now),
+        this.logger.log('DealsBot matched deal', {
+            traceId: payload.traceId,
+            dealId: deal.id,
+            escrowStatus: deal.escrowStatus,
         });
+
+        try {
+            const creative =
+                (await this.creativeRepository.findOne({
+                    where: {dealId: deal.id},
+                })) ?? this.creativeRepository.create({dealId: deal.id});
+
+            creative.type = payload.type;
+            creative.text = payload.text ?? payload.caption;
+            creative.mediaFileId = payload.mediaFileId;
+            creative.caption = payload.caption;
+            creative.rawPayload = payload.rawPayload;
+
+            await this.creativeRepository.save(creative);
+
+            const now = new Date();
+            await this.dealRepository.update(deal.id, {
+                escrowStatus,
+                status: mapEscrowToDealStatus(escrowStatus),
+                creativeDeadlineAt: null,
+                ...this.buildActivityUpdate(now),
+            });
+
+            this.logger.log('DealsBot creative saved', {
+                traceId: payload.traceId,
+                dealId: deal.id,
+                creativeId: creative.id,
+            });
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.error('Failed to save creative', {
+                dealId: deal.id,
+                telegramId: payload.telegramUserId,
+                traceId: payload.traceId,
+                errorName: error instanceof Error ? error.name : undefined,
+                errorMessage,
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+            return {
+                handled: true,
+                dealId: deal.id,
+                success: false,
+                message:
+                    '❌ Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.',
+            };
+        }
 
         return {
             handled: true,
             message:
-                '✅ Creative received.\nPlease return to the Mini App and press "Submit Creative" to continue.',
+                `✅ Creative received and saved for Deal ${deal.id.slice(0, 8)}.\nNext step: open the Mini App and press "Submit Creative" to send it for admin review.`,
+            dealId: deal.id,
+            success: true,
+        };
+    }
+
+    async getCreativeStatus(userId: string, dealId: string): Promise<{
+        hasCreative: boolean;
+        escrowStatus: DealEscrowStatus;
+        creativeType: DealCreativeType | null;
+    }> {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (
+            deal.advertiserUserId !== userId &&
+            deal.publisherOwnerUserId !== userId
+        ) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const creative = await this.creativeRepository.findOne({
+            where: {dealId: deal.id},
+        });
+
+        return {
+            hasCreative: Boolean(creative),
+            escrowStatus: deal.escrowStatus,
+            creativeType: creative?.type ?? null,
         };
     }
 
