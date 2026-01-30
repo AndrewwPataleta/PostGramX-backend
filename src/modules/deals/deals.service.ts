@@ -41,6 +41,7 @@ const ACTIVE_ESCROW_STATUSES = [
     DealEscrowStatus.CREATIVE_PENDING,
     DealEscrowStatus.CREATIVE_REVIEW,
     DealEscrowStatus.APPROVED_SCHEDULED,
+    DealEscrowStatus.POSTING,
     DealEscrowStatus.POSTED_VERIFYING,
 ];
 

@@ -16,6 +16,7 @@ export function mapEscrowToDealStatus(
         case DealEscrowStatus.CREATIVE_PENDING:
         case DealEscrowStatus.CREATIVE_REVIEW:
         case DealEscrowStatus.APPROVED_SCHEDULED:
+        case DealEscrowStatus.POSTING:
         case DealEscrowStatus.POSTED_VERIFYING:
             return DealStatus.ACTIVE;
         case DealEscrowStatus.COMPLETED:
