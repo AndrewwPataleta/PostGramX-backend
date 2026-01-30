@@ -92,7 +92,11 @@
       "escrow_amount_mismatch": "Escrow amount does not match the deal.",
       "escrow_wallet_missing": "Escrow wallet is missing for this deal.",
       "escrow_amount_missing": "Escrow amount is not set for this deal.",
-      "mock_disabled": "Mock escrow actions are disabled in production."
+      "mock_disabled": "Mock escrow actions are disabled in production.",
+      "channel_not_found": "Channel not found.",
+      "insufficient_funds": "Insufficient funds for withdrawal.",
+      "invalid_amount": "Withdrawal amount is invalid.",
+      "withdraw_minimum": "Withdrawal amount is below the minimum allowed."
     }
   },
   "deals": {

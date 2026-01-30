@@ -33,6 +33,9 @@ export class ChannelEntity extends BaseEntity {
     @Column({type: 'uuid'})
     createdByUserId: string;
 
+    @Column({type: 'uuid', nullable: true})
+    ownerUserId: string | null;
+
     @Column({type: 'timestamptz', nullable: true})
     verifiedAt: Date | null;
 

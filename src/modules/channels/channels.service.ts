@@ -125,9 +125,11 @@ export class ChannelsService {
                 title: normalizedUsername,
                 status: ChannelStatus.PENDING_VERIFY,
                 createdByUserId: userId,
+                ownerUserId: userId,
             });
         } else {
             channel.status = ChannelStatus.PENDING_VERIFY;
+            channel.ownerUserId = channel.ownerUserId ?? userId;
         }
 
         await this.channelRepository.save(channel);
@@ -185,6 +187,7 @@ export class ChannelsService {
             channel.lastCheckedAt = new Date();
             channel.verificationErrorCode = null;
             channel.verificationErrorMessage = null;
+            channel.ownerUserId = userId;
             const subscribers = this.normalizeSubscribersCount(
                 publicChat.members_count,
             );

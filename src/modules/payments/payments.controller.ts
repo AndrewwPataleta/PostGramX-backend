@@ -1,17 +1,32 @@
 import {Body, Controller, Param, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
+import {I18n, I18nContext} from 'nestjs-i18n';
 import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
-import {assertUser} from '../../core/controller-utils';
+import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {GetTransactionDto} from './dto/get-transaction.dto';
 import {ListTransactionsDto} from './dto/list-transactions.dto';
 import {PaymentsService} from './payments.service';
 import {CreateTransactionDto} from "./dto/create-transaction.dto";
+import {ChannelPayoutsDto} from './dto/channel-payouts.dto';
+import {WithdrawChannelDto} from './dto/withdraw-channel.dto';
+import {PaymentsPayoutsService} from './payouts/payments-payouts.service';
+import {
+    PaymentsPayoutsError,
+    PaymentsPayoutsErrorCode,
+} from './payouts/errors/payments-payouts.error';
+import {
+    mapPaymentsPayoutsErrorToMessageKey,
+    mapPaymentsPayoutsErrorToStatus,
+} from './payouts/errors/payments-payouts-error.mapper';
 
 @Controller('payments')
 @ApiTags('payments')
 export class PaymentsController {
-    constructor(private readonly paymentsService: PaymentsService) {}
+    constructor(
+        private readonly paymentsService: PaymentsService,
+        private readonly payoutsService: PaymentsPayoutsService,
+    ) {}
 
     @Post('transactions/list')
     @ApiOperation({summary: "List user's transactions with filters and pagination"})
@@ -90,4 +105,83 @@ export class PaymentsController {
         });
     }
 
+    @Post('payouts/channels')
+    @ApiOperation({summary: 'List channel payouts available for withdrawal'})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {},
+            },
+        },
+    })
+    async listChannelPayouts(
+        @Body(dtoValidationPipe) dto: ChannelPayoutsDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.payoutsService.listChannelPayouts(
+                user.id,
+                dto.data,
+            );
+        } catch (error) {
+            await handleMappedError<PaymentsPayoutsErrorCode, PaymentsPayoutsError>(
+                error,
+                i18n,
+                {
+                    errorType: PaymentsPayoutsError,
+                    mapStatus: mapPaymentsPayoutsErrorToStatus,
+                    mapMessageKey: mapPaymentsPayoutsErrorToMessageKey,
+                },
+            );
+        }
+    }
+
+    @Post('payouts/withdraw')
+    @ApiOperation({summary: 'Request a channel withdrawal'})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {
+                    channelId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                    amountNano: '100000000',
+                    destinationAddress: 'UQ...',
+                },
+            },
+        },
+    })
+    async withdrawChannel(
+        @Body(dtoValidationPipe) dto: WithdrawChannelDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.payoutsService.withdrawFromChannel(
+                user.id,
+                dto.data.channelId,
+                dto.data.amountNano,
+                dto.data.destinationAddress,
+            );
+        } catch (error) {
+            await handleMappedError<PaymentsPayoutsErrorCode, PaymentsPayoutsError>(
+                error,
+                i18n,
+                {
+                    errorType: PaymentsPayoutsError,
+                    mapStatus: mapPaymentsPayoutsErrorToStatus,
+                    mapMessageKey: mapPaymentsPayoutsErrorToMessageKey,
+                },
+            );
+        }
+    }
 }
