@@ -14,10 +14,13 @@ import {PaymentsController} from './payments.controller';
 import {PaymentsService} from './payments.service';
 import {TonCenterClient} from "./ton/toncenter.client";
 import {TonPaymentWatcher} from "./ton-payment.watcher";
+import {PaymentsPayoutsService} from './payouts/payments-payouts.service';
+import {ChannelEntity} from '../channels/entities/channel.entity';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
+            ChannelEntity,
             DealEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
@@ -28,17 +31,23 @@ import {TonPaymentWatcher} from "./ton-payment.watcher";
         WalletsModule,
     ],
     controllers: [PaymentsController, EscrowController],
-    providers: [PaymentsService, EscrowService, EscrowTimeoutService, {
-        provide: TonCenterClient,
-        useFactory: () => {
-            return new TonCenterClient({
-                endpoint: process.env.TONCENTER_RPC!,
-                apiKey: process.env.TONCENTER_API_KEY!,
-            });
+    providers: [
+        PaymentsService,
+        PaymentsPayoutsService,
+        EscrowService,
+        EscrowTimeoutService,
+        {
+            provide: TonCenterClient,
+            useFactory: () => {
+                return new TonCenterClient({
+                    endpoint: process.env.TONCENTER_RPC!,
+                    apiKey: process.env.TONCENTER_API_KEY!,
+                });
+            },
         },
-    },
-        TonPaymentWatcher],
-    exports: [PaymentsService, EscrowService],
+        TonPaymentWatcher,
+    ],
+    exports: [PaymentsService, EscrowService, PaymentsPayoutsService],
 })
 export class PaymentsModule {
 }
