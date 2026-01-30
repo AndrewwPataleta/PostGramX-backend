@@ -56,14 +56,6 @@ export class DealEntity {
 
     @Column({
         type: 'enum',
-        enum: DealInitiatorSide,
-        enumName: 'deals_side_initiator_enum',
-        nullable: true,
-    })
-    sideInitiator: DealInitiatorSide | null;
-
-    @Column({
-        type: 'enum',
         enum: DealStatus,
         enumName: 'deals_status_enum',
         default: DealStatus.PENDING,

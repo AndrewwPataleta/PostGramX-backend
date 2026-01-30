@@ -10,6 +10,10 @@ import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from './types/transaction-status.enum';
 import {definedOnly} from '../../common/utils/defined-only';
+import {generateDealWallet} from "./ton/generate-ton-wallet";
+import {encryptMnemonic} from "./ton/mnemonic-crypto";
+import {TransactionType} from "./types/transaction-type.enum";
+import {TransactionDirection} from "./types/transaction-direction.enum";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -19,7 +23,8 @@ export class PaymentsService {
     constructor(
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
-    ) {}
+    ) {
+    }
 
     async listTransactionsForUser(
         userId: string,
@@ -139,13 +144,60 @@ export class PaymentsService {
     }
 
     async createTransaction(data: CreateTransactionDto) {
+
+
+        // 1) генерим уникальный адрес (wallet)
+        const wallet = await generateDealWallet();
+
+        // 2) шифруем mnemonic (секрет)
+        const masterKey = process.env.WALLET_MASTER_KEY;
+        if (!masterKey) throw new Error("WALLET_MASTER_KEY missing");
+        const mnemonicEnc = encryptMnemonic(wallet.mnemonic, masterKey);
+
+        // 3) сохраняем транзакцию + адрес
         const transaction = this.transactionRepository.create({
-            ...data,
-            currency: data.currency ?? 'TON',
-            status: data.status ?? TransactionStatus.PENDING,
+            userId: data.userId,
+
+            // ⬇️ ВАЖНО — жёстко задаём тип escrow
+            type: TransactionType.ESCROW_HOLD,
+
+            // advertiser платит В ТЕБЯ
+            direction: TransactionDirection.IN,
+
+            amountNano: "1000000000",
+            currency: data.currency ?? "TON",
+
+            status: TransactionStatus.PENDING,
+
+            description: data.description ?? null,
+            dealId: data.dealId ?? null,
+            channelId: data.channelId ?? null,
+            counterpartyUserId: data.counterpartyUserId ?? null,
+
+            depositAddress: wallet.address,
+
+            metadata: {
+                ...(data.metadata ?? {}),
+                escrow: {
+                    walletVersion: "v4r2",
+                    mnemonicEnc,
+                    publicKeyHex: wallet.publicKeyHex,
+                },
+            },
         });
-        return this.transactionRepository.save(transaction);
+
+        const saved = await this.transactionRepository.save(transaction);
+
+        // 4) возвращаем клиенту адрес для оплаты
+        return {
+            id: saved.id,
+            status: saved.status,
+            currency: saved.currency,
+            amountNano: saved.amountNano,
+            payToAddress: wallet.address,
+        };
     }
+
 
     async updateTransactionStatus(
         id: string,

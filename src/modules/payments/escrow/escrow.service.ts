@@ -272,9 +272,6 @@ export class EscrowService {
         };
     }
 
-    getHotWalletAddress(): string | null {
-        return this.configService.get<string>('TON_HOT_WALLET_ADDRESS') ?? null;
-    }
 
     private calculatePaymentExpiry(now: Date): Date {
         const timeoutMinutes = Number(

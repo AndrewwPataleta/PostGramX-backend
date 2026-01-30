@@ -10,6 +10,8 @@ import {EscrowTimeoutService} from './escrow/escrow-timeout.service';
 import {WalletsModule} from './wallets/wallets.module';
 import {PaymentsController} from './payments.controller';
 import {PaymentsService} from './payments.service';
+import {TonCenterClient} from "./ton/toncenter.client";
+import {TonPaymentWatcher} from "./ton-payment.watcher";
 
 @Module({
     imports: [
@@ -22,7 +24,17 @@ import {PaymentsService} from './payments.service';
         WalletsModule,
     ],
     controllers: [PaymentsController, EscrowController],
-    providers: [PaymentsService, EscrowService, EscrowTimeoutService],
+    providers: [PaymentsService, EscrowService, EscrowTimeoutService, {
+        provide: TonCenterClient,
+        useFactory: () => {
+            return new TonCenterClient({
+                endpoint: process.env.TONCENTER_RPC!,
+                apiKey: process.env.TONCENTER_API_KEY!,
+            });
+        },
+    },
+        TonPaymentWatcher],
     exports: [PaymentsService],
 })
-export class PaymentsModule {}
+export class PaymentsModule {
+}

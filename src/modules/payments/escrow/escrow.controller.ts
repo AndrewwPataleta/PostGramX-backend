@@ -17,7 +17,8 @@ import {
 @Controller('payments/escrow')
 @ApiTags('payments')
 export class EscrowController {
-    constructor(private readonly escrowService: EscrowService) {}
+    constructor(private readonly escrowService: EscrowService) {
+    }
 
     @Post('deal/init')
     @ApiOperation({summary: 'Initialize escrow for a deal'})
@@ -68,43 +69,4 @@ export class EscrowController {
         }
     }
 
-    @Post('deal/mock-confirm')
-    @ApiOperation({summary: 'Mock confirm escrow funds (dev only)'})
-    @ApiBody({type: MockConfirmDealEscrowDto})
-    async mockConfirmDealEscrow(
-        @Body(dtoValidationPipe) dto: MockConfirmDealEscrowDto,
-        @Req() req: Request,
-        @I18n() i18n: I18nContext,
-    ) {
-        const user = assertUser(req);
-
-        try {
-            if (!this.isMockAllowed(req)) {
-                throw new EscrowServiceError(
-                    EscrowServiceErrorCode.MOCK_DISABLED,
-                );
-            }
-
-            return await this.escrowService.mockConfirmDealEscrow(
-                user.id,
-                dto.data.dealId,
-                dto.data.externalTxHash,
-            );
-        } catch (error) {
-            await handleMappedError(error, i18n, {
-                errorType: EscrowServiceError,
-                mapStatus: mapEscrowErrorToStatus,
-                mapMessageKey: mapEscrowErrorToMessageKey,
-            });
-        }
-    }
-
-    private isMockAllowed(req: Request): boolean {
-        if ((process.env.NODE_ENV ?? '').toLowerCase() !== 'production') {
-            return true;
-        }
-
-        const header = req.headers['x-telegram-mock'];
-        return Boolean(header);
-    }
 }

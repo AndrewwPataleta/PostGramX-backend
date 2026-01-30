@@ -6,6 +6,7 @@ import {assertUser} from '../../core/controller-utils';
 import {GetTransactionDto} from './dto/get-transaction.dto';
 import {ListTransactionsDto} from './dto/list-transactions.dto';
 import {PaymentsService} from './payments.service';
+import {CreateTransactionDto} from "./dto/create-transaction.dto";
 
 @Controller('payments')
 @ApiTags('payments')
@@ -58,4 +59,35 @@ export class PaymentsController {
         const user = assertUser(req);
         return this.paymentsService.getTransactionForUser(user.id, id);
     }
+
+    @Post('transactions')
+    @ApiOperation({ summary: 'Create TON transaction and generate deposit address' })
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: 'telegram',
+                authType: 'telegram',
+                token: '<initData>',
+                data: {
+                    type: 'DEPOSIT',
+                    direction: 'IN',
+                    amountNano: '1000000000',
+                    description: 'Ad campaign payment',
+                    dealId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                },
+            },
+        },
+    })
+    async createTransaction(
+        @Body(dtoValidationPipe) dto: CreateTransactionDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+
+        return this.paymentsService.createTransaction({
+            ...dto,
+            userId: user.id,
+        });
+    }
+
 }
