@@ -1,4 +1,4 @@
-import {Inject, Injectable} from '@nestjs/common';
+import {forwardRef, Inject, Injectable} from '@nestjs/common';
 import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
 
@@ -34,7 +34,7 @@ const extractDealId = (text: string): string | null => {
 @Injectable()
 export class DealsBotHandler {
     constructor(
-        @Inject(DealsService)
+        @Inject(forwardRef(() => DealsService))
         private readonly dealsService: DealsService,
     ) {}
 
