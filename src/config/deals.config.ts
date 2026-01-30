@@ -1,3 +1,7 @@
+import {Logger} from '@nestjs/common';
+
+const logger = new Logger('DealsConfig');
+
 const parseNumber = (value: string | undefined, fallback: number): number => {
     if (!value) {
         return fallback;
@@ -46,6 +50,21 @@ export const DEALS_CONFIG = {
         process.env.DEAL_TIMEOUTS_CRON_INTERVAL_MINUTES,
         1,
     ),
+    MOCK_CREATIVE_APPROVE:
+        process.env.DEALS_MOCK_CREATIVE_APPROVE === 'true',
 };
+
+if (process.env.NODE_ENV === 'production' && DEALS_CONFIG.MOCK_CREATIVE_APPROVE) {
+    logger.error(
+        'MOCK_CREATIVE_APPROVE cannot be enabled in production. Forcing OFF.',
+    );
+    DEALS_CONFIG.MOCK_CREATIVE_APPROVE = false;
+}
+
+logger.log(
+    `Deals mock creative approve: ${
+        DEALS_CONFIG.MOCK_CREATIVE_APPROVE ? 'enabled' : 'disabled'
+    }`,
+);
 
 export const DEAL_TIMEOUTS_CRON = `*/${DEALS_CONFIG.CRON_INTERVAL_MINUTES} * * * *`;

@@ -2,6 +2,8 @@ import {forwardRef, Inject, Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
+import {DealCreativeEntity} from './entities/deal-creative.entity';
+import {DealCreativeType} from './types/deal-creative-type.enum';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
@@ -53,7 +55,10 @@ export class DealsNotificationsService {
         });
     }
 
-    async notifyCreativeSubmitted(deal: DealEntity): Promise<void> {
+    async notifyCreativeSubmitted(
+        deal: DealEntity,
+        creative: DealCreativeEntity,
+    ): Promise<void> {
         if (!deal.channelId) {
             this.logger.warn(
                 `Skipping creative notification: missing channelId for deal ${deal.id}`,
@@ -71,6 +76,17 @@ export class DealsNotificationsService {
             return;
         }
 
+        const recipients =
+            await this.participantsService.getNotificationRecipients(
+                deal.channelId,
+            );
+        if (recipients.length === 0) {
+            this.logger.log(
+                `No recipients found for creative notification: dealId=${deal.id} channelId=${deal.channelId}`,
+            );
+            return;
+        }
+
         const scheduledAt = deal.scheduledAt
             ? this.formatUtcTimestamp(deal.scheduledAt)
             : 'TBD';
@@ -78,34 +94,103 @@ export class DealsNotificationsService {
             ? `@${channel.username}`
             : channel.title;
 
-        const message = [
-            '📢 New ad creative submitted',
-            '',
-            `Channel: ${channelLabel}`,
-            `Scheduled time: ${scheduledAt}`,
-            '',
-            'Please review the creative and approve or request changes.',
-        ].join('\n');
-
         const link = this.deepLinkService.buildDealLink(deal.id);
         const buttons = [
             [
                 {
-                    text: 'Approve',
+                    text: '✅ Approve',
                     callback_data: `approve_creative:${deal.id}`,
                 },
                 {
-                    text: 'Request changes',
+                    text: '✏️ Request changes',
                     callback_data: `request_changes:${deal.id}`,
+                },
+            ],
+            [
+                {
+                    text: '❌ Reject',
+                    callback_data: `reject_creative:${deal.id}`,
                 },
             ],
             [{text: 'Open Mini App', url: link}],
         ];
 
-        await this.telegramBotService.sendDealReminderToChannelAdmins(
-            deal.channelId,
-            message,
-            buttons,
+        const header = '📩 Creative submitted for review';
+        const baseLines = [
+            header,
+            '',
+            `Channel: ${channelLabel}`,
+            `Deal: ${deal.id.slice(0, 8)}`,
+            `Scheduled: ${scheduledAt}`,
+            '',
+            'Creative:',
+        ];
+        const creativeText = creative.text ?? creative.caption ?? '';
+        const textContent = this.truncateText(creativeText, 500);
+
+        await this.runWithConcurrency(
+            recipients,
+            NOTIFICATION_CONCURRENCY,
+            async (recipient) => {
+                try {
+                    if (creative.type === DealCreativeType.TEXT) {
+                        const message = [...baseLines, textContent].join('\n');
+                        await this.telegramBotService.sendMessage(
+                            recipient.telegramId as string,
+                            message,
+                            {
+                                reply_markup: {inline_keyboard: buttons},
+                            },
+                        );
+                    } else if (
+                        creative.type === DealCreativeType.IMAGE &&
+                        creative.mediaFileId
+                    ) {
+                        const caption = this.buildCaption(baseLines, textContent);
+                        await this.telegramBotService.sendPhoto(
+                            recipient.telegramId as string,
+                            creative.mediaFileId,
+                            caption,
+                            {reply_markup: {inline_keyboard: buttons}},
+                        );
+                    } else if (
+                        creative.type === DealCreativeType.VIDEO &&
+                        creative.mediaFileId
+                    ) {
+                        const caption = this.buildCaption(baseLines, textContent);
+                        await this.telegramBotService.sendVideo(
+                            recipient.telegramId as string,
+                            creative.mediaFileId,
+                            caption,
+                            {reply_markup: {inline_keyboard: buttons}},
+                        );
+                    } else {
+                        const message = [
+                            ...baseLines,
+                            '⚠️ Creative format not supported for preview.',
+                        ].join('\n');
+                        await this.telegramBotService.sendMessage(
+                            recipient.telegramId as string,
+                            message,
+                            {
+                                reply_markup: {inline_keyboard: buttons},
+                            },
+                        );
+                    }
+
+                    this.logger.log('Sent creative for admin review', {
+                        dealId: deal.id,
+                        adminUserId: recipient.id,
+                        adminTelegramId: recipient.telegramId,
+                    });
+                } catch (error) {
+                    const errorMessage =
+                        error instanceof Error ? error.message : String(error);
+                    this.logger.warn(
+                        `Failed to send creative notification: dealId=${deal.id} recipient=${recipient.id} error=${errorMessage}`,
+                    );
+                }
+            },
         );
     }
 
@@ -248,6 +333,21 @@ export class DealsNotificationsService {
             default:
                 return 'Action required';
         }
+    }
+
+    private truncateText(value: string, limit: number): string {
+        if (value.length <= limit) {
+            return value;
+        }
+        return `${value.slice(0, Math.max(limit - 3, 0))}...`;
+    }
+
+    private buildCaption(baseLines: string[], creativeText: string): string {
+        const base = baseLines.join('\n');
+        const spacer = creativeText ? '\n' : '';
+        const available = Math.max(900 - base.length - spacer.length, 0);
+        const truncated = this.truncateText(creativeText, available);
+        return `${base}${spacer}${truncated}`;
     }
 
     private async runWithConcurrency<T>(

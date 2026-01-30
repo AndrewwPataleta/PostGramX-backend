@@ -221,4 +221,25 @@ export class DealsBotHandler {
 
         return true;
     }
+
+    async handleCreativeRejectCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result = await this.dealsService.handleCreativeRejectFromTelegram({
+            telegramUserId: getTelegramUserId(context),
+            dealId,
+        });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
+        if (result.message) {
+            await context.reply(result.message);
+        }
+
+        return true;
+    }
 }
