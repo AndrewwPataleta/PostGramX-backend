@@ -23,7 +23,8 @@ declare module 'telegraf' {
     export interface Context {
         updateType?: string;
         callbackQuery: CallbackQuery;
-        message: {text?: string};
+        message: {text?: string; caption?: string; message_id?: number};
+        from?: {id?: number};
         reply(text: string, extra?: unknown): Promise<void>;
         answerCbQuery(): Promise<void>;
     }
@@ -35,6 +36,22 @@ declare module 'telegraf' {
             options?: {
                 reply_markup?: {inline_keyboard: unknown[][]};
                 parse_mode?: 'HTML' | 'Markdown';
+            },
+        ): Promise<unknown>;
+        sendPhoto(
+            chatId: string,
+            photo: string,
+            options?: {
+                caption?: string;
+                reply_markup?: {inline_keyboard: unknown[][]};
+            },
+        ): Promise<unknown>;
+        sendVideo(
+            chatId: string,
+            video: string,
+            options?: {
+                caption?: string;
+                reply_markup?: {inline_keyboard: unknown[][]};
             },
         ): Promise<unknown>;
     }
