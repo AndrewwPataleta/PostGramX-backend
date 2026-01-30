@@ -299,15 +299,17 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
+        const advertiser = await this.userRepository.findOne({
+            where: {id: userId},
+        });
+        if (!advertiser) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
         const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
-        const creative = await this.creativeRepository.findOne({
-            where: {dealId: deal.id},
-        });
-        if (!creative) {
-            throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
-        }
+        const creative = await this.ensureCreativeOrCreateMock(deal, advertiser);
 
         const now = new Date();
         const adminReviewDeadlineAt = this.addHours(
@@ -333,6 +335,7 @@ export class DealsService {
             try {
                 await this.dealsNotificationsService.notifyCreativeSubmitted(
                     updated,
+                    creative,
                 );
             } catch (error) {
                 const errorMessage =
@@ -347,6 +350,8 @@ export class DealsService {
             id: deal.id,
             status: mapEscrowToDealStatus(escrowStatus),
             escrowStatus,
+            scheduledAt: updated?.scheduledAt ?? deal.scheduledAt,
+            creative: this.buildCreativeSummary(creative),
         };
     }
 
@@ -644,6 +649,58 @@ export class DealsService {
         };
     }
 
+    async handleCreativeRejectFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{handled: boolean; message?: string}> {
+        if (!payload.dealId) {
+            return {handled: false};
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+        if (!user) {
+            return {
+                handled: true,
+                message: 'You are not authorized to review this creative.',
+            };
+        }
+
+        try {
+            await this.rejectByAdmin(user.id, payload.dealId);
+        } catch (error) {
+            if (error instanceof DealServiceError) {
+                switch (error.code) {
+                    case DealErrorCode.DEAL_NOT_FOUND:
+                        return {handled: true, message: 'Deal not found.'};
+                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                        return {
+                            handled: true,
+                            message:
+                                'You are not authorized to review this creative.',
+                        };
+                    case DealErrorCode.INVALID_TRANSITION:
+                        return {
+                            handled: true,
+                            message: 'This deal is not ready for rejection.',
+                        };
+                    default:
+                        return {
+                            handled: true,
+                            message: 'Unable to reject this creative.',
+                        };
+                }
+            }
+            throw error;
+        }
+
+        return {
+            handled: true,
+            message: '❌ Creative rejected. The deal has been canceled.',
+        };
+    }
+
     async approveByAdmin(userId: string, dealId: string) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
@@ -656,6 +713,12 @@ export class DealsService {
             await this.cancelDealForAdminRights(deal);
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
+
+        this.logger.log('Admin creative decision', {
+            dealId,
+            decision: 'approve',
+            adminUserId: userId,
+        });
 
         const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
@@ -711,6 +774,12 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
+        this.logger.log('Admin creative decision', {
+            dealId,
+            decision: 'request_changes',
+            adminUserId: userId,
+        });
+
         const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
@@ -762,6 +831,12 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
+        this.logger.log('Admin creative decision', {
+            dealId,
+            decision: 'reject',
+            adminUserId: userId,
+        });
+
         const escrowStatus = DealEscrowStatus.CANCELED;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
@@ -772,6 +847,19 @@ export class DealsService {
             cancelReason: reason ?? 'ADMIN_REJECTED',
             ...this.buildActivityUpdate(now),
         });
+
+        try {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'Rejected by admin. The deal has been canceled.',
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal rejection notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
 
         return {
             id: deal.id,
@@ -1090,5 +1178,78 @@ export class DealsService {
 
     private addHours(date: Date, hours: number): Date {
         return new Date(date.getTime() + hours * 3_600_000);
+    }
+
+    private async ensureCreativeOrCreateMock(
+        deal: DealEntity,
+        advertiser: User,
+    ): Promise<DealCreativeEntity> {
+        const existing = await this.creativeRepository.findOne({
+            where: {dealId: deal.id},
+        });
+        if (existing) {
+            return existing;
+        }
+
+        if (!DEALS_CONFIG.MOCK_CREATIVE_APPROVE) {
+            throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
+        }
+
+        const advertiserLabel =
+            advertiser.username ?? advertiser.telegramId ?? 'unknown';
+        const mockText =
+            '✅ MOCK CREATIVE (demo)\n' +
+            `Deal: ${deal.id}\n` +
+            `Advertiser: @${advertiserLabel}\n\n` +
+            'Hello! This is a demo ad post.\n' +
+            '— CTA: https://example.com\n' +
+            '— Tracking: disabled\n';
+
+        const creative = this.creativeRepository.create({
+            dealId: deal.id,
+            type: DealCreativeType.TEXT,
+            text: mockText,
+            caption: null,
+            mediaFileId: null,
+            rawPayload: {
+                mock: true,
+                createdAt: new Date().toISOString(),
+                source: 'api_mock',
+            },
+        });
+
+        const saved = await this.creativeRepository.save(creative);
+        this.logger.warn('Mock creative created', {
+            dealId: deal.id,
+            advertiserUserId: advertiser.id,
+            enabled: true,
+        });
+
+        return saved;
+    }
+
+    private buildCreativeSummary(creative: DealCreativeEntity): {
+        type: DealCreativeType;
+        textPreview: string;
+        isMock: boolean;
+    } {
+        const text = creative.text ?? creative.caption ?? '';
+        const preview = this.truncateText(text, 200);
+        const isMock =
+            Boolean(creative.rawPayload) &&
+            (creative.rawPayload as {mock?: boolean}).mock === true;
+
+        return {
+            type: creative.type,
+            textPreview: preview,
+            isMock,
+        };
+    }
+
+    private truncateText(value: string, limit: number): string {
+        if (value.length <= limit) {
+            return value;
+        }
+        return `${value.slice(0, Math.max(limit - 3, 0))}...`;
     }
 }

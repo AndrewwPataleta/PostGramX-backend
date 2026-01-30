@@ -82,6 +82,58 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    async sendPhoto(
+        userTelegramId: string | number,
+        fileId: string,
+        caption?: string,
+        options?: {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
+    ): Promise<void> {
+        if (!this.config?.token) {
+            this.logger.warn('Telegram bot token not configured; skipping send.');
+            return;
+        }
+
+        try {
+            const bot = this.getBot();
+            await bot.telegram.sendPhoto(String(userTelegramId), fileId, {
+                caption,
+                reply_markup: options?.reply_markup,
+            });
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Failed to send Telegram photo to ${userTelegramId}: ${errorMessage}`,
+            );
+        }
+    }
+
+    async sendVideo(
+        userTelegramId: string | number,
+        fileId: string,
+        caption?: string,
+        options?: {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
+    ): Promise<void> {
+        if (!this.config?.token) {
+            this.logger.warn('Telegram bot token not configured; skipping send.');
+            return;
+        }
+
+        try {
+            const bot = this.getBot();
+            await bot.telegram.sendVideo(String(userTelegramId), fileId, {
+                caption,
+                reply_markup: options?.reply_markup,
+            });
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Failed to send Telegram video to ${userTelegramId}: ${errorMessage}`,
+            );
+        }
+    }
+
     async sendDealStatusUpdate(
         userTelegramId: string,
         dealId: string,

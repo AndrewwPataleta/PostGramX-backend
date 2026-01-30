@@ -97,6 +97,18 @@ export class TelegramBotUpdate {
                     return;
                 }
             }
+
+            if (data?.startsWith('reject_creative:')) {
+                const dealId = data.replace('reject_creative:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleCreativeRejectCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
         });
 
         bot.on('message', async (context) => {
