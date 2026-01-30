@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {Inject, Injectable} from '@nestjs/common';
 import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
 
@@ -33,7 +33,10 @@ const extractDealId = (text: string): string | null => {
 
 @Injectable()
 export class DealsBotHandler {
-    constructor(private readonly dealsService: DealsService) {}
+    constructor(
+        @Inject(DealsService)
+        private readonly dealsService: DealsService,
+    ) {}
 
     async handleStart(context: Context): Promise<boolean> {
         const payload = getStartPayload(context)?.trim();
