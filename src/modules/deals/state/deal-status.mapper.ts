@@ -6,20 +6,21 @@ export function mapEscrowToDealStatus(
 ): DealStatus {
     switch (escrow) {
         case DealEscrowStatus.DRAFT:
-        case DealEscrowStatus.WAITING_SCHEDULE:
-        case DealEscrowStatus.WAITING_CREATIVE:
-        case DealEscrowStatus.CREATIVE_SUBMITTED:
+        case DealEscrowStatus.SCHEDULING_PENDING:
+        case DealEscrowStatus.CREATIVE_AWAITING_SUBMIT:
+        case DealEscrowStatus.CREATIVE_AWAITING_CONFIRM:
         case DealEscrowStatus.ADMIN_REVIEW:
-        case DealEscrowStatus.CHANGES_REQUESTED:
-        case DealEscrowStatus.AWAITING_PAYMENT:
+        case DealEscrowStatus.PAYMENT_WINDOW_PENDING:
         case DealEscrowStatus.PAYMENT_AWAITING:
+        case DealEscrowStatus.FUNDS_PENDING:
             return DealStatus.PENDING;
         case DealEscrowStatus.FUNDS_CONFIRMED:
-        case DealEscrowStatus.SCHEDULED:
-        case DealEscrowStatus.POSTING:
+        case DealEscrowStatus.CREATIVE_PENDING:
+        case DealEscrowStatus.CREATIVE_REVIEW:
+        case DealEscrowStatus.APPROVED_SCHEDULED:
         case DealEscrowStatus.POSTED_VERIFYING:
             return DealStatus.ACTIVE;
-        case DealEscrowStatus.RELEASED:
+        case DealEscrowStatus.COMPLETED:
             return DealStatus.COMPLETED;
         case DealEscrowStatus.CANCELED:
         case DealEscrowStatus.REFUNDED:

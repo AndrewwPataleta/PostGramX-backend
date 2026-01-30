@@ -36,8 +36,7 @@ export class EscrowTimeoutService {
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
             DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
             DealEscrowStatus.ADMIN_REVIEW,
-            DealEscrowStatus.CHANGES_REQUESTED,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.PAYMENT_WINDOW_PENDING,
             DealEscrowStatus.PAYMENT_AWAITING,
         ];
 
@@ -66,8 +65,10 @@ export class EscrowTimeoutService {
         }
 
         const postFundingStatuses = [
-            DealEscrowStatus.SCHEDULED,
-            DealEscrowStatus.POSTING,
+            DealEscrowStatus.FUNDS_CONFIRMED,
+            DealEscrowStatus.CREATIVE_PENDING,
+            DealEscrowStatus.CREATIVE_REVIEW,
+            DealEscrowStatus.APPROVED_SCHEDULED,
             DealEscrowStatus.POSTED_VERIFYING,
         ];
 
