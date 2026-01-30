@@ -268,7 +268,7 @@ export class DealsDeliveryService {
                     dealId: deal.id,
                     ok: true,
                     ms: durationMs(rightsStartMs),
-                    details: {reason: rightsResult.reason ?? null},
+                    details: {reason: null},
                 }),
             );
 

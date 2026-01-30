@@ -57,6 +57,10 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.scheduled',
         shortLabel: 'Scheduled',
     },
+    [DealEscrowStatus.POSTING]: {
+        stageKey: 'deals.stages.posting',
+        shortLabel: 'Posting',
+    },
     [DealEscrowStatus.POSTED_VERIFYING]: {
         stageKey: 'deals.stages.posted_verifying',
         shortLabel: 'Verifying post',
