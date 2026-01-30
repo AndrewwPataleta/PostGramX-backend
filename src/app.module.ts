@@ -22,6 +22,7 @@ import {DealsModule} from './modules/deals/deals.module';
 import {ListingsModule} from './modules/listings/listings.module';
 import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
 import {MarketplaceModule} from './modules/marketplace/marketplace.module';
+import {DealDeliveryMonitorModule} from './deals-delivery/deals-delivery.module';
 import {
     buildTypeOrmOptions,
     typeOrmEntities,
@@ -63,6 +64,7 @@ import {
         ListingsModule,
         PaymentsModule,
         TelegramBotModule,
+        DealDeliveryMonitorModule,
     ],
     controllers: [AppController],
     providers: [

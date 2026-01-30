@@ -43,6 +43,11 @@ const ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
         DealEscrowStatus.DISPUTED,
     ],
     [DealEscrowStatus.APPROVED_SCHEDULED]: [
+        DealEscrowStatus.POSTING,
+        DealEscrowStatus.POSTED_VERIFYING,
+        DealEscrowStatus.DISPUTED,
+    ],
+    [DealEscrowStatus.POSTING]: [
         DealEscrowStatus.POSTED_VERIFYING,
         DealEscrowStatus.DISPUTED,
     ],
@@ -75,6 +80,10 @@ export function isTransitionAllowed(
     }
 
     if (to === DealEscrowStatus.CANCELED) {
+        return !FINAL_STATUSES.has(from);
+    }
+
+    if (to === DealEscrowStatus.REFUNDED) {
         return !FINAL_STATUSES.has(from);
     }
 

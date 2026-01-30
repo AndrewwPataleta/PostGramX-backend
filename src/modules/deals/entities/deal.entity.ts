@@ -22,6 +22,7 @@ import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 @Index('IDX_deals_listing_id', ['listingId'])
 @Index('IDX_deals_channel_id', ['channelId'])
 @Index('IDX_deals_escrow_status', ['escrowStatus'])
+@Index('IDX_deals_scheduledAt_escrowStatus', ['scheduledAt', 'escrowStatus'])
 @Index('IDX_deals_escrow_expires_at', ['escrowExpiresAt'])
 @Index('IDX_deals_last_activity_at', ['lastActivityAt'])
 @Index('IDX_deals_idle_expires_at', ['idleExpiresAt'])
@@ -136,6 +137,21 @@ export class DealEntity extends BaseEntity {
 
     @Column({type: 'timestamptz', nullable: true})
     scheduledAt: Date | null;
+
+    @Column({type: 'bigint', nullable: true})
+    publishedMessageId: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    publishedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    deliveryVerifiedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    mustRemainUntil: Date | null;
+
+    @Column({type: 'text', nullable: true})
+    deliveryError: string | null;
 
     @Column({type: 'text', nullable: true})
     cancelReason: string | null;

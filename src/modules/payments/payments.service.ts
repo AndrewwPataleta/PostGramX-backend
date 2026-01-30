@@ -1,10 +1,11 @@
 import {
     ForbiddenException,
     Injectable,
+    Logger,
     NotFoundException,
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Repository} from 'typeorm';
+import {DataSource, In, Repository} from 'typeorm';
 import {CreateTransactionDto} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
@@ -14,13 +15,19 @@ import {generateDealWallet} from "./ton/generate-ton-wallet";
 import {encryptMnemonic} from "./ton/mnemonic-crypto";
 import {TransactionType} from "./types/transaction-type.enum";
 import {TransactionDirection} from "./types/transaction-direction.enum";
+import {DealEntity} from '../deals/entities/deal.entity';
+import {DealEscrowStatus} from '../deals/types/deal-escrow-status.enum';
+import {mapEscrowToDealStatus} from '../deals/state/deal-status.mapper';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
 @Injectable()
 export class PaymentsService {
+    private readonly logger = new Logger(PaymentsService.name);
+
     constructor(
+        private readonly dataSource: DataSource,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
     ) {
@@ -214,5 +221,38 @@ export class PaymentsService {
         });
 
         await this.transactionRepository.update(id, updatePayload);
+    }
+
+    async refundDealEscrow(dealId: string, reason: string): Promise<void> {
+        const now = new Date();
+        await this.dataSource.transaction(async (manager) => {
+            const dealRepository = manager.getRepository(DealEntity);
+            const transactionRepository =
+                manager.getRepository(TransactionEntity);
+
+            await transactionRepository.update(
+                {
+                    dealId,
+                    type: TransactionType.ESCROW_HOLD,
+                    status: In([
+                        TransactionStatus.CONFIRMED,
+                        TransactionStatus.COMPLETED,
+                    ]),
+                },
+                {
+                    status: TransactionStatus.REFUNDED,
+                    completedAt: now,
+                    errorMessage: reason,
+                },
+            );
+
+            await dealRepository.update(dealId, {
+                escrowStatus: DealEscrowStatus.REFUNDED,
+                status: mapEscrowToDealStatus(DealEscrowStatus.REFUNDED),
+                lastActivityAt: now,
+            });
+        });
+
+        this.logger.log(`Refund queued for deal ${dealId}: ${reason}`);
     }
 }
