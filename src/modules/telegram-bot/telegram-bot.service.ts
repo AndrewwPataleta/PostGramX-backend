@@ -1,4 +1,6 @@
 import {
+    forwardRef,
+    Inject,
     Injectable,
     Logger,
     OnModuleDestroy,
@@ -26,6 +28,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
     constructor(
         private readonly configService: ConfigService,
+        @Inject(forwardRef(() => TelegramBotUpdate))
         private readonly updateRegistry: TelegramBotUpdate,
         private readonly channelParticipantsService: ChannelParticipantsService,
     ) {}
