@@ -126,30 +126,6 @@ export class DealsController {
         }
     }
 
-    @Post('creative/confirmSent')
-    @ApiOperation({summary: 'Confirm creative sent for a deal'})
-    @ApiBody({type: CreativeConfirmSentDto})
-    async confirmCreativeSent(
-        @Body(dtoValidationPipe) dto: CreativeConfirmSentDto,
-        @Req() req: Request,
-        @I18n() i18n: I18nContext,
-    ) {
-        const user = assertUser(req);
-
-        try {
-            return await this.dealsService.confirmCreativeSent(
-                user.id,
-                dto.data.dealId,
-            );
-        } catch (error) {
-            await handleMappedError(error, i18n, {
-                errorType: DealServiceError,
-                mapStatus: mapDealErrorToStatus,
-                mapMessageKey: mapDealErrorToMessageKey,
-            });
-        }
-    }
-
     @Post('creative/submit')
     @ApiOperation({summary: 'Submit creative confirmation for a deal'})
     @ApiBody({type: CreativeSubmitDto})

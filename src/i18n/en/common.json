@@ -116,7 +116,6 @@
       "awaiting_payment": "Awaiting payment",
       "PAYMENT_AWAITING": "Payment processing",
       "funds_confirmed": "Payment confirmed",
-      "scheduled": "Scheduled",
       "posting": "Posting",
       "posted_verifying": "Verifying post",
       "released": "Released",
