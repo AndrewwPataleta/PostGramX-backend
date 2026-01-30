@@ -15,40 +15,31 @@ import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
 import {mapEscrowToDealStatus} from './state/deal-status.mapper';
 import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
 import {DEALS_CONFIG} from '../../config/deals.config';
+import {User} from '../auth/entities/user.entity';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
 const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.DRAFT,
-    DealEscrowStatus.SCHEDULING_PENDING,
-    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    DealEscrowStatus.WAITING_SCHEDULE,
+    DealEscrowStatus.WAITING_CREATIVE,
+    DealEscrowStatus.CREATIVE_SUBMITTED,
     DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
-    DealEscrowStatus.PAYMENT_AWAITING,
-    DealEscrowStatus.FUNDS_PENDING,
+    DealEscrowStatus.CHANGES_REQUESTED,
+    DealEscrowStatus.AWAITING_PAYMENT,
+    DealEscrowStatus.PAYMENT_PENDING,
 ];
 
 const ACTIVE_ESCROW_STATUSES = [
     DealEscrowStatus.FUNDS_CONFIRMED,
-    DealEscrowStatus.APPROVED_SCHEDULED,
+    DealEscrowStatus.SCHEDULED,
+    DealEscrowStatus.POSTING,
     DealEscrowStatus.POSTED_VERIFYING,
-    DealEscrowStatus.CREATIVE_PENDING,
-    DealEscrowStatus.CREATIVE_REVIEW,
-];
-
-const ACTIVE_PREDEAL_ESCROW_STATUSES = [
-    DealEscrowStatus.SCHEDULING_PENDING,
-    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
-    DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
-    DealEscrowStatus.PAYMENT_AWAITING,
 ];
 
 const COMPLETED_ESCROW_STATUSES = [
-    DealEscrowStatus.COMPLETED,
+    DealEscrowStatus.RELEASED,
     DealEscrowStatus.CANCELED,
     DealEscrowStatus.REFUNDED,
     DealEscrowStatus.DISPUTED,
@@ -68,6 +59,8 @@ export class DealsService {
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(ChannelMembershipEntity)
         private readonly membershipRepository: Repository<ChannelMembershipEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
         private readonly dealsNotificationsService: DealsNotificationsService,
     ) {}
 
@@ -105,21 +98,21 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
         }
 
-        const activePredealCount = await this.dealRepository.count({
+        const activePendingCount = await this.dealRepository.count({
             where: {
                 listingId,
                 advertiserUserId: userId,
                 status: DealStatus.PENDING,
-                escrowStatus: In(ACTIVE_PREDEAL_ESCROW_STATUSES),
+                escrowStatus: In(PENDING_ESCROW_STATUSES),
             },
         });
 
         if (
-            activePredealCount >=
-            DEALS_CONFIG.MAX_ACTIVE_PREDEALS_PER_LISTING_PER_USER
+            activePendingCount >=
+            DEALS_CONFIG.MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER
         ) {
             throw new DealServiceError(
-                DealErrorCode.ACTIVE_PREDEALS_LIMIT_REACHED,
+                DealErrorCode.ACTIVE_PENDING_LIMIT_REACHED,
             );
         }
 
@@ -148,16 +141,15 @@ export class DealsService {
         const now = new Date();
         const listingSnapshot = this.buildListingSnapshot(listing, now);
         const escrowStatus = parsedScheduledAt
-            ? DealEscrowStatus.CREATIVE_AWAITING_SUBMIT
-            : DealEscrowStatus.SCHEDULING_PENDING;
-        const predealExpiresAt = this.addMinutes(
+            ? DealEscrowStatus.WAITING_CREATIVE
+            : DealEscrowStatus.WAITING_SCHEDULE;
+        const idleExpiresAt = this.addMinutes(
             now,
-            DEALS_CONFIG.PREDEAL_IDLE_EXPIRE_MINUTES,
+            DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES,
         );
-        const creativeMustBeSubmittedBy = this.addMinutes(
-            now,
-            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
-        );
+        const creativeDeadlineAt = parsedScheduledAt
+            ? this.addMinutes(now, DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES)
+            : null;
 
         const deal = await this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(DealEntity);
@@ -169,7 +161,7 @@ export class DealsService {
                 createdByUserId: userId,
                 sideInitiator: DealInitiatorSide.ADVERTISER,
                 status: mapEscrowToDealStatus(escrowStatus),
-                escrowStatus: DealEscrowStatus.SCHEDULING_PENDING,
+                escrowStatus,
                 offerSnapshot: {
                     priceNano: listing.priceNano,
                     currency: listing.currency,
@@ -190,8 +182,8 @@ export class DealsService {
                 brief: brief ?? null,
                 scheduledAt: parsedScheduledAt,
                 lastActivityAt: now,
-                predealExpiresAt,
-                creativeMustBeSubmittedBy,
+                idleExpiresAt,
+                creativeDeadlineAt,
             });
 
             return repo.save(created);
@@ -237,16 +229,21 @@ export class DealsService {
 
         this.ensureTransitionAllowed(
             deal.escrowStatus,
-            DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+            DealEscrowStatus.WAITING_CREATIVE,
         );
 
         const now = new Date();
-        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
+        const escrowStatus = DealEscrowStatus.WAITING_CREATIVE;
+        const creativeDeadlineAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+        );
 
         await this.dealRepository.update(deal.id, {
             scheduledAt: parsedScheduledAt,
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
+            creativeDeadlineAt,
             ...this.buildActivityUpdate(now),
         });
 
@@ -258,7 +255,7 @@ export class DealsService {
         };
     }
 
-    async attachCreative(userId: string, dealId: string) {
+    async confirmCreativeSent(userId: string, dealId: string) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -269,7 +266,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_CONFIRM;
+        const escrowStatus = DealEscrowStatus.CREATIVE_SUBMITTED;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
@@ -286,14 +283,22 @@ export class DealsService {
         };
     }
 
-    async confirmCreative(userId: string, dealId: string) {
-        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+    async recordCreativeSubmission(payload: {
+        userId: string;
+        dealId: string;
+        messageId: string;
+        messageText: string | null;
+        creativePayload: Record<string, unknown> | null;
+    }) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: payload.dealId},
+        });
 
         if (!deal) {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
-        if (deal.advertiserUserId !== userId) {
+        if (deal.advertiserUserId !== payload.userId) {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
@@ -301,22 +306,111 @@ export class DealsService {
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
-        const adminMustRespondBy = this.addHours(
+        const adminReviewDeadlineAt = this.addHours(
             now,
             DEALS_CONFIG.ADMIN_RESPONSE_DEADLINE_HOURS,
         );
+
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
+            creativeMessageId: payload.messageId,
+            creativeText: payload.messageText,
+            creativePayload: payload.creativePayload,
+            creativeSubmittedAt: now,
+            adminReviewComment: null,
             adminReviewNotifiedAt: now,
-            adminMustRespondBy,
+            adminReviewDeadlineAt,
+            creativeDeadlineAt: null,
             ...this.buildActivityUpdate(now),
         });
+
+        const updated = await this.dealRepository.findOne({
+            where: {id: deal.id},
+        });
+        if (updated) {
+            try {
+                await this.dealsNotificationsService.notifyDealActionRequired(
+                    updated,
+                    'approval',
+                );
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Deal admin notification failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
+        }
 
         return {
             id: deal.id,
             status: mapEscrowToDealStatus(escrowStatus),
             escrowStatus,
+        };
+    }
+
+    async handleCreativeMessage(payload: {
+        telegramUserId: string;
+        chatId: string;
+        dealId: string;
+        messageId: string;
+        text: string | null;
+        attachments: Array<Record<string, unknown>> | null;
+    }): Promise<{handled: boolean; message?: string}> {
+        if (!payload.dealId) {
+            return {handled: false};
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+
+        if (!user) {
+            return {
+                handled: true,
+                message: 'Please sign in to PostGramX before submitting creative.',
+            };
+        }
+
+        try {
+            await this.recordCreativeSubmission({
+                userId: user.id,
+                dealId: payload.dealId,
+                messageId: payload.messageId,
+                messageText: payload.text,
+                creativePayload: {
+                    telegramChatId: payload.chatId,
+                    attachments: payload.attachments ?? [],
+                },
+            });
+        } catch (error) {
+            if (error instanceof DealServiceError) {
+                switch (error.code) {
+                    case DealErrorCode.DEAL_NOT_FOUND:
+                        return {handled: true, message: 'Deal not found.'};
+                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                        return {
+                            handled: true,
+                            message: 'You are not the advertiser for this deal.',
+                        };
+                    case DealErrorCode.INVALID_TRANSITION:
+                        return {
+                            handled: true,
+                            message:
+                                'This deal is not ready to accept creative right now.',
+                        };
+                    default:
+                        return {handled: true, message: 'Unable to attach creative.'};
+                }
+            }
+            throw error;
+        }
+
+        return {
+            handled: true,
+            message:
+                '✅ Creative received. We have notified the channel admins for review.',
         };
     }
 
@@ -331,15 +425,35 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
+        const escrowStatus = DealEscrowStatus.AWAITING_PAYMENT;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
+        const paymentDeadlineAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.PAYMENT_DEADLINE_MINUTES,
+        );
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
+            approvedAt: now,
+            paymentDeadlineAt,
+            adminReviewDeadlineAt: null,
             ...this.buildActivityUpdate(now),
         });
+
+        try {
+            await this.dealsNotificationsService.notifyDealActionRequired(
+                deal,
+                'payment',
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal payment notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
 
         return {
             id: deal.id,
@@ -348,10 +462,10 @@ export class DealsService {
         };
     }
 
-    async setPaymentWindow(
+    async requestChangesByAdmin(
         userId: string,
         dealId: string,
-        expiresAt: Date,
+        comment?: string,
     ) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
@@ -363,15 +477,21 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        const escrowStatus = DealEscrowStatus.CHANGES_REQUESTED;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
+        const creativeDeadlineAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+        );
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            escrowExpiresAt: expiresAt,
-            paymentMustBePaidBy: expiresAt,
+            adminReviewComment: comment ?? null,
+            creativeDeadlineAt,
+            adminReviewDeadlineAt: null,
+            adminReviewNotifiedAt: null,
             ...this.buildActivityUpdate(now),
         });
 
@@ -379,7 +499,35 @@ export class DealsService {
             id: deal.id,
             status: mapEscrowToDealStatus(escrowStatus),
             escrowStatus,
-            escrowExpiresAt: expiresAt,
+        };
+    }
+
+    async rejectByAdmin(userId: string, dealId: string, reason?: string) {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.publisherOwnerUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const escrowStatus = DealEscrowStatus.CANCELED;
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            cancelReason: reason ?? 'ADMIN_REJECTED',
+            ...this.buildActivityUpdate(now),
+        });
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
         };
     }
 
@@ -425,6 +573,26 @@ export class DealsService {
         };
     }
 
+    async getDeal(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+            relations: ['listing', 'channel'],
+        });
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (
+            deal.advertiserUserId !== userId &&
+            deal.publisherOwnerUserId !== userId
+        ) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        return this.buildDealItem(deal, userId);
+    }
+
     private async fetchDealsGroup(
         userId: string,
         role: 'all' | 'advertiser' | 'publisher',
@@ -468,81 +636,85 @@ export class DealsService {
 
         const [deals, total] = await qb.getManyAndCount();
 
-        const items = deals.map((deal) => {
-            const listing = deal.listing;
-            const listingSnapshot = deal.listingSnapshot as
-                | Partial<DealListingSnapshot>
-                | null;
-            const channel = deal.channel;
-
-            const hasSnapshot = Boolean(
-                listingSnapshot?.listingId && listingSnapshot?.priceNano,
-            );
-
-            return {
-                id: deal.id,
-                status: deal.status,
-                escrowStatus: deal.escrowStatus,
-                initiatorSide: deal.sideInitiator,
-                userRoleInDeal:
-                    deal.advertiserUserId === userId
-                        ? 'advertiser'
-                        : deal.publisherOwnerUserId === userId
-                          ? 'publisher'
-                          : 'unknown',
-                channel: channel
-                    ? {
-                          id: channel.id,
-                          name: channel.title,
-                          username: channel.username,
-                          avatarUrl: null,
-                          verified: Boolean(channel.verifiedAt),
-                      }
-                    : null,
-                listing: hasSnapshot
-                    ? {
-                          id: listingSnapshot?.listingId ?? '',
-                          priceNano: listingSnapshot?.priceNano ?? '',
-                          currency: listingSnapshot?.currency ?? '',
-                          format:
-                              listingSnapshot?.format ?? ListingFormat.POST,
-                          tags: listingSnapshot?.tags ?? [],
-                          pinDurationHours:
-                              listingSnapshot?.pinDurationHours ?? null,
-                          visibilityDurationHours:
-                              listingSnapshot?.visibilityDurationHours ?? 0,
-                          allowEdits: listingSnapshot?.allowEdits ?? false,
-                          allowLinkTracking:
-                              listingSnapshot?.allowLinkTracking ?? false,
-                          contentRulesText:
-                              listingSnapshot?.contentRulesText ?? '',
-                      }
-                    : listing
-                      ? {
-                            id: listing.id,
-                            priceNano: listing.priceNano,
-                            currency: listing.currency,
-                            format: listing.format,
-                            tags: listing.tags,
-                            pinDurationHours: listing.pinDurationHours,
-                            visibilityDurationHours:
-                                listing.visibilityDurationHours,
-                            allowEdits: listing.allowEdits,
-                            allowLinkTracking: listing.allowLinkTracking,
-                            contentRulesText: listing.contentRulesText,
-                        }
-                      : null,
-                createdAt: deal.createdAt,
-                lastActivityAt: deal.lastActivityAt,
-                scheduledAt: deal.scheduledAt,
-            };
-        });
+        const items = deals.map((deal) => this.buildDealItem(deal, userId));
 
         return {
             items,
             page: group.page,
             limit: group.limit,
             total,
+        };
+    }
+
+    private buildDealItem(deal: DealEntity, userId: string) {
+        const listing = deal.listing;
+        const listingSnapshot = deal.listingSnapshot as
+            | Partial<DealListingSnapshot>
+            | null;
+        const channel = deal.channel;
+
+        const hasSnapshot = Boolean(
+            listingSnapshot?.listingId && listingSnapshot?.priceNano,
+        );
+
+        return {
+            id: deal.id,
+            status: deal.status,
+            escrowStatus: deal.escrowStatus,
+            initiatorSide: deal.sideInitiator,
+            userRoleInDeal:
+                deal.advertiserUserId === userId
+                    ? 'advertiser'
+                    : deal.publisherOwnerUserId === userId
+                      ? 'publisher'
+                      : 'unknown',
+            channel: channel
+                ? {
+                      id: channel.id,
+                      name: channel.title,
+                      username: channel.username,
+                      avatarUrl: null,
+                      verified: Boolean(channel.verifiedAt),
+                  }
+                : null,
+            listing: hasSnapshot
+                ? {
+                      id: listingSnapshot?.listingId ?? '',
+                      priceNano: listingSnapshot?.priceNano ?? '',
+                      currency: listingSnapshot?.currency ?? '',
+                      format: listingSnapshot?.format ?? ListingFormat.POST,
+                      tags: listingSnapshot?.tags ?? [],
+                      pinDurationHours:
+                          listingSnapshot?.pinDurationHours ?? null,
+                      visibilityDurationHours:
+                          listingSnapshot?.visibilityDurationHours ?? 0,
+                      allowEdits: listingSnapshot?.allowEdits ?? false,
+                      allowLinkTracking:
+                          listingSnapshot?.allowLinkTracking ?? false,
+                      contentRulesText:
+                          listingSnapshot?.contentRulesText ?? '',
+                  }
+                : listing
+                  ? {
+                        id: listing.id,
+                        priceNano: listing.priceNano,
+                        currency: listing.currency,
+                        format: listing.format,
+                        tags: listing.tags,
+                        pinDurationHours: listing.pinDurationHours,
+                        visibilityDurationHours:
+                            listing.visibilityDurationHours,
+                        allowEdits: listing.allowEdits,
+                        allowLinkTracking: listing.allowLinkTracking,
+                        contentRulesText: listing.contentRulesText,
+                    }
+                  : null,
+            createdAt: deal.createdAt,
+            lastActivityAt: deal.lastActivityAt,
+            scheduledAt: deal.scheduledAt,
+            creativeSubmittedAt: deal.creativeSubmittedAt,
+            adminReviewComment: deal.adminReviewComment,
+            paymentDeadlineAt: deal.paymentDeadlineAt,
         };
     }
 
@@ -585,13 +757,13 @@ export class DealsService {
 
     private buildActivityUpdate(now: Date): {
         lastActivityAt: Date;
-        predealExpiresAt: Date;
+        idleExpiresAt: Date;
     } {
         return {
             lastActivityAt: now,
-            predealExpiresAt: this.addMinutes(
+            idleExpiresAt: this.addMinutes(
                 now,
-                DEALS_CONFIG.PREDEAL_IDLE_EXPIRE_MINUTES,
+                DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES,
             ),
         };
     }

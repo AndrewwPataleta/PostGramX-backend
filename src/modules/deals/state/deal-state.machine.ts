@@ -1,7 +1,7 @@
 import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
 
 const FINAL_STATUSES = new Set<DealEscrowStatus>([
-    DealEscrowStatus.COMPLETED,
+    DealEscrowStatus.RELEASED,
     DealEscrowStatus.CANCELED,
     DealEscrowStatus.REFUNDED,
     DealEscrowStatus.DISPUTED,
@@ -9,54 +9,56 @@ const FINAL_STATUSES = new Set<DealEscrowStatus>([
 
 const ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
     [DealEscrowStatus.DRAFT]: [
-        DealEscrowStatus.SCHEDULING_PENDING,
+        DealEscrowStatus.WAITING_SCHEDULE,
+        DealEscrowStatus.WAITING_CREATIVE,
         DealEscrowStatus.CANCELED,
     ],
-    [DealEscrowStatus.SCHEDULING_PENDING]: [
-        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    [DealEscrowStatus.WAITING_SCHEDULE]: [
+        DealEscrowStatus.WAITING_CREATIVE,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
-        DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    [DealEscrowStatus.WAITING_CREATIVE]: [
+        DealEscrowStatus.CREATIVE_SUBMITTED,
+        DealEscrowStatus.ADMIN_REVIEW,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_CONFIRM]: [
+    [DealEscrowStatus.CREATIVE_SUBMITTED]: [
         DealEscrowStatus.ADMIN_REVIEW,
     ],
     [DealEscrowStatus.ADMIN_REVIEW]: [
-        DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+        DealEscrowStatus.CHANGES_REQUESTED,
+        DealEscrowStatus.AWAITING_PAYMENT,
     ],
-    [DealEscrowStatus.PAYMENT_WINDOW_PENDING]: [
-        DealEscrowStatus.PAYMENT_AWAITING,
+    [DealEscrowStatus.CHANGES_REQUESTED]: [
+        DealEscrowStatus.WAITING_CREATIVE,
+        DealEscrowStatus.ADMIN_REVIEW,
     ],
-    [DealEscrowStatus.PAYMENT_AWAITING]: [
-        DealEscrowStatus.FUNDS_PENDING,
+    [DealEscrowStatus.AWAITING_PAYMENT]: [
+        DealEscrowStatus.PAYMENT_PENDING,
+        DealEscrowStatus.FUNDS_CONFIRMED,
         DealEscrowStatus.REFUNDED,
     ],
-    [DealEscrowStatus.FUNDS_PENDING]: [
+    [DealEscrowStatus.PAYMENT_PENDING]: [
         DealEscrowStatus.FUNDS_CONFIRMED,
         DealEscrowStatus.REFUNDED,
     ],
     [DealEscrowStatus.FUNDS_CONFIRMED]: [
-        DealEscrowStatus.CREATIVE_PENDING,
-        DealEscrowStatus.APPROVED_SCHEDULED,
+        DealEscrowStatus.SCHEDULED,
+        DealEscrowStatus.POSTING,
         DealEscrowStatus.DISPUTED,
     ],
-    [DealEscrowStatus.CREATIVE_PENDING]: [
-        DealEscrowStatus.CREATIVE_REVIEW,
+    [DealEscrowStatus.SCHEDULED]: [
+        DealEscrowStatus.POSTING,
         DealEscrowStatus.DISPUTED,
     ],
-    [DealEscrowStatus.CREATIVE_REVIEW]: [
-        DealEscrowStatus.APPROVED_SCHEDULED,
-        DealEscrowStatus.DISPUTED,
-    ],
-    [DealEscrowStatus.APPROVED_SCHEDULED]: [
+    [DealEscrowStatus.POSTING]: [
         DealEscrowStatus.POSTED_VERIFYING,
         DealEscrowStatus.DISPUTED,
     ],
     [DealEscrowStatus.POSTED_VERIFYING]: [
-        DealEscrowStatus.COMPLETED,
+        DealEscrowStatus.RELEASED,
+        DealEscrowStatus.REFUNDED,
         DealEscrowStatus.DISPUTED,
     ],
-    [DealEscrowStatus.COMPLETED]: [],
+    [DealEscrowStatus.RELEASED]: [],
     [DealEscrowStatus.CANCELED]: [],
     [DealEscrowStatus.REFUNDED]: [],
     [DealEscrowStatus.DISPUTED]: [],

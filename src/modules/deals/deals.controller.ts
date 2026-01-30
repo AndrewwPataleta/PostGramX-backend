@@ -6,17 +6,30 @@ import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {DealsService} from './deals.service';
 import {CreateDealDto} from './dto/create-deal.dto';
-import {CreativeAttachDto} from './dto/creative-attach.dto';
-import {CreativeConfirmDto} from './dto/creative-confirm.dto';
+import {CreativeConfirmSentDto} from './dto/creative-confirm-sent.dto';
+import {AdminApproveDto} from './dto/admin-approve.dto';
+import {AdminRequestChangesDto} from './dto/admin-request-changes.dto';
+import {AdminRejectDto} from './dto/admin-reject.dto';
+import {GetDealDto} from './dto/get-deal.dto';
 import {ListDealsDto} from './dto/list-deals.dto';
 import {ScheduleDealDto} from './dto/schedule-deal.dto';
 import {DealServiceError} from './errors/deal-service.error';
 import {mapDealErrorToMessageKey, mapDealErrorToStatus} from './deal-error-mapper';
+import {RequestPaymentAddressDto} from './dto/request-payment-address.dto';
+import {EscrowService} from '../payments/escrow/escrow.service';
+import {EscrowServiceError} from '../payments/escrow/errors/escrow-service.error';
+import {
+    mapEscrowErrorToMessageKey,
+    mapEscrowErrorToStatus,
+} from '../payments/escrow/errors/escrow-error-mapper';
 
 @Controller('deals')
 @ApiTags('deals')
 export class DealsController {
-    constructor(private readonly dealsService: DealsService) {}
+    constructor(
+        private readonly dealsService: DealsService,
+        private readonly escrowService: EscrowService,
+    ) {}
 
     @Post('create')
     @ApiOperation({summary: 'Create a deal from a listing'})
@@ -65,6 +78,27 @@ export class DealsController {
         }
     }
 
+    @Post('get')
+    @ApiOperation({summary: 'Get deal by id'})
+    @ApiBody({type: GetDealDto})
+    async getDeal(
+        @Body(dtoValidationPipe) dto: GetDealDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.getDeal(user.id, dto.data.dealId);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
     @Post('schedule')
     @ApiOperation({summary: 'Schedule a deal posting time'})
     @ApiBody({type: ScheduleDealDto})
@@ -90,18 +124,18 @@ export class DealsController {
         }
     }
 
-    @Post('creative/attach')
-    @ApiOperation({summary: 'Attach creative to a deal'})
-    @ApiBody({type: CreativeAttachDto})
-    async attachCreative(
-        @Body(dtoValidationPipe) dto: CreativeAttachDto,
+    @Post('creative/confirmSent')
+    @ApiOperation({summary: 'Confirm creative sent for a deal'})
+    @ApiBody({type: CreativeConfirmSentDto})
+    async confirmCreativeSent(
+        @Body(dtoValidationPipe) dto: CreativeConfirmSentDto,
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
         const user = assertUser(req);
 
         try {
-            return await this.dealsService.attachCreative(
+            return await this.dealsService.confirmCreativeSent(
                 user.id,
                 dto.data.dealId,
             );
@@ -114,18 +148,18 @@ export class DealsController {
         }
     }
 
-    @Post('creative/confirm')
-    @ApiOperation({summary: 'Confirm creative for a deal'})
-    @ApiBody({type: CreativeConfirmDto})
-    async confirmCreative(
-        @Body(dtoValidationPipe) dto: CreativeConfirmDto,
+    @Post('admin/approve')
+    @ApiOperation({summary: 'Approve a deal as admin'})
+    @ApiBody({type: AdminApproveDto})
+    async approveDealByAdmin(
+        @Body(dtoValidationPipe) dto: AdminApproveDto,
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
         const user = assertUser(req);
 
         try {
-            return await this.dealsService.confirmCreative(
+            return await this.dealsService.approveByAdmin(
                 user.id,
                 dto.data.dealId,
             );
@@ -134,6 +168,81 @@ export class DealsController {
                 errorType: DealServiceError,
                 mapStatus: mapDealErrorToStatus,
                 mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('admin/requestChanges')
+    @ApiOperation({summary: 'Request creative changes as admin'})
+    @ApiBody({type: AdminRequestChangesDto})
+    async requestChangesByAdmin(
+        @Body(dtoValidationPipe) dto: AdminRequestChangesDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.requestChangesByAdmin(
+                user.id,
+                dto.data.dealId,
+                dto.data.comment,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('admin/reject')
+    @ApiOperation({summary: 'Reject a deal as admin'})
+    @ApiBody({type: AdminRejectDto})
+    async rejectByAdmin(
+        @Body(dtoValidationPipe) dto: AdminRejectDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.rejectByAdmin(
+                user.id,
+                dto.data.dealId,
+                dto.data.reason,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('payment/requestAddress')
+    @ApiOperation({summary: 'Request escrow payment address for a deal'})
+    @ApiBody({type: RequestPaymentAddressDto})
+    async requestPaymentAddress(
+        @Body(dtoValidationPipe) dto: RequestPaymentAddressDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.escrowService.initDealEscrow(
+                user.id,
+                dto.data.dealId,
+                dto.data.amountNano,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: EscrowServiceError,
+                mapStatus: mapEscrowErrorToStatus,
+                mapMessageKey: mapEscrowErrorToMessageKey,
             });
         }
     }

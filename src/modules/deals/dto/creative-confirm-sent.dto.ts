@@ -2,16 +2,16 @@ import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
 import {IsDefined, IsUUID, ValidateNested} from 'class-validator';
 
-class CreativeConfirmDataDto {
+class CreativeConfirmSentDataDto {
     @ApiProperty()
     @IsUUID()
     dealId: string;
 }
 
-export class CreativeConfirmDto {
-    @ApiProperty({type: () => CreativeConfirmDataDto})
+export class CreativeConfirmSentDto {
+    @ApiProperty({type: () => CreativeConfirmSentDataDto})
     @IsDefined()
     @ValidateNested()
-    @Type(() => CreativeConfirmDataDto)
-    data: CreativeConfirmDataDto;
+    @Type(() => CreativeConfirmSentDataDto)
+    data: CreativeConfirmSentDataDto;
 }

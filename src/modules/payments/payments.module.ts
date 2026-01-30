@@ -34,7 +34,7 @@ import {TonPaymentWatcher} from "./ton-payment.watcher";
         },
     },
         TonPaymentWatcher],
-    exports: [PaymentsService],
+    exports: [PaymentsService, EscrowService],
 })
 export class PaymentsModule {
 }

@@ -3,19 +3,19 @@ import {Context, Telegraf} from 'telegraf';
 import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TELEGRAM_BOT_COMMANDS} from './telegram-bot.constants';
-import {PreDealsBotHandler} from '../predeals/predeals-bot.handler';
+import {DealsBotHandler} from '../deals/deals-bot.handler';
 
 @Injectable()
 export class TelegramBotUpdate {
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
-        private readonly preDealsBotHandler: PreDealsBotHandler,
+        private readonly dealsBotHandler: DealsBotHandler,
     ) {}
 
     register(bot: Telegraf<Context>): void {
         bot.start(async (context) => {
-            const handled = await this.preDealsBotHandler.handleStart(context);
+            const handled = await this.dealsBotHandler.handleStart(context);
             if (handled) {
                 return;
             }
@@ -34,11 +34,6 @@ export class TelegramBotUpdate {
         });
 
         bot.on('callback_query', async (context) => {
-            const handled = await this.preDealsBotHandler.handleCallback(context);
-            if (handled) {
-                return;
-            }
-
             const data =
                 'data' in context.callbackQuery
                     ? context.callbackQuery.data
@@ -57,7 +52,7 @@ export class TelegramBotUpdate {
                 return;
             }
 
-            const handled = await this.preDealsBotHandler.handleCreativeMessage(
+            const handled = await this.dealsBotHandler.handleCreativeMessage(
                 context,
             );
             if (handled) {
@@ -71,7 +66,7 @@ export class TelegramBotUpdate {
                 return;
             }
 
-            const handled = await this.preDealsBotHandler.handleCreativeMessage(
+            const handled = await this.dealsBotHandler.handleCreativeMessage(
                 context,
             );
             if (handled) {

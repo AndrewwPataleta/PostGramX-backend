@@ -38,7 +38,7 @@
     "spaces_upload_failed": "Не удалось загрузить изображение в хранилище.",
     "validation_failed": "Ошибка валидации.",
     "deals": {
-      "active_predeals_limit": "У вас уже есть активная предварительная сделка для этого листинга.",
+      "active_pending_limit": "У вас уже есть активные сделки в ожидании по этому листингу.",
       "deal_not_actionable": "Сделка находится в неверном состоянии.",
       "deadline_passed": "Срок действия для этого действия по сделке истёк."
     }
@@ -107,33 +107,21 @@
     "stages": {
       "unknown": "Неизвестный статус",
       "draft": "Черновик",
-      "scheduling_pending": "Выберите время",
-      "creative_awaiting_submit": "Отправьте креатив",
-      "creative_awaiting_confirm": "Подтвердите креатив",
+      "waiting_schedule": "Выберите время",
+      "waiting_creative": "Отправьте креатив",
+      "creative_submitted": "Креатив отправлен",
       "admin_review": "Ожидает одобрения администратора",
-      "payment_window_pending": "Выберите окно оплаты",
-      "payment_awaiting": "Ожидается оплата",
-      "funds_pending": "Платёж обрабатывается",
+      "changes_requested": "Запрошены правки",
+      "awaiting_payment": "Ожидается оплата",
+      "payment_pending": "Платёж обрабатывается",
       "funds_confirmed": "Платёж подтверждён",
-      "creative_pending": "Нужны правки креатива",
-      "creative_review": "Проверка креатива",
-      "approved_scheduled": "Запланировано",
+      "scheduled": "Запланировано",
+      "posting": "Публикация",
       "posted_verifying": "Проверка публикации",
-      "completed": "Завершено",
+      "released": "Выплачено",
       "canceled": "Отменено",
       "refunded": "Возвращено",
       "disputed": "Спор"
-    }
-  },
-  "predeals": {
-    "errors": {
-      "predealNotFound": "Предсделка не найдена.",
-      "listingNotFound": "Листинг не найден.",
-      "listingDisabled": "Листинг отключён.",
-      "unauthorized": "Нет доступа к этой предсделке.",
-      "invalidScheduleTime": "Время размещения должно быть в будущем.",
-      "selfDealNotAllowed": "Нельзя создавать предсделку со своим каналом.",
-      "invalidStatus": "Предсделка находится в неверном состоянии."
     }
   },
   "listings": {

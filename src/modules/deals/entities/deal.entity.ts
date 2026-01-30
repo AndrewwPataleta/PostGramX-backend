@@ -24,10 +24,10 @@ import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 @Index('IDX_deals_escrow_status', ['escrowStatus'])
 @Index('IDX_deals_escrow_expires_at', ['escrowExpiresAt'])
 @Index('IDX_deals_last_activity_at', ['lastActivityAt'])
-@Index('IDX_deals_predeal_expires_at', ['predealExpiresAt'])
-@Index('IDX_deals_creative_deadline', ['creativeMustBeSubmittedBy'])
-@Index('IDX_deals_admin_deadline', ['adminMustRespondBy'])
-@Index('IDX_deals_payment_deadline', ['paymentMustBePaidBy'])
+@Index('IDX_deals_idle_expires_at', ['idleExpiresAt'])
+@Index('IDX_deals_creative_deadline', ['creativeDeadlineAt'])
+@Index('IDX_deals_admin_deadline', ['adminReviewDeadlineAt'])
+@Index('IDX_deals_payment_deadline', ['paymentDeadlineAt'])
 export class DealEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -66,6 +66,7 @@ export class DealEntity extends BaseEntity {
     @Column({
         type: 'enum',
         enum: DealEscrowStatus,
+        enumName: 'deals_escrow_status_enum',
         default: DealEscrowStatus.DRAFT,
     })
     escrowStatus: DealEscrowStatus;
@@ -83,7 +84,7 @@ export class DealEntity extends BaseEntity {
     escrowExpiresAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
-    paymentMustBePaidBy: Date | null;
+    paymentDeadlineAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
     stalledAt: Date | null;
@@ -92,16 +93,34 @@ export class DealEntity extends BaseEntity {
     lastActivityAt: Date;
 
     @Column({type: 'timestamptz', nullable: true})
-    predealExpiresAt: Date | null;
+    idleExpiresAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
-    creativeMustBeSubmittedBy: Date | null;
+    creativeDeadlineAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
-    adminMustRespondBy: Date | null;
+    adminReviewDeadlineAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
     adminReviewNotifiedAt: Date | null;
+
+    @Column({type: 'bigint', nullable: true})
+    creativeMessageId: string | null;
+
+    @Column({type: 'jsonb', nullable: true})
+    creativePayload: Record<string, unknown> | null;
+
+    @Column({type: 'text', nullable: true})
+    creativeText: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    creativeSubmittedAt: Date | null;
+
+    @Column({type: 'text', nullable: true})
+    adminReviewComment: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    approvedAt: Date | null;
 
     @Column({type: 'jsonb', nullable: true})
     offerSnapshot: Record<string, unknown> | null;
