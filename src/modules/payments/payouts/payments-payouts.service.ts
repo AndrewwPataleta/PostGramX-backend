@@ -5,13 +5,11 @@ import {ChannelEntity} from '../../channels/entities/channel.entity';
 import {ChannelPayoutsFilters} from '../dto/channel-payouts.dto';
 import {TransactionEntity} from '../entities/transaction.entity';
 
-import {
-    PaymentsPayoutsError,
-    PaymentsPayoutsErrorCode,
-} from './errors/payments-payouts.error';
+import {PaymentsPayoutsError, PaymentsPayoutsErrorCode,} from './errors/payments-payouts.error';
 import {TransactionStatus} from "../../../common/constants/payments/transaction-status.constants";
 import {TransactionType} from "../../../common/constants/payments/transaction-type.constants";
 import {TransactionDirection} from "../../../common/constants/payments/transaction-direction.constants";
+import {CurrencyCode} from "../../../common/constants/currency/currency.constants";
 
 const MIN_WITHDRAW_NANO = BigInt('100000000');
 
@@ -193,7 +191,7 @@ export class PaymentsPayoutsService {
                 direction: TransactionDirection.OUT,
                 status: TransactionStatus.PENDING,
                 amountNano: amount.toString(),
-                currency: 'TON',
+                currency:  CurrencyCode.TON,
                 description: 'Channel withdrawal',
                 metadata: destinationAddress
                     ? {destinationAddress}

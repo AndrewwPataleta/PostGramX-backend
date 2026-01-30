@@ -15,8 +15,9 @@ import {
     SUPPORTED_AUTH_TYPES,
     SUPPORTED_PLATFORM_TYPES,
     SupportedAuthType,
-    SupportedPlatformType,
-} from '../../auth/constants/auth.constants';
+    SupportedPlatformType
+} from "../../auth/auth.constants";
+
 
 class WithdrawChannelDataDto {
     @ApiProperty({format: 'uuid'})
