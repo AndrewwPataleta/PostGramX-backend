@@ -36,7 +36,12 @@
     "spaces_credentials_not_configured": "Учетные данные DigitalOcean Spaces не настроены на сервере.",
     "spaces_endpoint_not_configured": "Endpoint DigitalOcean Spaces не настроен на сервере.",
     "spaces_upload_failed": "Не удалось загрузить изображение в хранилище.",
-    "validation_failed": "Ошибка валидации."
+    "validation_failed": "Ошибка валидации.",
+    "deals": {
+      "active_predeals_limit": "У вас уже есть активная предварительная сделка для этого листинга.",
+      "deal_not_actionable": "Сделка находится в неверном состоянии.",
+      "deadline_passed": "Срок действия для этого действия по сделке истёк."
+    }
   },
   "internalProductCategories": {
     "pets": "Товары для животных",
