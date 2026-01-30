@@ -14,6 +14,7 @@ export const mapDealErrorToStatus = (code: DealErrorCode): HttpStatus => {
         case DealErrorCode.INVALID_TRANSITION:
         case DealErrorCode.ACTIVE_PENDING_LIMIT_REACHED:
         case DealErrorCode.DEADLINE_PASSED:
+        case DealErrorCode.CREATIVE_NOT_SUBMITTED:
             return HttpStatus.BAD_REQUEST;
         default:
             return HttpStatus.BAD_REQUEST;
@@ -40,6 +41,8 @@ export const mapDealErrorToMessageKey = (code: DealErrorCode): string => {
             return 'errors.deals.active_pending_limit';
         case DealErrorCode.DEADLINE_PASSED:
             return 'errors.deals.deadline_passed';
+        case DealErrorCode.CREATIVE_NOT_SUBMITTED:
+            return 'errors.deals.creative_not_submitted';
         default:
             return 'errors.validation_failed';
     }

@@ -2,6 +2,7 @@ import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Brackets, DataSource, In, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
+import {DealCreativeEntity} from './entities/deal-creative.entity';
 import {ListingEntity, ListingFormat} from '../listings/entities/listing.entity';
 import {DealEscrowStatus} from './types/deal-escrow-status.enum';
 import {DealInitiatorSide} from './types/deal-initiator-side.enum';
@@ -16,6 +17,7 @@ import {mapEscrowToDealStatus} from './state/deal-status.mapper';
 import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
 import {DEALS_CONFIG} from '../../config/deals.config';
 import {User} from '../auth/entities/user.entity';
+import {DealCreativeType} from './types/deal-creative-type.enum';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -24,6 +26,8 @@ const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.DRAFT,
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_RECEIVED,
+    DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
     DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
     DealEscrowStatus.ADMIN_REVIEW,
     DealEscrowStatus.PAYMENT_WINDOW_PENDING,
@@ -54,6 +58,8 @@ export class DealsService {
         private readonly dataSource: DataSource,
         @InjectRepository(DealEntity)
         private readonly dealRepository: Repository<DealEntity>,
+        @InjectRepository(DealCreativeEntity)
+        private readonly creativeRepository: Repository<DealCreativeEntity>,
         @InjectRepository(ListingEntity)
         private readonly listingRepository: Repository<ListingEntity>,
         @InjectRepository(ChannelEntity)
@@ -248,6 +254,28 @@ export class DealsService {
             ...this.buildActivityUpdate(now),
         });
 
+        const updatedDeal = await this.dealRepository.findOne({
+            where: {id: deal.id},
+        });
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+
+        if (updatedDeal && advertiser?.telegramId) {
+            try {
+                await this.dealsNotificationsService.notifyCreativeRequired(
+                    updatedDeal,
+                    advertiser.telegramId,
+                );
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Creative submit notification failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
+        }
+
         return {
             id: deal.id,
             status: mapEscrowToDealStatus(escrowStatus),
@@ -257,6 +285,10 @@ export class DealsService {
     }
 
     async confirmCreativeSent(userId: string, dealId: string) {
+        return this.submitCreative(userId, dealId);
+    }
+
+    async submitCreative(userId: string, dealId: string) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -267,44 +299,15 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_CONFIRM;
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
-        const now = new Date();
-        await this.dealRepository.update(deal.id, {
-            escrowStatus,
-            status: mapEscrowToDealStatus(escrowStatus),
-            ...this.buildActivityUpdate(now),
+        const creative = await this.creativeRepository.findOne({
+            where: {dealId: deal.id},
         });
-
-        return {
-            id: deal.id,
-            status: mapEscrowToDealStatus(escrowStatus),
-            escrowStatus,
-        };
-    }
-
-    async recordCreativeSubmission(payload: {
-        userId: string;
-        dealId: string;
-        messageId: string;
-        messageText: string | null;
-        creativePayload: Record<string, unknown> | null;
-    }) {
-        const deal = await this.dealRepository.findOne({
-            where: {id: payload.dealId},
-        });
-
-        if (!deal) {
-            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        if (!creative) {
+            throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
         }
-
-        if (deal.advertiserUserId !== payload.userId) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
-        }
-
-        const escrowStatus = DealEscrowStatus.ADMIN_REVIEW;
-        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
         const adminReviewDeadlineAt = this.addHours(
@@ -315,9 +318,6 @@ export class DealsService {
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            creativeMessageId: payload.messageId,
-            creativeText: payload.messageText,
-            creativePayload: payload.creativePayload,
             creativeSubmittedAt: now,
             adminReviewComment: null,
             adminReviewNotifiedAt: now,
@@ -331,9 +331,8 @@ export class DealsService {
         });
         if (updated) {
             try {
-                await this.dealsNotificationsService.notifyDealActionRequired(
+                await this.dealsNotificationsService.notifyCreativeSubmitted(
                     updated,
-                    'approval',
                 );
             } catch (error) {
                 const errorMessage =
@@ -353,13 +352,13 @@ export class DealsService {
 
     async handleCreativeMessage(payload: {
         telegramUserId: string;
-        chatId: string;
-        dealId: string;
-        messageId: string;
+        type: DealCreativeType | null;
         text: string | null;
-        attachments: Array<Record<string, unknown>> | null;
+        caption: string | null;
+        mediaFileId: string | null;
+        rawPayload: Record<string, unknown> | null;
     }): Promise<{handled: boolean; message?: string}> {
-        if (!payload.dealId) {
+        if (!payload.type) {
             return {handled: false};
         }
 
@@ -370,21 +369,83 @@ export class DealsService {
         if (!user) {
             return {
                 handled: true,
-                message: 'Please sign in to PostGramX before submitting creative.',
+                message: 'No active deal waiting for creative submission.',
+            };
+        }
+
+        const deal = await this.dealRepository.findOne({
+            where: {
+                advertiserUserId: user.id,
+                escrowStatus: DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+            },
+            order: {lastActivityAt: 'DESC'},
+        });
+
+        if (!deal) {
+            return {
+                handled: true,
+                message: 'No active deal waiting for creative submission.',
+            };
+        }
+
+        const escrowStatus = DealEscrowStatus.CREATIVE_RECEIVED;
+        try {
+            this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+        } catch (error) {
+            return {
+                handled: true,
+                message: 'This deal is not ready to accept creative right now.',
+            };
+        }
+
+        const creative =
+            (await this.creativeRepository.findOne({
+                where: {dealId: deal.id},
+            })) ?? this.creativeRepository.create({dealId: deal.id});
+
+        creative.type = payload.type;
+        creative.text = payload.type === DealCreativeType.TEXT ? payload.text : null;
+        creative.mediaFileId = payload.mediaFileId;
+        creative.caption = payload.caption;
+        creative.rawPayload = payload.rawPayload;
+
+        await this.creativeRepository.save(creative);
+
+        const now = new Date();
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            creativeDeadlineAt: null,
+            ...this.buildActivityUpdate(now),
+        });
+
+        return {
+            handled: true,
+            message:
+                '✅ Creative received.\nPlease return to the Mini App and press "Submit Creative" to continue.',
+        };
+    }
+
+    async handleCreativeApprovalFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{handled: boolean; message?: string}> {
+        if (!payload.dealId) {
+            return {handled: false};
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+        if (!user) {
+            return {
+                handled: true,
+                message: 'You are not authorized to review this creative.',
             };
         }
 
         try {
-            await this.recordCreativeSubmission({
-                userId: user.id,
-                dealId: payload.dealId,
-                messageId: payload.messageId,
-                messageText: payload.text,
-                creativePayload: {
-                    telegramChatId: payload.chatId,
-                    attachments: payload.attachments ?? [],
-                },
-            });
+            await this.approveByAdmin(user.id, payload.dealId);
         } catch (error) {
             if (error instanceof DealServiceError) {
                 switch (error.code) {
@@ -393,16 +454,19 @@ export class DealsService {
                     case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
                         return {
                             handled: true,
-                            message: 'You are not the advertiser for this deal.',
+                            message:
+                                'You are not authorized to review this creative.',
                         };
                     case DealErrorCode.INVALID_TRANSITION:
                         return {
                             handled: true,
-                            message:
-                                'This deal is not ready to accept creative right now.',
+                            message: 'This deal is not ready for approval.',
                         };
                     default:
-                        return {handled: true, message: 'Unable to attach creative.'};
+                        return {
+                            handled: true,
+                            message: 'Unable to approve this creative.',
+                        };
                 }
             }
             throw error;
@@ -410,8 +474,59 @@ export class DealsService {
 
         return {
             handled: true,
-            message:
-                '✅ Creative received. We have notified the channel admins for review.',
+            message: '✅ Creative approved. The advertiser has been notified.',
+        };
+    }
+
+    async handleCreativeRequestChangesFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{handled: boolean; message?: string}> {
+        if (!payload.dealId) {
+            return {handled: false};
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+        if (!user) {
+            return {
+                handled: true,
+                message: 'You are not authorized to review this creative.',
+            };
+        }
+
+        try {
+            await this.requestChangesByAdmin(user.id, payload.dealId);
+        } catch (error) {
+            if (error instanceof DealServiceError) {
+                switch (error.code) {
+                    case DealErrorCode.DEAL_NOT_FOUND:
+                        return {handled: true, message: 'Deal not found.'};
+                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                        return {
+                            handled: true,
+                            message:
+                                'You are not authorized to review this creative.',
+                        };
+                    case DealErrorCode.INVALID_TRANSITION:
+                        return {
+                            handled: true,
+                            message: 'This deal is not ready for changes.',
+                        };
+                    default:
+                        return {
+                            handled: true,
+                            message: 'Unable to request changes for this deal.',
+                        };
+                }
+            }
+            throw error;
+        }
+
+        return {
+            handled: true,
+            message: '✏️ Requested changes from the advertiser.',
         };
     }
 
@@ -422,7 +537,9 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
-        if (deal.publisherOwnerUserId !== userId) {
+        const hasAdminAccess = await this.hasAdminAccess(deal, userId);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
@@ -444,15 +561,15 @@ export class DealsService {
         });
 
         try {
-            await this.dealsNotificationsService.notifyDealActionRequired(
+            await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
-                'payment',
+                'Creative approved. Please proceed with payment.',
             );
         } catch (error) {
             const errorMessage =
                 error instanceof Error ? error.message : String(error);
             this.logger.warn(
-                `Deal payment notification failed for dealId=${deal.id}: ${errorMessage}`,
+                `Deal approval notification failed for dealId=${deal.id}: ${errorMessage}`,
             );
         }
 
@@ -474,7 +591,9 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
-        if (deal.publisherOwnerUserId !== userId) {
+        const hasAdminAccess = await this.hasAdminAccess(deal, userId);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
@@ -496,6 +615,19 @@ export class DealsService {
             ...this.buildActivityUpdate(now),
         });
 
+        try {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'Admin requested edits. Please submit updated creative.',
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal change request notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
+
         return {
             id: deal.id,
             status: mapEscrowToDealStatus(escrowStatus),
@@ -510,7 +642,9 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
-        if (deal.publisherOwnerUserId !== userId) {
+        const hasAdminAccess = await this.hasAdminAccess(deal, userId);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
@@ -753,6 +887,73 @@ export class DealsService {
                 throw new DealServiceError(DealErrorCode.INVALID_TRANSITION);
             }
             throw error;
+        }
+    }
+
+    private async hasAdminAccess(
+        deal: DealEntity,
+        userId: string,
+    ): Promise<boolean> {
+        if (!deal.channelId) {
+            return false;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            return false;
+        }
+
+        if (channel.createdByUserId === userId) {
+            return true;
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {
+                channelId: deal.channelId,
+                userId,
+                isActive: true,
+                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+            },
+        });
+
+        return Boolean(membership);
+    }
+
+    private async cancelDealForAdminRights(deal: DealEntity): Promise<void> {
+        const now = new Date();
+        try {
+            this.ensureTransitionAllowed(
+                deal.escrowStatus,
+                DealEscrowStatus.CANCELED,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `Unable to cancel dealId=${deal.id} after admin rights loss: ${deal.escrowStatus}`,
+            );
+            return;
+        }
+
+        await this.dealRepository.update(deal.id, {
+            status: DealStatus.CANCELED,
+            escrowStatus: DealEscrowStatus.CANCELED,
+            cancelReason: 'ADMIN_RIGHTS_LOST',
+            stalledAt: now,
+            ...this.buildActivityUpdate(now),
+        });
+
+        try {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'Channel admin rights were revoked. The deal has been canceled.',
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal admin rights notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
         }
     }
 

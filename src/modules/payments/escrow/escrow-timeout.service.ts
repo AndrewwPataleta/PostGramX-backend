@@ -34,6 +34,8 @@ export class EscrowTimeoutService {
             DealEscrowStatus.DRAFT,
             DealEscrowStatus.SCHEDULING_PENDING,
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+            DealEscrowStatus.CREATIVE_RECEIVED,
+            DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
             DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
             DealEscrowStatus.ADMIN_REVIEW,
             DealEscrowStatus.PAYMENT_WINDOW_PENDING,

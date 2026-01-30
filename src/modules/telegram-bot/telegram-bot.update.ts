@@ -45,6 +45,31 @@ export class TelegramBotUpdate {
                     this.helpHandler.getMessage(),
                     this.helpHandler.getKeyboard(),
                 );
+                return;
+            }
+
+            if (data?.startsWith('approve_creative:')) {
+                const dealId = data.replace('approve_creative:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleCreativeApproveCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
+
+            if (data?.startsWith('request_changes:')) {
+                const dealId = data.replace('request_changes:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleCreativeRequestChangesCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
             }
         });
 

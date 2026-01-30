@@ -40,7 +40,8 @@
     "deals": {
       "active_pending_limit": "У вас уже есть активные сделки в ожидании по этому листингу.",
       "deal_not_actionable": "Сделка находится в неверном состоянии.",
-      "deadline_passed": "Срок действия для этого действия по сделке истёк."
+      "deadline_passed": "Срок действия для этого действия по сделке истёк.",
+      "creative_not_submitted": "Креатив ещё не отправлен."
     }
   },
   "internalProductCategories": {

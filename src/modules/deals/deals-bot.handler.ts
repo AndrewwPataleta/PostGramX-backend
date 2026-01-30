@@ -1,6 +1,7 @@
 import {forwardRef, Inject, Injectable} from '@nestjs/common';
 import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
+import {DealCreativeType} from './types/deal-creative-type.enum';
 
 const getStartPayload = (context: Context): string | undefined => {
     if (!('startPayload' in context)) {
@@ -19,16 +20,6 @@ const getTelegramUserId = (context: Context): string => {
 const getChatId = (context: Context): string => {
     const chatId = (context as {chat?: {id?: number}}).chat?.id;
     return String(chatId ?? '');
-};
-
-const extractDealId = (text: string): string | null => {
-    const commandMatch = text.match(/\/deal\s+([0-9a-fA-F-]{36})/);
-    if (commandMatch?.[1]) {
-        return commandMatch[1];
-    }
-
-    const tokenMatch = text.match(/\bdeal[_: ]([0-9a-fA-F-]{36})\b/);
-    return tokenMatch?.[1] ?? null;
 };
 
 @Injectable()
@@ -52,7 +43,7 @@ export class DealsBotHandler {
 
         await context.reply(
             `Ready to receive creative for deal ${dealId.slice(0, 8)}.\n` +
-                `Please send the post here and include "/deal ${dealId}" in the message or caption.`,
+                'Please send the post content to this bot.',
         );
         return true;
     }
@@ -65,9 +56,6 @@ export class DealsBotHandler {
                   message_id: number;
                   photo?: Array<{file_id: string; file_unique_id: string}>;
                   video?: {file_id: string; file_unique_id: string};
-                  document?: {file_id: string; file_unique_id: string};
-                  animation?: {file_id: string; file_unique_id: string};
-                  audio?: {file_id: string; file_unique_id: string};
               }
             | undefined;
 
@@ -75,43 +63,83 @@ export class DealsBotHandler {
             return false;
         }
 
-        const text = message.text ?? message.caption ?? '';
-        const dealId = extractDealId(text);
-        if (!dealId) {
-            return false;
-        }
+        const text = message.text ?? null;
+        const caption = message.caption ?? null;
+        let type: DealCreativeType | null = null;
+        let mediaFileId: string | null = null;
 
-        const attachments: Array<Record<string, unknown>> = [];
         if (message.photo && message.photo.length > 0) {
             const largest = message.photo[message.photo.length - 1];
-            attachments.push({type: 'photo', fileId: largest.file_id});
+            type = DealCreativeType.IMAGE;
+            mediaFileId = largest.file_id;
         }
         if (message.video) {
-            attachments.push({type: 'video', fileId: message.video.file_id});
+            type = DealCreativeType.VIDEO;
+            mediaFileId = message.video.file_id;
         }
-        if (message.document) {
-            attachments.push({type: 'document', fileId: message.document.file_id});
-        }
-        if (message.animation) {
-            attachments.push({type: 'animation', fileId: message.animation.file_id});
-        }
-        if (message.audio) {
-            attachments.push({type: 'audio', fileId: message.audio.file_id});
+        if (!type && text) {
+            type = DealCreativeType.TEXT;
         }
 
         const result = await this.dealsService.handleCreativeMessage({
             telegramUserId: getTelegramUserId(context),
-            chatId: getChatId(context),
-            dealId,
-            messageId: String(message.message_id),
-            text: text || null,
-            attachments: attachments.length > 0 ? attachments : null,
+            type,
+            text,
+            caption,
+            mediaFileId,
+            rawPayload: {
+                chatId: getChatId(context),
+                message,
+            },
         });
 
         if (!result.handled) {
             return false;
         }
 
+        if (result.message) {
+            await context.reply(result.message);
+        }
+
+        return true;
+    }
+
+    async handleCreativeApproveCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result = await this.dealsService.handleCreativeApprovalFromTelegram({
+            telegramUserId: getTelegramUserId(context),
+            dealId,
+        });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
+        if (result.message) {
+            await context.reply(result.message);
+        }
+
+        return true;
+    }
+
+    async handleCreativeRequestChangesCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result =
+            await this.dealsService.handleCreativeRequestChangesFromTelegram({
+                telegramUserId: getTelegramUserId(context),
+                dealId,
+            });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
         if (result.message) {
             await context.reply(result.message);
         }

@@ -40,7 +40,8 @@
     "deals": {
       "active_pending_limit": "You already have active pending deals for this listing.",
       "deal_not_actionable": "The deal is not in the expected state.",
-      "deadline_passed": "The deadline for this deal action has passed."
+      "deadline_passed": "The deadline for this deal action has passed.",
+      "creative_not_submitted": "Creative has not been submitted yet."
     }
   },
   "internalProductCategories": {

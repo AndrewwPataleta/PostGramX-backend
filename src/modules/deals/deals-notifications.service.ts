@@ -6,6 +6,7 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
+import {User} from '../auth/entities/user.entity';
 
 const NOTIFICATION_CONCURRENCY = 5;
 
@@ -17,11 +18,106 @@ export class DealsNotificationsService {
     constructor(
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
         private readonly participantsService: ChannelParticipantsService,
         private readonly deepLinkService: DealsDeepLinkService,
         @Inject(forwardRef(() => TelegramBotService))
         private readonly telegramBotService: TelegramBotService,
     ) {}
+
+    async notifyCreativeRequired(
+        deal: DealEntity,
+        advertiserTelegramId: string,
+    ): Promise<void> {
+        const link = this.deepLinkService.buildDealLink(deal.id);
+        const message = [
+            '📝 Ad creative required',
+            '',
+            'Your deal has been scheduled.',
+            'Please send the ad post content to this bot.',
+            '',
+            'Supported formats:',
+            '- Text',
+            '- Image + caption',
+            '- Video + caption',
+            '',
+            "After sending the post, return to the Mini App and press 'Submit Creative'.",
+        ].join('\n');
+        const keyboard = {
+            inline_keyboard: [[{text: 'Open Mini App', url: link}]],
+        };
+
+        await this.telegramBotService.sendMessage(advertiserTelegramId, message, {
+            reply_markup: keyboard,
+        });
+    }
+
+    async notifyCreativeSubmitted(deal: DealEntity): Promise<void> {
+        if (!deal.channelId) {
+            this.logger.warn(
+                `Skipping creative notification: missing channelId for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            this.logger.warn(
+                `Skipping creative notification: channel not found for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const scheduledAt = deal.scheduledAt
+            ? this.formatUtcTimestamp(deal.scheduledAt)
+            : 'TBD';
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+
+        const message = [
+            '📢 New ad creative submitted',
+            '',
+            `Channel: ${channelLabel}`,
+            `Scheduled time: ${scheduledAt}`,
+            '',
+            'Please review the creative and approve or request changes.',
+        ].join('\n');
+
+        const link = this.deepLinkService.buildDealLink(deal.id);
+        const buttons = [
+            [
+                {
+                    text: 'Approve',
+                    callback_data: `approve_creative:${deal.id}`,
+                },
+                {
+                    text: 'Request changes',
+                    callback_data: `request_changes:${deal.id}`,
+                },
+            ],
+            [{text: 'Open Mini App', url: link}],
+        ];
+
+        await this.telegramBotService.sendDealReminderToChannelAdmins(
+            deal.channelId,
+            message,
+            buttons,
+        );
+    }
+
+    async notifyAdvertiser(deal: DealEntity, message: string): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+        await this.telegramBotService.sendMessage(user.telegramId, message);
+    }
 
     async notifyDealCreated(deal: DealEntity): Promise<void> {
         await this.notifyDeal(deal, {
@@ -107,6 +203,13 @@ export class DealsNotificationsService {
                 }
             },
         );
+    }
+
+    private formatUtcTimestamp(value: Date): string {
+        return value
+            .toISOString()
+            .replace('T', ' ')
+            .replace(/\.\d{3}Z$/, ' UTC');
     }
 
     private formatMessage(

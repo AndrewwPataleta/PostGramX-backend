@@ -12,6 +12,7 @@ import {ChannelEntity} from '../modules/channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../modules/channels/entities/channel-membership.entity';
 import {ChannelTelegramAdminEntity} from '../modules/channels/entities/channel-telegram-admin.entity';
 import {DealEntity} from '../modules/deals/entities/deal.entity';
+import {DealCreativeEntity} from '../modules/deals/entities/deal-creative.entity';
 import {DealReminderEntity} from '../modules/deals/entities/deal-reminder.entity';
 import {ListingEntity} from '../modules/listings/entities/listing.entity';
 import {EscrowWalletEntity} from '../modules/payments/entities/escrow-wallet.entity';
@@ -29,6 +30,7 @@ export const typeOrmEntities = [
     ChannelTelegramAdminEntity,
     TransactionEntity,
     DealEntity,
+    DealCreativeEntity,
     DealReminderEntity,
     ListingEntity,
     EscrowWalletEntity,

@@ -23,6 +23,8 @@ import {ConfigService} from '@nestjs/config';
 const AGREEMENT_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_RECEIVED,
+    DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
     DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
     DealEscrowStatus.ADMIN_REVIEW,
     DealEscrowStatus.PAYMENT_WINDOW_PENDING,
@@ -109,14 +111,20 @@ export class DealsTimeoutsService {
         const expiredDeals = await this.dealRepository.find({
             where: {
                 status: DealStatus.PENDING,
-                escrowStatus: DealEscrowStatus.ADMIN_REVIEW,
+                escrowStatus: In([
+                    DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+                    DealEscrowStatus.ADMIN_REVIEW,
+                ]),
                 adminReviewDeadlineAt: LessThanOrEqual(now),
             },
         });
 
         await this.cancelDeals(expiredDeals, {
             reason: 'ADMIN_NO_RESPONSE',
-            allowedEscrowStatuses: [DealEscrowStatus.ADMIN_REVIEW],
+            allowedEscrowStatuses: [
+                DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+                DealEscrowStatus.ADMIN_REVIEW,
+            ],
             notifyAdmins: true,
         });
     }
