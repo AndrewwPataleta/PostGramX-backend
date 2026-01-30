@@ -1,9 +1,13 @@
 declare module 'telegraf' {
-    export type MiddlewareFn<TContext = Context> = (context: TContext) => unknown;
+    export type MiddlewareFn<TContext = Context> = (
+        context: TContext,
+        next?: () => Promise<void>,
+    ) => unknown;
 
     export class Telegraf<TContext = Context> {
         constructor(token: string);
         telegram: Telegram;
+        use(handler: MiddlewareFn<TContext>): void;
         start(handler: MiddlewareFn<TContext>): void;
         command(command: string, handler: MiddlewareFn<TContext>): void;
         on(event: string, handler: MiddlewareFn<TContext>): void;
