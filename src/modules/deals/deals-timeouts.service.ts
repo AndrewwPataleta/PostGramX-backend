@@ -21,17 +21,18 @@ import {WalletsService} from '../payments/wallets/wallets.service';
 import {ConfigService} from '@nestjs/config';
 
 const AGREEMENT_ESCROW_STATUSES = [
-    DealEscrowStatus.SCHEDULING_PENDING,
-    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    DealEscrowStatus.WAITING_SCHEDULE,
+    DealEscrowStatus.WAITING_CREATIVE,
+    DealEscrowStatus.CREATIVE_SUBMITTED,
     DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
-    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.CHANGES_REQUESTED,
+    DealEscrowStatus.AWAITING_PAYMENT,
+    DealEscrowStatus.PAYMENT_PENDING,
 ];
 
 const CREATIVE_PENDING_STATUSES = [
-    DealEscrowStatus.SCHEDULING_PENDING,
-    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.WAITING_CREATIVE,
+    DealEscrowStatus.CHANGES_REQUESTED,
 ];
 
 type CancelReason =
@@ -79,7 +80,7 @@ export class DealsTimeoutsService {
             where: {
                 status: DealStatus.PENDING,
                 escrowStatus: In(AGREEMENT_ESCROW_STATUSES),
-                predealExpiresAt: LessThanOrEqual(now),
+                idleExpiresAt: LessThanOrEqual(now),
             },
         });
 
@@ -94,7 +95,7 @@ export class DealsTimeoutsService {
             where: {
                 status: DealStatus.PENDING,
                 escrowStatus: In(CREATIVE_PENDING_STATUSES),
-                creativeMustBeSubmittedBy: LessThanOrEqual(now),
+                creativeDeadlineAt: LessThanOrEqual(now),
             },
         });
 
@@ -109,7 +110,7 @@ export class DealsTimeoutsService {
             where: {
                 status: DealStatus.PENDING,
                 escrowStatus: DealEscrowStatus.ADMIN_REVIEW,
-                adminMustRespondBy: LessThanOrEqual(now),
+                adminReviewDeadlineAt: LessThanOrEqual(now),
             },
         });
 
@@ -125,18 +126,18 @@ export class DealsTimeoutsService {
             .createQueryBuilder('deal')
             .where('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus = :escrowStatus', {
-                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
             })
             .andWhere(
-                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy <= :now)'+
-                 'OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt <= :now)',
+                '(deal.paymentDeadlineAt IS NOT NULL AND deal.paymentDeadlineAt <= :now)' +
+                    'OR (deal.paymentDeadlineAt IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt <= :now)',
                 {now},
             )
             .getMany();
 
         await this.cancelDeals(expiredDeals, {
             reason: 'PAYMENT_TIMEOUT',
-            allowedEscrowStatuses: [DealEscrowStatus.PAYMENT_AWAITING],
+            allowedEscrowStatuses: [DealEscrowStatus.AWAITING_PAYMENT],
             closeWallet: true,
         });
     }
@@ -237,14 +238,14 @@ export class DealsTimeoutsService {
             .andWhere('deal.escrowStatus IN (:...statuses)', {
                 statuses: AGREEMENT_ESCROW_STATUSES,
             })
-            .andWhere('deal.predealExpiresAt IS NOT NULL')
-            .andWhere('deal.predealExpiresAt > :now', {now})
-            .andWhere('deal.predealExpiresAt <= :cutoff', {cutoff})
+            .andWhere('deal.idleExpiresAt IS NOT NULL')
+            .andWhere('deal.idleExpiresAt > :now', {now})
+            .andWhere('deal.idleExpiresAt <= :cutoff', {cutoff})
             .getMany();
 
         for (const deal of deals) {
             await this.sendReminderOnce(deal, DealReminderType.IDLE_EXPIRE, async () => {
-                const minutesLeft = this.diffMinutes(deal.predealExpiresAt, now);
+                const minutesLeft = this.diffMinutes(deal.idleExpiresAt, now);
                 const text = `⏰ This deal will expire in ${minutesLeft} minutes without activity.`;
                 const buttons = this.buildReminderButtons(deal, false);
                 await this.notifyBuyer(deal, text, buttons);
@@ -267,15 +268,15 @@ export class DealsTimeoutsService {
             .andWhere('deal.escrowStatus IN (:...statuses)', {
                 statuses: CREATIVE_PENDING_STATUSES,
             })
-            .andWhere('deal.creativeMustBeSubmittedBy IS NOT NULL')
-            .andWhere('deal.creativeMustBeSubmittedBy > :now', {now})
-            .andWhere('deal.creativeMustBeSubmittedBy <= :cutoff', {cutoff})
+            .andWhere('deal.creativeDeadlineAt IS NOT NULL')
+            .andWhere('deal.creativeDeadlineAt > :now', {now})
+            .andWhere('deal.creativeDeadlineAt <= :cutoff', {cutoff})
             .getMany();
 
         for (const deal of deals) {
             await this.sendReminderOnce(deal, DealReminderType.CREATIVE_DEADLINE, async () => {
                 const minutesLeft = this.diffMinutes(
-                    deal.creativeMustBeSubmittedBy,
+                    deal.creativeDeadlineAt,
                     now,
                 );
                 const text = `⚠️ You need to send the post to the bot within ${minutesLeft} minutes or the deal will be canceled.`;
@@ -303,14 +304,14 @@ export class DealsTimeoutsService {
             .andWhere('deal.escrowStatus = :escrowStatus', {
                 escrowStatus: DealEscrowStatus.ADMIN_REVIEW,
             })
-            .andWhere('deal.adminMustRespondBy IS NOT NULL')
-            .andWhere('deal.adminMustRespondBy > :now', {now})
-            .andWhere('deal.adminMustRespondBy <= :cutoff', {cutoff})
+            .andWhere('deal.adminReviewDeadlineAt IS NOT NULL')
+            .andWhere('deal.adminReviewDeadlineAt > :now', {now})
+            .andWhere('deal.adminReviewDeadlineAt <= :cutoff', {cutoff})
             .getMany();
 
         for (const deal of deals) {
             await this.sendReminderOnce(deal, DealReminderType.ADMIN_DEADLINE, async () => {
-                const hoursLeft = this.diffHours(deal.adminMustRespondBy, now);
+                const hoursLeft = this.diffHours(deal.adminReviewDeadlineAt, now);
                 const text = `⏳ New ad request is waiting for your review. Please approve, request changes, or reject within ${hoursLeft} hours.`;
                 const buttons = this.buildReminderButtons(deal, false);
                 await this.notifyAdmins(deal, text, buttons);
@@ -334,18 +335,18 @@ export class DealsTimeoutsService {
             .where('reminder.id IS NULL')
             .andWhere('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus = :escrowStatus', {
-                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
             })
             .andWhere(
-                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy > :now AND deal.paymentMustBePaidBy <= :cutoff)'+
-                 'OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt > :now AND deal.escrowExpiresAt <= :cutoff)',
+                '(deal.paymentDeadlineAt IS NOT NULL AND deal.paymentDeadlineAt > :now AND deal.paymentDeadlineAt <= :cutoff)' +
+                    'OR (deal.paymentDeadlineAt IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt > :now AND deal.escrowExpiresAt <= :cutoff)',
                 {now, cutoff},
             )
             .getMany();
 
         for (const deal of deals) {
             await this.sendReminderOnce(deal, DealReminderType.PAYMENT_DEADLINE, async () => {
-                const deadline = deal.paymentMustBePaidBy ?? deal.escrowExpiresAt;
+                const deadline = deal.paymentDeadlineAt ?? deal.escrowExpiresAt;
                 const minutesLeft = this.diffMinutes(deadline, now);
                 const text = `💳 Payment window ends in ${minutesLeft} minutes. Please pay to keep the slot.`;
                 const buttons = this.buildReminderButtons(deal, false);

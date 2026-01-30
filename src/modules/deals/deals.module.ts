@@ -1,4 +1,4 @@
-import {Module} from '@nestjs/common';
+import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {DealEntity} from './entities/deal.entity';
 import {DealReminderEntity} from './entities/deal-reminder.entity';
@@ -13,7 +13,9 @@ import {ChannelsModule} from '../channels/channels.module';
 import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 import {DealsTimeoutsService} from './deals-timeouts.service';
 import {WalletsModule} from '../payments/wallets/wallets.module';
+import {PaymentsModule} from '../payments/payments.module';
 import {User} from '../auth/entities/user.entity';
+import {DealsBotHandler} from './deals-bot.handler';
 
 @Module({
     imports: [
@@ -26,8 +28,9 @@ import {User} from '../auth/entities/user.entity';
             User,
         ]),
         ChannelsModule,
-        TelegramBotModule,
+        forwardRef(() => TelegramBotModule),
         WalletsModule,
+        PaymentsModule,
     ],
     controllers: [DealsController],
     providers: [
@@ -35,7 +38,8 @@ import {User} from '../auth/entities/user.entity';
         DealsNotificationsService,
         DealsDeepLinkService,
         DealsTimeoutsService,
+        DealsBotHandler,
     ],
-    exports: [DealsService],
+    exports: [DealsService, DealsBotHandler],
 })
 export class DealsModule {}

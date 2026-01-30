@@ -10,12 +10,12 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
 };
 
 export const DEALS_CONFIG = {
-    MAX_ACTIVE_PREDEALS_PER_LISTING_PER_USER: parseNumber(
-        process.env.MAX_ACTIVE_PREDEALS_PER_LISTING_PER_USER,
-        1,
+    MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER: parseNumber(
+        process.env.MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER,
+        2,
     ),
-    PREDEAL_IDLE_EXPIRE_MINUTES: parseNumber(
-        process.env.PREDEAL_IDLE_EXPIRE_MINUTES,
+    DEAL_IDLE_EXPIRE_MINUTES: parseNumber(
+        process.env.DEAL_IDLE_EXPIRE_MINUTES,
         45,
     ),
     CREATIVE_SUBMIT_DEADLINE_MINUTES: parseNumber(
@@ -25,6 +25,10 @@ export const DEALS_CONFIG = {
     ADMIN_RESPONSE_DEADLINE_HOURS: parseNumber(
         process.env.ADMIN_RESPONSE_DEADLINE_HOURS,
         24,
+    ),
+    PAYMENT_DEADLINE_MINUTES: parseNumber(
+        process.env.DEAL_PAYMENT_TIMEOUT_MINUTES,
+        60,
     ),
     REMINDER_BEFORE_EXPIRE_MINUTES: parseNumber(
         process.env.REMINDER_BEFORE_EXPIRE_MINUTES,

@@ -4,11 +4,11 @@ import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TelegramBotService} from './telegram-bot.service';
 import {TelegramBotUpdate} from './telegram-bot.update';
-import {PreDealsModule} from '../predeals/predeals.module';
+import {DealsModule} from '../deals/deals.module';
 import {ChannelsModule} from '../channels/channels.module';
 
 @Module({
-    imports: [ConfigModule, ChannelsModule, forwardRef(() => PreDealsModule)],
+    imports: [ConfigModule, ChannelsModule, forwardRef(() => DealsModule)],
     providers: [
         TelegramBotService,
         TelegramBotUpdate,

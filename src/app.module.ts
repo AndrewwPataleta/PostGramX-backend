@@ -22,7 +22,6 @@ import {DealsModule} from './modules/deals/deals.module';
 import {ListingsModule} from './modules/listings/listings.module';
 import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
 import {MarketplaceModule} from './modules/marketplace/marketplace.module';
-import {PreDealsModule} from './modules/predeals/predeals.module';
 import {
     buildTypeOrmOptions,
     typeOrmEntities,
@@ -57,14 +56,13 @@ import {
         TypeOrmModule.forFeature(typeOrmEntities),
         AuthModule,
         HealthModule,
-         AdminModule,
+        AdminModule,
         ChannelsModule,
         MarketplaceModule,
         DealsModule,
         ListingsModule,
         PaymentsModule,
         TelegramBotModule,
-        PreDealsModule,
     ],
     controllers: [AppController],
     providers: [

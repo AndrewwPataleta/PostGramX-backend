@@ -5,32 +5,32 @@ export class AddDealTimeouts20260401090000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
-            'ALTER TABLE "deals" ADD COLUMN "predealExpiresAt" timestamptz',
+            'ALTER TABLE "deals" ADD COLUMN "idleExpiresAt" timestamptz',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" ADD COLUMN "creativeMustBeSubmittedBy" timestamptz',
+            'ALTER TABLE "deals" ADD COLUMN "creativeDeadlineAt" timestamptz',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" ADD COLUMN "adminMustRespondBy" timestamptz',
+            'ALTER TABLE "deals" ADD COLUMN "adminReviewDeadlineAt" timestamptz',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" ADD COLUMN "paymentMustBePaidBy" timestamptz',
+            'ALTER TABLE "deals" ADD COLUMN "paymentDeadlineAt" timestamptz',
         );
         await queryRunner.query(
             'ALTER TABLE "deals" ADD COLUMN "adminReviewNotifiedAt" timestamptz',
         );
 
         await queryRunner.query(
-            'CREATE INDEX "IDX_deals_predeal_expires_at" ON "deals" ("predealExpiresAt")',
+            'CREATE INDEX "IDX_deals_idle_expires_at" ON "deals" ("idleExpiresAt")',
         );
         await queryRunner.query(
-            'CREATE INDEX "IDX_deals_creative_deadline" ON "deals" ("creativeMustBeSubmittedBy")',
+            'CREATE INDEX "IDX_deals_creative_deadline" ON "deals" ("creativeDeadlineAt")',
         );
         await queryRunner.query(
-            'CREATE INDEX "IDX_deals_admin_deadline" ON "deals" ("adminMustRespondBy")',
+            'CREATE INDEX "IDX_deals_admin_deadline" ON "deals" ("adminReviewDeadlineAt")',
         );
         await queryRunner.query(
-            'CREATE INDEX "IDX_deals_payment_deadline" ON "deals" ("paymentMustBePaidBy")',
+            'CREATE INDEX "IDX_deals_payment_deadline" ON "deals" ("paymentDeadlineAt")',
         );
 
         await queryRunner.query(
@@ -69,22 +69,22 @@ export class AddDealTimeouts20260401090000 implements MigrationInterface {
         await queryRunner.query('DROP INDEX "IDX_deals_payment_deadline"');
         await queryRunner.query('DROP INDEX "IDX_deals_admin_deadline"');
         await queryRunner.query('DROP INDEX "IDX_deals_creative_deadline"');
-        await queryRunner.query('DROP INDEX "IDX_deals_predeal_expires_at"');
+        await queryRunner.query('DROP INDEX "IDX_deals_idle_expires_at"');
 
         await queryRunner.query(
             'ALTER TABLE "deals" DROP COLUMN "adminReviewNotifiedAt"',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" DROP COLUMN "paymentMustBePaidBy"',
+            'ALTER TABLE "deals" DROP COLUMN "paymentDeadlineAt"',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" DROP COLUMN "adminMustRespondBy"',
+            'ALTER TABLE "deals" DROP COLUMN "adminReviewDeadlineAt"',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" DROP COLUMN "creativeMustBeSubmittedBy"',
+            'ALTER TABLE "deals" DROP COLUMN "creativeDeadlineAt"',
         );
         await queryRunner.query(
-            'ALTER TABLE "deals" DROP COLUMN "predealExpiresAt"',
+            'ALTER TABLE "deals" DROP COLUMN "idleExpiresAt"',
         );
     }
 }
