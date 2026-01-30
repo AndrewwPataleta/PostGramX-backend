@@ -3,7 +3,7 @@ import {Type, Transform} from 'class-transformer';
 import {
     IsDateString,
     IsDefined,
-    IsEnum,
+    IsEnum, IsIn,
     IsInt,
     IsOptional,
     IsString,
