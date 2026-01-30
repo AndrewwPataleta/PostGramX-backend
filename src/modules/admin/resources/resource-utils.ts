@@ -1,9 +1,10 @@
-import { BaseRecord, Filter, ListAction, flat, populator } from 'adminjs';
+import type { BaseRecord } from 'adminjs';
 import { ILike } from 'typeorm';
 
 const { convertFilter } = require('@adminjs/typeorm/lib/utils/filter/filter.converter');
 
 const NANO_IN_TON = 1_000_000_000n;
+const loadAdminJs = () => import('adminjs');
 
 export const formatNanoToTon = (
   value: string | number | null | undefined,
@@ -57,6 +58,8 @@ export const applyNanoToTonForRecords = (
 
 export const buildListActionWithSearch = (searchColumns: string[]) => ({
   handler: async (request: any, response: any, context: any) => {
+    const { BaseRecord, Filter, ListAction, flat, populator } =
+      await loadAdminJs();
     const { query } = request;
     const { filters = {}, sortBy, direction } = flat.unflatten(
       query || {},
@@ -65,7 +68,10 @@ export const buildListActionWithSearch = (searchColumns: string[]) => ({
       typeof filters.q === 'string' ? filters.q.trim() : undefined;
 
     if (!qValue) {
-      return ListAction.handler(request, response, context);
+      const listHandler = Array.isArray(ListAction.handler)
+        ? ListAction.handler[0]
+        : ListAction.handler;
+      return listHandler(request, response, context);
     }
 
     const { resource, _admin, currentAdmin } = context;
