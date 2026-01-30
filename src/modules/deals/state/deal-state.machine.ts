@@ -15,30 +15,16 @@ const ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
     [DealEscrowStatus.SCHEDULING_PENDING]: [
         DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
-        DealEscrowStatus.CREATIVE_RECEIVED,
-        DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
-    ],
-    [DealEscrowStatus.CREATIVE_RECEIVED]: [
-        DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-    ],
     [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: [
         DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-        DealEscrowStatus.PAYMENT_WINDOW_PENDING,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_CONFIRM]: [
-        DealEscrowStatus.ADMIN_REVIEW,
-    ],
-    [DealEscrowStatus.ADMIN_REVIEW]: [
-        DealEscrowStatus.PAYMENT_WINDOW_PENDING,
-    ],
-    [DealEscrowStatus.PAYMENT_WINDOW_PENDING]: [
-        DealEscrowStatus.PAYMENT_AWAITING,
+    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
+        DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
     ],
     [DealEscrowStatus.PAYMENT_AWAITING]: [
         DealEscrowStatus.FUNDS_PENDING,
-        DealEscrowStatus.REFUNDED,
     ],
+
     [DealEscrowStatus.FUNDS_PENDING]: [
         DealEscrowStatus.FUNDS_CONFIRMED,
         DealEscrowStatus.REFUNDED,

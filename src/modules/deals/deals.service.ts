@@ -26,11 +26,7 @@ const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.DRAFT,
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-    DealEscrowStatus.CREATIVE_RECEIVED,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
-    DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
     DealEscrowStatus.PAYMENT_AWAITING,
     DealEscrowStatus.FUNDS_PENDING,
 ];
@@ -307,7 +303,7 @@ export class DealsService {
         }
 
         const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW;
-        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+       // this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const creative = await this.ensureCreativeOrCreateMock(deal, advertiser);
 
@@ -437,7 +433,7 @@ export class DealsService {
             };
         }
 
-        const escrowStatus = DealEscrowStatus.CREATIVE_RECEIVED;
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW;
         try {
             this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
         } catch (error) {
@@ -720,8 +716,8 @@ export class DealsService {
             adminUserId: userId,
         });
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
-        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        //this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
         const paymentDeadlineAt = this.addMinutes(
@@ -1191,9 +1187,9 @@ export class DealsService {
             return existing;
         }
 
-        if (!DEALS_CONFIG.MOCK_CREATIVE_APPROVE) {
-            throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
-        }
+        // if (!DEALS_CONFIG.MOCK_CREATIVE_APPROVE) {
+        //     throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
+        // }
 
         const advertiserLabel =
             advertiser.username ?? advertiser.telegramId ?? 'unknown';

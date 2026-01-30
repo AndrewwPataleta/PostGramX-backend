@@ -8,11 +8,7 @@ export function mapEscrowToDealStatus(
         case DealEscrowStatus.DRAFT:
         case DealEscrowStatus.SCHEDULING_PENDING:
         case DealEscrowStatus.CREATIVE_AWAITING_SUBMIT:
-        case DealEscrowStatus.CREATIVE_RECEIVED:
         case DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW:
-        case DealEscrowStatus.CREATIVE_AWAITING_CONFIRM:
-        case DealEscrowStatus.ADMIN_REVIEW:
-        case DealEscrowStatus.PAYMENT_WINDOW_PENDING:
         case DealEscrowStatus.PAYMENT_AWAITING:
         case DealEscrowStatus.FUNDS_PENDING:
             return DealStatus.PENDING;

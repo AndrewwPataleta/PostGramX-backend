@@ -23,11 +23,7 @@ import {ConfigService} from '@nestjs/config';
 const AGREEMENT_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-    DealEscrowStatus.CREATIVE_RECEIVED,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
-    DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
     DealEscrowStatus.PAYMENT_AWAITING,
     DealEscrowStatus.FUNDS_PENDING,
 ];
@@ -113,7 +109,6 @@ export class DealsTimeoutsService {
                 status: DealStatus.PENDING,
                 escrowStatus: In([
                     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-                    DealEscrowStatus.ADMIN_REVIEW,
                 ]),
                 adminReviewDeadlineAt: LessThanOrEqual(now),
             },
@@ -123,7 +118,6 @@ export class DealsTimeoutsService {
             reason: 'ADMIN_NO_RESPONSE',
             allowedEscrowStatuses: [
                 DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-                DealEscrowStatus.ADMIN_REVIEW,
             ],
             notifyAdmins: true,
         });
@@ -135,7 +129,6 @@ export class DealsTimeoutsService {
             .where('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
                 escrowStatuses: [
-                    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
                     DealEscrowStatus.PAYMENT_AWAITING,
                 ],
             })
@@ -149,7 +142,6 @@ export class DealsTimeoutsService {
         await this.cancelDeals(expiredDeals, {
             reason: 'PAYMENT_TIMEOUT',
             allowedEscrowStatuses: [
-                DealEscrowStatus.PAYMENT_WINDOW_PENDING,
                 DealEscrowStatus.PAYMENT_AWAITING,
             ],
             closeWallet: true,
@@ -316,7 +308,7 @@ export class DealsTimeoutsService {
             .where('reminder.id IS NULL')
             .andWhere('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus = :escrowStatus', {
-                escrowStatus: DealEscrowStatus.ADMIN_REVIEW,
+                escrowStatus: DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
             })
             .andWhere('deal.adminReviewDeadlineAt IS NOT NULL')
             .andWhere('deal.adminReviewDeadlineAt > :now', {now})
@@ -350,7 +342,6 @@ export class DealsTimeoutsService {
             .andWhere('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
                 escrowStatuses: [
-                    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
                     DealEscrowStatus.PAYMENT_AWAITING,
                 ],
             })
