@@ -80,6 +80,9 @@ export class DealEntity extends BaseEntity {
     @Column({default: 'TON'})
     escrowCurrency: string;
 
+    @Column({type: 'text', nullable: true})
+    escrowPaymentAddress: string | null;
+
     @Column({type: 'timestamptz', nullable: true})
     escrowExpiresAt: Date | null;
 

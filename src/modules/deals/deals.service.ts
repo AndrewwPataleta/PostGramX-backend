@@ -18,6 +18,7 @@ import {assertTransitionAllowed, DealStateError} from './state/deal-state.machin
 import {DEALS_CONFIG} from '../../config/deals.config';
 import {User} from '../auth/entities/user.entity';
 import {DealCreativeType} from './types/deal-creative-type.enum';
+import {PaymentsService} from '../payments/payments.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -65,6 +66,7 @@ export class DealsService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         private readonly dealsNotificationsService: DealsNotificationsService,
+        private readonly paymentsService: PaymentsService,
     ) {}
 
     async createDeal(
@@ -733,10 +735,49 @@ export class DealsService {
             ...this.buildActivityUpdate(now),
         });
 
+        let escrowPaymentAddress = deal.escrowPaymentAddress;
+        if (!escrowPaymentAddress) {
+            try {
+                const amountNano =
+                    (deal.listingSnapshot as Partial<DealListingSnapshot> | null)
+                        ?.priceNano ??
+                    deal.listing?.priceNano ??
+                    '0';
+                const currency =
+                    (deal.listingSnapshot as Partial<DealListingSnapshot> | null)
+                        ?.currency ??
+                    deal.listing?.currency ??
+                    deal.escrowCurrency ??
+                    'TON';
+
+                const payment = await this.paymentsService.createTransaction({
+                    userId: deal.advertiserUserId,
+                    amountNano,
+                    currency,
+                    description: 'Deal escrow payment',
+                    dealId: deal.id,
+                });
+                escrowPaymentAddress = payment.payToAddress;
+
+                await this.dealRepository.update(deal.id, {
+                    escrowPaymentAddress,
+                });
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Escrow payment address generation failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
+        }
+
         try {
+            const message = escrowPaymentAddress
+                ? `Creative approved. Please proceed with payment.\nPayment address: ${escrowPaymentAddress}`
+                : 'Creative approved. Please proceed with payment.';
             await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
-                'Creative approved. Please proceed with payment.',
+                message,
             );
         } catch (error) {
             const errorMessage =
@@ -1048,6 +1089,7 @@ export class DealsService {
             creativeSubmittedAt: deal.creativeSubmittedAt,
             adminReviewComment: deal.adminReviewComment,
             paymentDeadlineAt: deal.paymentDeadlineAt,
+            escrowPaymentAddress: deal.escrowPaymentAddress,
         };
     }
 
