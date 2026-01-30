@@ -12,6 +12,8 @@ export const mapDealErrorToStatus = (code: DealErrorCode): HttpStatus => {
         case DealErrorCode.LISTING_DISABLED:
         case DealErrorCode.SELF_DEAL_NOT_ALLOWED:
         case DealErrorCode.INVALID_TRANSITION:
+        case DealErrorCode.ACTIVE_PREDEALS_LIMIT_REACHED:
+        case DealErrorCode.DEADLINE_PASSED:
             return HttpStatus.BAD_REQUEST;
         default:
             return HttpStatus.BAD_REQUEST;
@@ -29,11 +31,15 @@ export const mapDealErrorToMessageKey = (code: DealErrorCode): string => {
         case DealErrorCode.INVALID_SCHEDULE_TIME:
             return 'deals.errors.invalidScheduleTime';
         case DealErrorCode.INVALID_TRANSITION:
-            return 'deals.errors.invalidTransition';
+            return 'errors.deals.deal_not_actionable';
         case DealErrorCode.DEAL_NOT_FOUND:
             return 'deals.errors.dealNotFound';
         case DealErrorCode.SELF_DEAL_NOT_ALLOWED:
             return 'deals.errors.selfDealNotAllowed';
+        case DealErrorCode.ACTIVE_PREDEALS_LIMIT_REACHED:
+            return 'errors.deals.active_predeals_limit';
+        case DealErrorCode.DEADLINE_PASSED:
+            return 'errors.deals.deadline_passed';
         default:
             return 'errors.validation_failed';
     }

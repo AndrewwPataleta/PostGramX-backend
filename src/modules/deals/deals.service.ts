@@ -1,6 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Brackets, DataSource, Repository} from 'typeorm';
+import {Brackets, DataSource, In, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
 import {ListingEntity, ListingFormat} from '../listings/entities/listing.entity';
 import {DealEscrowStatus} from './types/deal-escrow-status.enum';
@@ -14,6 +14,7 @@ import {ChannelRole} from '../channels/types/channel-role.enum';
 import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
 import {mapEscrowToDealStatus} from './state/deal-status.mapper';
 import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
+import {DEALS_CONFIG} from '../../config/deals.config';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -35,6 +36,15 @@ const ACTIVE_ESCROW_STATUSES = [
     DealEscrowStatus.POSTED_VERIFYING,
     DealEscrowStatus.CREATIVE_PENDING,
     DealEscrowStatus.CREATIVE_REVIEW,
+];
+
+const ACTIVE_PREDEAL_ESCROW_STATUSES = [
+    DealEscrowStatus.SCHEDULING_PENDING,
+    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    DealEscrowStatus.ADMIN_REVIEW,
+    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+    DealEscrowStatus.PAYMENT_AWAITING,
 ];
 
 const COMPLETED_ESCROW_STATUSES = [
@@ -95,6 +105,24 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
         }
 
+        const activePredealCount = await this.dealRepository.count({
+            where: {
+                listingId,
+                advertiserUserId: userId,
+                status: DealStatus.PENDING,
+                escrowStatus: In(ACTIVE_PREDEAL_ESCROW_STATUSES),
+            },
+        });
+
+        if (
+            activePredealCount >=
+            DEALS_CONFIG.MAX_ACTIVE_PREDEALS_PER_LISTING_PER_USER
+        ) {
+            throw new DealServiceError(
+                DealErrorCode.ACTIVE_PREDEALS_LIMIT_REACHED,
+            );
+        }
+
         const hasActiveMembership =
             (await this.membershipRepository
                 .createQueryBuilder('membership')
@@ -122,6 +150,14 @@ export class DealsService {
         const escrowStatus = parsedScheduledAt
             ? DealEscrowStatus.CREATIVE_AWAITING_SUBMIT
             : DealEscrowStatus.SCHEDULING_PENDING;
+        const predealExpiresAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.PREDEAL_IDLE_EXPIRE_MINUTES,
+        );
+        const creativeMustBeSubmittedBy = this.addMinutes(
+            now,
+            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+        );
 
         const deal = await this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(DealEntity);
@@ -154,6 +190,8 @@ export class DealsService {
                 brief: brief ?? null,
                 scheduledAt: parsedScheduledAt,
                 lastActivityAt: now,
+                predealExpiresAt,
+                creativeMustBeSubmittedBy,
             });
 
             return repo.save(created);
@@ -209,7 +247,7 @@ export class DealsService {
             scheduledAt: parsedScheduledAt,
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            lastActivityAt: now,
+            ...this.buildActivityUpdate(now),
         });
 
         return {
@@ -238,7 +276,7 @@ export class DealsService {
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            lastActivityAt: now,
+            ...this.buildActivityUpdate(now),
         });
 
         return {
@@ -263,10 +301,16 @@ export class DealsService {
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
+        const adminMustRespondBy = this.addHours(
+            now,
+            DEALS_CONFIG.ADMIN_RESPONSE_DEADLINE_HOURS,
+        );
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            lastActivityAt: now,
+            adminReviewNotifiedAt: now,
+            adminMustRespondBy,
+            ...this.buildActivityUpdate(now),
         });
 
         return {
@@ -294,7 +338,7 @@ export class DealsService {
         await this.dealRepository.update(deal.id, {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
-            lastActivityAt: now,
+            ...this.buildActivityUpdate(now),
         });
 
         return {
@@ -327,7 +371,8 @@ export class DealsService {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
             escrowExpiresAt: expiresAt,
-            lastActivityAt: now,
+            paymentMustBePaidBy: expiresAt,
+            ...this.buildActivityUpdate(now),
         });
 
         return {
@@ -536,5 +581,26 @@ export class DealsService {
             }
             throw error;
         }
+    }
+
+    private buildActivityUpdate(now: Date): {
+        lastActivityAt: Date;
+        predealExpiresAt: Date;
+    } {
+        return {
+            lastActivityAt: now,
+            predealExpiresAt: this.addMinutes(
+                now,
+                DEALS_CONFIG.PREDEAL_IDLE_EXPIRE_MINUTES,
+            ),
+        };
+    }
+
+    private addMinutes(date: Date, minutes: number): Date {
+        return new Date(date.getTime() + minutes * 60_000);
+    }
+
+    private addHours(date: Date, hours: number): Date {
+        return new Date(date.getTime() + hours * 3_600_000);
     }
 }

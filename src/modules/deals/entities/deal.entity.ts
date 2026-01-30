@@ -23,6 +23,10 @@ import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 @Index('IDX_deals_escrow_status', ['escrowStatus'])
 @Index('IDX_deals_escrow_expires_at', ['escrowExpiresAt'])
 @Index('IDX_deals_last_activity_at', ['lastActivityAt'])
+@Index('IDX_deals_predeal_expires_at', ['predealExpiresAt'])
+@Index('IDX_deals_creative_deadline', ['creativeMustBeSubmittedBy'])
+@Index('IDX_deals_admin_deadline', ['adminMustRespondBy'])
+@Index('IDX_deals_payment_deadline', ['paymentMustBePaidBy'])
 export class DealEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -86,10 +90,25 @@ export class DealEntity {
     escrowExpiresAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
+    paymentMustBePaidBy: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
     stalledAt: Date | null;
 
     @Column({type: 'timestamptz', default: () => 'now()'})
     lastActivityAt: Date;
+
+    @Column({type: 'timestamptz', nullable: true})
+    predealExpiresAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    creativeMustBeSubmittedBy: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    adminMustRespondBy: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    adminReviewNotifiedAt: Date | null;
 
     @Column({type: 'jsonb', nullable: true})
     offerSnapshot: Record<string, unknown> | null;

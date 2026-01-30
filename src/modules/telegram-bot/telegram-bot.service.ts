@@ -14,6 +14,7 @@ import {
 } from './telegram-bot.constants';
 import {TelegramBotUpdate} from './telegram-bot.update';
 import {TelegramBotConfig, TelegramInlineButton, TelegramBotMode} from './telegram-bot.types';
+import {ChannelParticipantsService} from '../channels/channel-participants.service';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
@@ -26,6 +27,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     constructor(
         private readonly configService: ConfigService,
         private readonly updateRegistry: TelegramBotUpdate,
+        private readonly channelParticipantsService: ChannelParticipantsService,
     ) {}
 
     onModuleInit(): void {
@@ -79,6 +81,34 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     ): Promise<void> {
         const message = `Deal ${dealId} status updated: ${status}`;
         await this.sendMessage(userTelegramId, message);
+    }
+
+    async sendDealReminderToUser(
+        userTelegramId: string | number,
+        text: string,
+        buttons: TelegramInlineButton[][],
+    ): Promise<void> {
+        await this.sendMessage(userTelegramId, text, {
+            reply_markup: {inline_keyboard: buttons},
+            parse_mode: 'HTML',
+        });
+    }
+
+    async sendDealReminderToChannelAdmins(
+        channelId: string,
+        text: string,
+        buttons: TelegramInlineButton[][],
+    ): Promise<void> {
+        const recipients =
+            await this.channelParticipantsService.getNotificationRecipients(
+                channelId,
+            );
+        for (const recipient of recipients) {
+            if (!recipient.telegramId) {
+                continue;
+            }
+            await this.sendDealReminderToUser(recipient.telegramId, text, buttons);
+        }
     }
 
     private initializeBot(): void {

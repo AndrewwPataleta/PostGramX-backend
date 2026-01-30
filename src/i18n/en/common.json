@@ -36,7 +36,12 @@
     "spaces_credentials_not_configured": "DigitalOcean Spaces credentials are not configured on the server.",
     "spaces_endpoint_not_configured": "DigitalOcean Spaces endpoint is not configured on the server.",
     "spaces_upload_failed": "Failed to upload image to storage.",
-    "validation_failed": "Validation failed."
+    "validation_failed": "Validation failed.",
+    "deals": {
+      "active_predeals_limit": "You already have an active pre-deal for this listing.",
+      "deal_not_actionable": "The deal is not in the expected state.",
+      "deadline_passed": "The deadline for this deal action has passed."
+    }
   },
   "internalProductCategories": {
     "pets": "Pet Supplies",
