@@ -44,7 +44,7 @@ export class EscrowService {
             throw new EscrowServiceError(EscrowServiceErrorCode.FORBIDDEN);
         }
 
-        if (deal.escrowStatus === DealEscrowStatus.PAYMENT_AWAITING) {
+        if (deal.escrowStatus === DealEscrowStatus.PAYMENT_PENDING) {
             if (deal.escrowAmountNano && deal.escrowAmountNano !== amountNano) {
                 throw new EscrowServiceError(
                     EscrowServiceErrorCode.ESCROW_AMOUNT_MISMATCH,
@@ -65,10 +65,10 @@ export class EscrowService {
             }
         }
 
-        if (deal.escrowStatus !== DealEscrowStatus.PAYMENT_AWAITING) {
+        if (deal.escrowStatus !== DealEscrowStatus.PAYMENT_PENDING) {
             this.ensureTransitionAllowed(
                 deal.escrowStatus,
-                DealEscrowStatus.PAYMENT_AWAITING,
+                DealEscrowStatus.PAYMENT_PENDING,
             );
         }
 
@@ -82,9 +82,9 @@ export class EscrowService {
             );
 
             await manager.getRepository(DealEntity).update(deal.id, {
-                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                escrowStatus: DealEscrowStatus.PAYMENT_PENDING,
                 status: mapEscrowToDealStatus(
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.PAYMENT_PENDING,
                 ),
                 escrowWalletId: createdWallet.id,
                 escrowAmountNano: amountNano,
@@ -101,7 +101,7 @@ export class EscrowService {
 
         return {
             dealId: deal.id,
-            escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+            escrowStatus: DealEscrowStatus.PAYMENT_PENDING,
             depositAddress: wallet.address,
             expiresAt,
         };
@@ -173,7 +173,7 @@ export class EscrowService {
 
         const canMoveToPending = isTransitionAllowed(
             deal.escrowStatus,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.PAYMENT_PENDING,
         );
         const canMoveToConfirmed = isTransitionAllowed(
             deal.escrowStatus,
@@ -204,12 +204,12 @@ export class EscrowService {
             if (canMoveToPending) {
                 this.ensureTransitionAllowed(
                     deal.escrowStatus,
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.PAYMENT_PENDING,
                 );
                 await dealRepository.update(deal.id, {
-                    escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                    escrowStatus: DealEscrowStatus.PAYMENT_PENDING,
                     status: mapEscrowToDealStatus(
-                        DealEscrowStatus.PAYMENT_AWAITING,
+                        DealEscrowStatus.PAYMENT_PENDING,
                     ),
                     lastActivityAt: now,
                     stalledAt: null,
@@ -219,7 +219,7 @@ export class EscrowService {
 
             this.ensureTransitionAllowed(
                 canMoveToPending
-                    ? DealEscrowStatus.PAYMENT_AWAITING
+                    ? DealEscrowStatus.PAYMENT_PENDING
                     : deal.escrowStatus,
                 DealEscrowStatus.FUNDS_CONFIRMED,
             );

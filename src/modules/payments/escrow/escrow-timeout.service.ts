@@ -32,13 +32,13 @@ export class EscrowTimeoutService {
 
         const preFundingStatuses = [
             DealEscrowStatus.DRAFT,
-            DealEscrowStatus.SCHEDULING_PENDING,
-            DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-            DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+            DealEscrowStatus.WAITING_SCHEDULE,
+            DealEscrowStatus.WAITING_CREATIVE,
+            DealEscrowStatus.CREATIVE_SUBMITTED,
             DealEscrowStatus.ADMIN_REVIEW,
-            DealEscrowStatus.PAYMENT_WINDOW_PENDING,
-            DealEscrowStatus.PAYMENT_AWAITING,
-            DealEscrowStatus.FUNDS_PENDING,
+            DealEscrowStatus.CHANGES_REQUESTED,
+            DealEscrowStatus.AWAITING_PAYMENT,
+            DealEscrowStatus.PAYMENT_PENDING,
         ];
 
         const stalledBeforeFunding = await this.dealRepository.find({
@@ -66,8 +66,9 @@ export class EscrowTimeoutService {
         }
 
         const postFundingStatuses = [
-            DealEscrowStatus.CREATIVE_PENDING,
-            DealEscrowStatus.CREATIVE_REVIEW,
+            DealEscrowStatus.SCHEDULED,
+            DealEscrowStatus.POSTING,
+            DealEscrowStatus.POSTED_VERIFYING,
         ];
 
         const stalledAfterFunding = await this.dealRepository.find({
