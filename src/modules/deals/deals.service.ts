@@ -22,24 +22,25 @@ const DEFAULT_LIMIT = 20;
 
 const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.DRAFT,
-    DealEscrowStatus.WAITING_SCHEDULE,
-    DealEscrowStatus.WAITING_CREATIVE,
-    DealEscrowStatus.CREATIVE_SUBMITTED,
+    DealEscrowStatus.SCHEDULING_PENDING,
+    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
     DealEscrowStatus.ADMIN_REVIEW,
-    DealEscrowStatus.CHANGES_REQUESTED,
-    DealEscrowStatus.AWAITING_PAYMENT,
-    DealEscrowStatus.PAYMENT_PENDING,
+    DealEscrowStatus.PAYMENT_WINDOW_PENDING,
+    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.FUNDS_PENDING,
 ];
 
 const ACTIVE_ESCROW_STATUSES = [
     DealEscrowStatus.FUNDS_CONFIRMED,
-    DealEscrowStatus.SCHEDULED,
-    DealEscrowStatus.POSTING,
+    DealEscrowStatus.CREATIVE_PENDING,
+    DealEscrowStatus.CREATIVE_REVIEW,
+    DealEscrowStatus.APPROVED_SCHEDULED,
     DealEscrowStatus.POSTED_VERIFYING,
 ];
 
 const COMPLETED_ESCROW_STATUSES = [
-    DealEscrowStatus.RELEASED,
+    DealEscrowStatus.COMPLETED,
     DealEscrowStatus.CANCELED,
     DealEscrowStatus.REFUNDED,
     DealEscrowStatus.DISPUTED,
@@ -141,8 +142,8 @@ export class DealsService {
         const now = new Date();
         const listingSnapshot = this.buildListingSnapshot(listing, now);
         const escrowStatus = parsedScheduledAt
-            ? DealEscrowStatus.WAITING_CREATIVE
-            : DealEscrowStatus.WAITING_SCHEDULE;
+            ? DealEscrowStatus.CREATIVE_AWAITING_SUBMIT
+            : DealEscrowStatus.SCHEDULING_PENDING;
         const idleExpiresAt = this.addMinutes(
             now,
             DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES,
@@ -229,11 +230,11 @@ export class DealsService {
 
         this.ensureTransitionAllowed(
             deal.escrowStatus,
-            DealEscrowStatus.WAITING_CREATIVE,
+            DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
         );
 
         const now = new Date();
-        const escrowStatus = DealEscrowStatus.WAITING_CREATIVE;
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
         const creativeDeadlineAt = this.addMinutes(
             now,
             DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
@@ -266,7 +267,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.CREATIVE_SUBMITTED;
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_CONFIRM;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
@@ -425,7 +426,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.AWAITING_PAYMENT;
+        const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
@@ -477,7 +478,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.CHANGES_REQUESTED;
+        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
         this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();

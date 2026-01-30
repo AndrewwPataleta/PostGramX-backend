@@ -16,17 +16,17 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.draft',
         shortLabel: 'Draft',
     },
-    [DealEscrowStatus.WAITING_SCHEDULE]: {
+    [DealEscrowStatus.SCHEDULING_PENDING]: {
         stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Choose time',
         actionHint: 'Select a posting date and time.',
     },
-    [DealEscrowStatus.WAITING_CREATIVE]: {
+    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: {
         stageKey: 'deals.stages.waiting_creative',
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
-    [DealEscrowStatus.CREATIVE_SUBMITTED]: {
+    [DealEscrowStatus.CREATIVE_AWAITING_CONFIRM]: {
         stageKey: 'deals.stages.creative_submitted',
         shortLabel: 'Creative submitted',
         actionHint: 'Awaiting admin review.',
@@ -35,17 +35,17 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.admin_review',
         shortLabel: 'Awaiting admin approval',
     },
-    [DealEscrowStatus.CHANGES_REQUESTED]: {
-        stageKey: 'deals.stages.changes_requested',
-        shortLabel: 'Changes requested',
-        actionHint: 'Resubmit the creative.',
-    },
-    [DealEscrowStatus.AWAITING_PAYMENT]: {
+    [DealEscrowStatus.PAYMENT_WINDOW_PENDING]: {
         stageKey: 'deals.stages.awaiting_payment',
         shortLabel: 'Awaiting payment',
         actionHint: 'Complete payment within the window.',
     },
-    [DealEscrowStatus.PAYMENT_PENDING]: {
+    [DealEscrowStatus.PAYMENT_AWAITING]: {
+        stageKey: 'deals.stages.awaiting_payment',
+        shortLabel: 'Awaiting payment',
+        actionHint: 'Complete payment within the window.',
+    },
+    [DealEscrowStatus.FUNDS_PENDING]: {
         stageKey: 'deals.stages.payment_pending',
         shortLabel: 'Payment processing',
     },
@@ -53,19 +53,25 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.funds_confirmed',
         shortLabel: 'Payment confirmed',
     },
-    [DealEscrowStatus.SCHEDULED]: {
+    [DealEscrowStatus.CREATIVE_PENDING]: {
+        stageKey: 'deals.stages.waiting_creative',
+        shortLabel: 'Creative pending',
+        actionHint: 'Send the final creative for review.',
+    },
+    [DealEscrowStatus.CREATIVE_REVIEW]: {
+        stageKey: 'deals.stages.creative_submitted',
+        shortLabel: 'Creative review',
+        actionHint: 'Awaiting final approval.',
+    },
+    [DealEscrowStatus.APPROVED_SCHEDULED]: {
         stageKey: 'deals.stages.scheduled',
         shortLabel: 'Scheduled',
-    },
-    [DealEscrowStatus.POSTING]: {
-        stageKey: 'deals.stages.posting',
-        shortLabel: 'Posting',
     },
     [DealEscrowStatus.POSTED_VERIFYING]: {
         stageKey: 'deals.stages.posted_verifying',
         shortLabel: 'Verifying post',
     },
-    [DealEscrowStatus.RELEASED]: {
+    [DealEscrowStatus.COMPLETED]: {
         stageKey: 'deals.stages.released',
         shortLabel: 'Released',
     },
