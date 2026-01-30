@@ -1,4 +1,4 @@
-import {forwardRef, Inject, Injectable} from '@nestjs/common';
+import {forwardRef, Inject, Injectable, Logger} from '@nestjs/common';
 import {Context, Telegraf} from 'telegraf';
 import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
@@ -7,6 +7,8 @@ import {DealsBotHandler} from '../deals/deals-bot.handler';
 
 @Injectable()
 export class TelegramBotUpdate {
+    private readonly logger = new Logger(TelegramBotUpdate.name);
+
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
@@ -15,6 +17,30 @@ export class TelegramBotUpdate {
     ) {}
 
     register(bot: Telegraf<Context>): void {
+        bot.use(async (context, next) => {
+            const message = context.message as
+                | {text?: string; caption?: string; message_id?: number}
+                | undefined;
+            const callback = context.callbackQuery as
+                | {data?: string; message?: {message_id?: number}}
+                | undefined;
+            const text =
+                message?.text ??
+                message?.caption ??
+                ('data' in (callback ?? {}) ? callback?.data : undefined);
+            const messageId =
+                message?.message_id ?? callback?.message?.message_id;
+            const fromId = context.from?.id;
+
+            this.logger.log('Telegram update received', {
+                updateType: context.updateType,
+                fromId,
+                text,
+                messageId,
+            });
+            await next();
+        });
+
         bot.start(async (context) => {
             const handled = await this.dealsBotHandler.handleStart(context);
             if (handled) {

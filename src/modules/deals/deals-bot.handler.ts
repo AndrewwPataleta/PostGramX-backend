@@ -1,7 +1,8 @@
-import {forwardRef, Inject, Injectable} from '@nestjs/common';
+import {forwardRef, Inject, Injectable, Logger} from '@nestjs/common';
 import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
 import {DealCreativeType} from './types/deal-creative-type.enum';
+import {DealsDeepLinkService} from './deals-deep-link.service';
 
 const getStartPayload = (context: Context): string | undefined => {
     if (!('startPayload' in context)) {
@@ -24,9 +25,12 @@ const getChatId = (context: Context): string => {
 
 @Injectable()
 export class DealsBotHandler {
+    private readonly logger = new Logger(DealsBotHandler.name);
+
     constructor(
         @Inject(forwardRef(() => DealsService))
         private readonly dealsService: DealsService,
+        private readonly dealsDeepLinkService: DealsDeepLinkService,
     ) {}
 
     async handleStart(context: Context): Promise<boolean> {
@@ -60,13 +64,36 @@ export class DealsBotHandler {
             | undefined;
 
         if (!message) {
-            return false;
+            await context.reply(
+                '⚠️ Unsupported format.\nSend: text, photo+caption, or video+caption.',
+            );
+            return true;
         }
 
+        const telegramUserId = getTelegramUserId(context);
+        const messageId = message.message_id;
+        const traceId = `${telegramUserId}:${messageId}`;
         const text = message.text ?? null;
         const caption = message.caption ?? null;
+        const hasText = Boolean(text);
+        const hasPhoto = Boolean(message.photo?.length);
+        const hasVideo = Boolean(message.video);
         let type: DealCreativeType | null = null;
         let mediaFileId: string | null = null;
+        let replyMessage =
+            '❌ Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.';
+        let replyOptions: {
+            reply_markup?: {inline_keyboard: Array<Array<{text: string; url: string}>>};
+        } | undefined;
+
+        this.logger.log('DealsBot creative message received', {
+            traceId,
+            telegramId: telegramUserId,
+            messageId,
+            hasText,
+            hasPhoto,
+            hasVideo,
+        });
 
         if (message.photo && message.photo.length > 0) {
             const largest = message.photo[message.photo.length - 1];
@@ -81,24 +108,72 @@ export class DealsBotHandler {
             type = DealCreativeType.TEXT;
         }
 
-        const result = await this.dealsService.handleCreativeMessage({
-            telegramUserId: getTelegramUserId(context),
-            type,
-            text,
-            caption,
-            mediaFileId,
-            rawPayload: {
-                chatId: getChatId(context),
-                message,
-            },
-        });
+        try {
+            if (!type) {
+                replyMessage =
+                    '⚠️ Unsupported format.\nSend: text, photo+caption, or video+caption.';
+                this.logger.warn('DealsBot unsupported creative format', {
+                    traceId,
+                    telegramId: telegramUserId,
+                });
+            } else if (
+                (type === DealCreativeType.IMAGE ||
+                    type === DealCreativeType.VIDEO) &&
+                !caption
+            ) {
+                replyMessage =
+                    '⚠️ Please add a caption (text) to your media, or send text separately.';
+                this.logger.warn('DealsBot creative missing caption', {
+                    traceId,
+                    telegramId: telegramUserId,
+                    type,
+                });
+            } else {
+                const result = await this.dealsService.handleCreativeMessage({
+                    traceId,
+                    telegramUserId,
+                    type,
+                    text,
+                    caption,
+                    mediaFileId,
+                    rawPayload: {
+                        chatId: getChatId(context),
+                        messageId,
+                        text,
+                        caption,
+                        photoFileIds: message.photo?.map((item) => item.file_id),
+                        videoFileId: message.video?.file_id,
+                    },
+                });
 
-        if (!result.handled) {
-            return false;
-        }
+                replyMessage =
+                    result.message ??
+                    '⚠️ I can’t process your creative right now. Please try again.';
 
-        if (result.message) {
-            await context.reply(result.message);
+                if (result.success && result.dealId) {
+                    const link = this.dealsDeepLinkService.buildDealLink(
+                        result.dealId,
+                    );
+                    replyOptions = {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{text: 'Open Mini App', url: link}],
+                            ],
+                        },
+                    };
+                }
+            }
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.error('DealsBot creative handling failed', {
+                traceId,
+                telegramId: telegramUserId,
+                errorMessage,
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+        } finally {
+            await context.reply(replyMessage, replyOptions);
         }
 
         return true;
