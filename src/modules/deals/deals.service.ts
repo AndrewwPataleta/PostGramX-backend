@@ -776,12 +776,12 @@ export class DealsService {
         }
 
         try {
-            const message = escrowPaymentAddress
-                ? `Creative approved. Please proceed with payment.\nPayment address: ${escrowPaymentAddress}`
-                : 'Creative approved. Please proceed with payment.';
-            await this.dealsNotificationsService.notifyAdvertiser(
-                deal,
-                message,
+            const updatedDeal = Object.assign(deal, {
+                escrowPaymentAddress,
+                paymentDeadlineAt,
+            });
+            await this.dealsNotificationsService.notifyAdvertiserPaymentRequired(
+                updatedDeal,
             );
         } catch (error) {
             const errorMessage =
