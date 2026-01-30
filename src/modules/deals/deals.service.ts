@@ -169,7 +169,7 @@ export class DealsService {
                 createdByUserId: userId,
                 sideInitiator: DealInitiatorSide.ADVERTISER,
                 status: mapEscrowToDealStatus(escrowStatus),
-                escrowStatus,
+                escrowStatus: DealEscrowStatus.SCHEDULING_PENDING,
                 offerSnapshot: {
                     priceNano: listing.priceNano,
                     currency: listing.currency,
