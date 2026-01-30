@@ -17,6 +17,7 @@ import {WalletsModule} from '../payments/wallets/wallets.module';
 import {PaymentsModule} from '../payments/payments.module';
 import {User} from '../auth/entities/user.entity';
 import {DealsBotHandler} from './deals-bot.handler';
+import {TransactionEntity} from '../payments/entities/transaction.entity';
 
 @Module({
     imports: [
@@ -28,11 +29,12 @@ import {DealsBotHandler} from './deals-bot.handler';
             ChannelEntity,
             ChannelMembershipEntity,
             User,
+            TransactionEntity,
         ]),
         ChannelsModule,
         forwardRef(() => TelegramBotModule),
         WalletsModule,
-        PaymentsModule,
+        forwardRef(() => PaymentsModule),
     ],
     controllers: [DealsController],
     providers: [
@@ -42,6 +44,6 @@ import {DealsBotHandler} from './deals-bot.handler';
         DealsTimeoutsService,
         DealsBotHandler,
     ],
-    exports: [DealsService, DealsBotHandler],
+    exports: [DealsService, DealsBotHandler, DealsNotificationsService],
 })
 export class DealsModule {}

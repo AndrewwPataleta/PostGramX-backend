@@ -21,6 +21,8 @@ import {DealCreativeType} from './types/deal-creative-type.enum';
 import {PaymentsService} from '../payments/payments.service';
 import {TransactionDirection} from '../payments/types/transaction-direction.enum';
 import {TransactionType} from '../payments/types/transaction-type.enum';
+import {TransactionEntity} from '../payments/entities/transaction.entity';
+import {subNano} from '../payments/utils/bigint';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -67,6 +69,8 @@ export class DealsService {
         private readonly membershipRepository: Repository<ChannelMembershipEntity>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        @InjectRepository(TransactionEntity)
+        private readonly transactionRepository: Repository<TransactionEntity>,
         private readonly dealsNotificationsService: DealsNotificationsService,
         private readonly paymentsService: PaymentsService,
     ) {}
@@ -1064,7 +1068,11 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        return this.buildDealItem(deal, userId);
+        const transaction = await this.transactionRepository.findOne({
+            where: {dealId: deal.id, type: TransactionType.ESCROW_HOLD},
+        });
+
+        return this.buildDealItem(deal, userId, transaction ?? null);
     }
 
     private async fetchDealsGroup(
@@ -1110,7 +1118,13 @@ export class DealsService {
 
         const [deals, total] = await qb.getManyAndCount();
 
-        const items = deals.map((deal) => this.buildDealItem(deal, userId));
+        const transactions = await this.loadEscrowTransactions(
+            deals.map((deal) => deal.id),
+        );
+
+        const items = deals.map((deal) =>
+            this.buildDealItem(deal, userId, transactions.get(deal.id) ?? null),
+        );
 
         return {
             items,
@@ -1120,12 +1134,21 @@ export class DealsService {
         };
     }
 
-    private buildDealItem(deal: DealEntity, userId: string) {
+    private buildDealItem(
+        deal: DealEntity,
+        userId: string,
+        transaction: TransactionEntity | null,
+    ) {
         const listing = deal.listing;
         const listingSnapshot = deal.listingSnapshot as
             | Partial<DealListingSnapshot>
             | null;
         const channel = deal.channel;
+        const escrowAmountNano = deal.escrowAmountNano ?? transaction?.amountNano ?? null;
+        const escrowReceivedNano = transaction?.receivedNano ?? '0';
+        const escrowRemainingNano = escrowAmountNano
+            ? subNano(escrowAmountNano, escrowReceivedNano)
+            : null;
 
         const hasSnapshot = Boolean(
             listingSnapshot?.listingId && listingSnapshot?.priceNano,
@@ -1190,7 +1213,27 @@ export class DealsService {
             adminReviewComment: deal.adminReviewComment,
             paymentDeadlineAt: deal.paymentDeadlineAt,
             escrowPaymentAddress: deal.escrowPaymentAddress,
+            escrowAmountNano,
+            escrowReceivedNano,
+            escrowRemainingNano,
         };
+    }
+
+    private async loadEscrowTransactions(
+        dealIds: string[],
+    ): Promise<Map<string, TransactionEntity>> {
+        if (dealIds.length === 0) {
+            return new Map();
+        }
+
+        const transactions = await this.transactionRepository.find({
+            where: {
+                dealId: In(dealIds),
+                type: TransactionType.ESCROW_HOLD,
+            },
+        });
+
+        return new Map(transactions.map((tx) => [tx.dealId ?? '', tx]));
     }
 
     private buildListingSnapshot(
