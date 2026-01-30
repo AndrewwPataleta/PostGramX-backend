@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {forwardRef, Inject, Injectable} from '@nestjs/common';
 import {Context, Telegraf} from 'telegraf';
 import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
@@ -10,6 +10,7 @@ export class TelegramBotUpdate {
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
+        @Inject(forwardRef(() => DealsBotHandler))
         private readonly dealsBotHandler: DealsBotHandler,
     ) {}
 
