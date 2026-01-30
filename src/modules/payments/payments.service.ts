@@ -1,10 +1,11 @@
 import {
+    BadRequestException,
     ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Repository} from 'typeorm';
+import {EntityManager, Repository} from 'typeorm';
 import {CreateTransactionDto} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
@@ -143,8 +144,27 @@ export class PaymentsService {
         return transaction;
     }
 
-    async createTransaction(data: CreateTransactionDto) {
+    async createTransaction(
+        data: CreateTransactionDto,
+        manager?: EntityManager,
+    ) {
+        const amountNano = data.amountNano?.trim();
+        if (!amountNano) {
+            throw new BadRequestException('amountNano is required');
+        }
+        let parsedAmount: bigint;
+        try {
+            parsedAmount = BigInt(amountNano);
+        } catch (error) {
+            throw new BadRequestException('amountNano must be a valid bigint');
+        }
+        if (parsedAmount <= 0n) {
+            throw new BadRequestException('amountNano must be greater than zero');
+        }
 
+        const transactionRepository = manager
+            ? manager.getRepository(TransactionEntity)
+            : this.transactionRepository;
 
         // 1) генерим уникальный адрес (wallet)
         const wallet = await generateDealWallet();
@@ -155,7 +175,7 @@ export class PaymentsService {
         const mnemonicEnc = encryptMnemonic(wallet.mnemonic, masterKey);
 
         // 3) сохраняем транзакцию + адрес
-        const transaction = this.transactionRepository.create({
+        const transaction = transactionRepository.create({
             userId: data.userId,
 
             // ⬇️ ВАЖНО — жёстко задаём тип escrow
@@ -164,7 +184,7 @@ export class PaymentsService {
             // advertiser платит В ТЕБЯ
             direction: TransactionDirection.IN,
 
-            amountNano: "1000000000",
+            amountNano,
             currency: data.currency ?? "TON",
 
             status: TransactionStatus.PENDING,
@@ -186,7 +206,7 @@ export class PaymentsService {
             },
         });
 
-        const saved = await this.transactionRepository.save(transaction);
+        const saved = await transactionRepository.save(transaction);
 
         // 4) возвращаем клиенту адрес для оплаты
         return {

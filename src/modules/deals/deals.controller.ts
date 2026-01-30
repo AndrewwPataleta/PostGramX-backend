@@ -10,6 +10,7 @@ import {CreativeAttachDto} from './dto/creative-attach.dto';
 import {CreativeConfirmDto} from './dto/creative-confirm.dto';
 import {ListDealsDto} from './dto/list-deals.dto';
 import {ScheduleDealDto} from './dto/schedule-deal.dto';
+import {ApproveDealDto} from './dto/approve-deal.dto';
 import {DealServiceError} from './errors/deal-service.error';
 import {mapDealErrorToMessageKey, mapDealErrorToStatus} from './deal-error-mapper';
 
@@ -128,6 +129,30 @@ export class DealsController {
             return await this.dealsService.confirmCreative(
                 user.id,
                 dto.data.dealId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('admin/approve')
+    @ApiOperation({summary: 'Approve a deal as channel admin'})
+    @ApiBody({type: ApproveDealDto})
+    async approveDealByAdmin(
+        @Body(dtoValidationPipe) dto: ApproveDealDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.approveByAdmin(
+                dto.data.dealId,
+                user.id,
             );
         } catch (error) {
             await handleMappedError(error, i18n, {

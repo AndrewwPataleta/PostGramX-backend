@@ -13,6 +13,7 @@ import {TransactionType} from '../types/transaction-type.enum';
 
 @Entity({name: 'transactions'})
 @Index('IDX_transactions_user_created_at', ['userId', 'createdAt'])
+@Index('IDX_transactions_deal_type', ['dealId', 'type'])
 @Index('IDX_transactions_deal_id', ['dealId'])
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])

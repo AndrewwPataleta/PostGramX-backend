@@ -111,6 +111,33 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    async sendPaymentRequestToAdvertiser(
+        userTelegramId: string | number,
+        dealId: string,
+        amountTon: string,
+        address: string,
+        expiresAt?: Date | null,
+    ): Promise<void> {
+        const deadlineLine = expiresAt
+            ? `before <b>${expiresAt.toISOString()}</b>.`
+            : 'before the deadline.';
+        const message = [
+            '✅ Channel admin approved your placement.',
+            `Please pay <b>${amountTon} TON</b> to the escrow address below ${deadlineLine}`,
+            `Address: <code>${address}</code>`,
+        ].join('\n');
+
+        const link = this.buildDealLink(dealId);
+        const buttons: TelegramInlineButton[][] = [
+            [{text: 'Open Deal', url: link}],
+        ];
+
+        await this.sendMessage(userTelegramId, message, {
+            reply_markup: {inline_keyboard: buttons},
+            parse_mode: 'HTML',
+        });
+    }
+
     private initializeBot(): void {
         if (this.config.mode !== 'polling') {
             this.logger.warn(
@@ -244,5 +271,34 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
                 'TELEGRAM_WEBHOOK_URL is not set; webhook mode is not fully configured.',
             );
         }
+    }
+
+    private buildDealLink(dealId: string): string {
+        const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME');
+        const miniAppShortName = this.configService.get<string>(
+            'TELEGRAM_MINIAPP_SHORT_NAME',
+        );
+        const baseUrl = this.configService.get<string>('TELEGRAM_MINI_APP_URL');
+        const startParam = `deal_${dealId}`;
+
+        if (botUsername && miniAppShortName) {
+            return `https://t.me/${botUsername}/${miniAppShortName}?startapp=${startParam}`;
+        }
+
+        if (botUsername) {
+            return `https://t.me/${botUsername}?startapp=${startParam}`;
+        }
+
+        if (baseUrl) {
+            try {
+                const url = new URL(baseUrl);
+                url.searchParams.set('startapp', startParam);
+                return url.toString();
+            } catch (error) {
+                return baseUrl;
+            }
+        }
+
+        return 'https://t.me';
     }
 }

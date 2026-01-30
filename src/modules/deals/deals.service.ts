@@ -15,6 +15,11 @@ import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
 import {mapEscrowToDealStatus} from './state/deal-status.mapper';
 import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
 import {DEALS_CONFIG} from '../../config/deals.config';
+import {PaymentsService} from '../payments/payments.service';
+import {TransactionEntity} from '../payments/entities/transaction.entity';
+import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
+import {ChannelAdminRecheckService} from '../channels/guards/channel-admin-recheck.service';
+import {User} from '../auth/entities/user.entity';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -68,7 +73,12 @@ export class DealsService {
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(ChannelMembershipEntity)
         private readonly membershipRepository: Repository<ChannelMembershipEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
         private readonly dealsNotificationsService: DealsNotificationsService,
+        private readonly paymentsService: PaymentsService,
+        private readonly telegramBotService: TelegramBotService,
+        private readonly channelAdminRecheckService: ChannelAdminRecheckService,
     ) {}
 
     async createDeal(
@@ -320,31 +330,188 @@ export class DealsService {
         };
     }
 
-    async approveByAdmin(userId: string, dealId: string) {
-        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+    async approveByAdmin(dealId: string, adminUserId: string) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+            relations: {listing: true, channel: true},
+        });
 
         if (!deal) {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
-        if (deal.publisherOwnerUserId !== userId) {
+        if (deal.publisherOwnerUserId !== adminUserId) {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
         }
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_WINDOW_PENDING;
-        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+        if (!deal.channelId) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (deal.status !== DealStatus.PENDING) {
+            throw new DealServiceError(DealErrorCode.INVALID_TRANSITION);
+        }
+
+        const allowedStatuses = new Set<DealEscrowStatus>([
+            DealEscrowStatus.ADMIN_REVIEW,
+            DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+            DealEscrowStatus.PAYMENT_AWAITING,
+        ]);
+        if (!allowedStatuses.has(deal.escrowStatus)) {
+            throw new DealServiceError(DealErrorCode.INVALID_TRANSITION);
+        }
+
+        const adminUser = await this.userRepository.findOne({
+            where: {id: adminUserId},
+        });
+        const adminTelegramId = adminUser?.telegramId
+            ? Number(adminUser.telegramId)
+            : NaN;
+        if (!Number.isFinite(adminTelegramId)) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        try {
+            await this.channelAdminRecheckService.requireChannelRights({
+                channelId: deal.channelId,
+                userId: adminUserId,
+                telegramId: adminTelegramId,
+                required: {allowManager: true},
+            });
+        } catch (error) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const amountNano =
+            deal.listingSnapshot?.priceNano ?? deal.listing?.priceNano ?? null;
+        if (!amountNano) {
+            throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
+        }
 
         const now = new Date();
-        await this.dealRepository.update(deal.id, {
-            escrowStatus,
-            status: mapEscrowToDealStatus(escrowStatus),
-            ...this.buildActivityUpdate(now),
+        const expiresAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.PAYMENT_WINDOW_MINUTES,
+        );
+
+        let paymentPayload:
+            | {
+                  transactionId: string;
+                  status: string;
+                  currency: string;
+                  amountNano: string;
+                  payToAddress: string;
+              }
+            | undefined;
+        let escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        let escrowExpiresAt: Date | null = null;
+        let shouldNotify = false;
+        let escrowAmountNano = amountNano;
+
+        await this.dataSource.transaction(async (manager) => {
+            const dealRepository = manager.getRepository(DealEntity);
+            const transactionRepository = manager.getRepository(TransactionEntity);
+
+            const lockedDeal = await dealRepository.findOne({
+                where: {id: dealId},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!lockedDeal) {
+                throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+            }
+
+            if (lockedDeal.escrowTransactionId) {
+                const existingTx = await transactionRepository.findOne({
+                    where: {id: lockedDeal.escrowTransactionId},
+                });
+
+                if (!existingTx?.depositAddress) {
+                    throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+                }
+
+                escrowStatus = lockedDeal.escrowStatus;
+                escrowExpiresAt = lockedDeal.escrowExpiresAt;
+                escrowAmountNano = lockedDeal.escrowAmountNano ?? existingTx.amountNano;
+
+                paymentPayload = {
+                    transactionId: existingTx.id,
+                    status: existingTx.status,
+                    currency: existingTx.currency,
+                    amountNano: escrowAmountNano,
+                    payToAddress: existingTx.depositAddress,
+                };
+                return;
+            }
+
+            this.ensureTransitionAllowed(lockedDeal.escrowStatus, escrowStatus);
+
+            const createdTransaction = await this.paymentsService.createTransaction(
+                {
+                    userId: lockedDeal.advertiserUserId,
+                    amountNano,
+                    currency: 'TON',
+                    dealId: lockedDeal.id,
+                    channelId: lockedDeal.channelId,
+                    counterpartyUserId: lockedDeal.publisherOwnerUserId ?? null,
+                    description: `Escrow hold for deal ${lockedDeal.id}`,
+                    metadata: {purpose: 'deal_escrow'},
+                },
+                manager,
+            );
+
+            await dealRepository.update(lockedDeal.id, {
+                escrowTransactionId: createdTransaction.id,
+                escrowStatus,
+                status: mapEscrowToDealStatus(escrowStatus),
+                escrowAmountNano: amountNano,
+                escrowCurrency: 'TON',
+                escrowExpiresAt: expiresAt,
+                paymentMustBePaidBy: expiresAt,
+                lastActivityAt: now,
+                predealExpiresAt: this.addMinutes(
+                    now,
+                    DEALS_CONFIG.PREDEAL_IDLE_EXPIRE_MINUTES,
+                ),
+                stalledAt: null,
+                cancelReason: null,
+            });
+
+            escrowExpiresAt = expiresAt;
+            paymentPayload = {
+                transactionId: createdTransaction.id,
+                status: createdTransaction.status,
+                currency: createdTransaction.currency,
+                amountNano: createdTransaction.amountNano,
+                payToAddress: createdTransaction.payToAddress,
+            };
+            shouldNotify = true;
         });
 
+        if (!paymentPayload) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        if (shouldNotify) {
+            await this.notifyAdvertiserPaymentRequest(
+                deal.advertiserUserId,
+                deal.id,
+                paymentPayload.amountNano,
+                paymentPayload.payToAddress,
+                escrowExpiresAt,
+            );
+        }
+
         return {
-            id: deal.id,
-            status: mapEscrowToDealStatus(escrowStatus),
+            dealId: deal.id,
             escrowStatus,
+            payment: {
+                transactionId: paymentPayload.transactionId,
+                amountNano: paymentPayload.amountNano,
+                currency: paymentPayload.currency,
+                payToAddress: paymentPayload.payToAddress,
+                expiresAt: escrowExpiresAt,
+            },
         };
     }
 
@@ -602,5 +769,60 @@ export class DealsService {
 
     private addHours(date: Date, hours: number): Date {
         return new Date(date.getTime() + hours * 3_600_000);
+    }
+
+    private async notifyAdvertiserPaymentRequest(
+        advertiserUserId: string,
+        dealId: string,
+        amountNano: string,
+        address: string,
+        expiresAt?: Date | null,
+    ): Promise<void> {
+        const advertiser = await this.userRepository.findOne({
+            where: {id: advertiserUserId},
+        });
+
+        if (!advertiser?.telegramId) {
+            this.logger.warn(
+                `Skipping payment notification: missing telegramId for advertiser ${advertiserUserId}`,
+            );
+            return;
+        }
+
+        const amountTon = this.formatTonAmount(amountNano);
+
+        try {
+            await this.telegramBotService.sendPaymentRequestToAdvertiser(
+                advertiser.telegramId,
+                dealId,
+                amountTon,
+                address,
+                expiresAt,
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Failed to send payment request to advertiser ${advertiserUserId}: ${errorMessage}`,
+            );
+        }
+    }
+
+    private formatTonAmount(amountNano: string): string {
+        try {
+            const value = BigInt(amountNano);
+            const whole = value / 1_000_000_000n;
+            const fraction = value % 1_000_000_000n;
+            if (fraction === 0n) {
+                return whole.toString();
+            }
+            const fractionText = fraction
+                .toString()
+                .padStart(9, '0')
+                .replace(/0+$/, '');
+            return `${whole.toString()}.${fractionText}`;
+        } catch (error) {
+            return amountNano;
+        }
     }
 }

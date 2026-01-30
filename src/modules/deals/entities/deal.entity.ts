@@ -28,6 +28,7 @@ import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 @Index('IDX_deals_creative_deadline', ['creativeMustBeSubmittedBy'])
 @Index('IDX_deals_admin_deadline', ['adminMustRespondBy'])
 @Index('IDX_deals_payment_deadline', ['paymentMustBePaidBy'])
+@Index('IDX_deals_escrow_transaction_id', ['escrowTransactionId'])
 export class DealEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -72,6 +73,9 @@ export class DealEntity extends BaseEntity {
 
     @Column({type: 'uuid', nullable: true})
     escrowWalletId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
+    escrowTransactionId: string | null;
 
     @Column({type: 'bigint', nullable: true})
     escrowAmountNano: string | null;

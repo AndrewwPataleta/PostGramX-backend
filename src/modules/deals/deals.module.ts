@@ -14,6 +14,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 import {DealsTimeoutsService} from './deals-timeouts.service';
 import {WalletsModule} from '../payments/wallets/wallets.module';
 import {User} from '../auth/entities/user.entity';
+import {PaymentsModule} from '../payments/payments.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import {User} from '../auth/entities/user.entity';
         ChannelsModule,
         TelegramBotModule,
         WalletsModule,
+        PaymentsModule,
     ],
     controllers: [DealsController],
     providers: [

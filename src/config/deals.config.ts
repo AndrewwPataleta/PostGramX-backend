@@ -38,6 +38,10 @@ export const DEALS_CONFIG = {
         process.env.REMINDER_BEFORE_PAYMENT_DEADLINE_MINUTES,
         10,
     ),
+    PAYMENT_WINDOW_MINUTES: parseNumber(
+        process.env.PAYMENT_WINDOW_MINUTES,
+        60,
+    ),
     CRON_INTERVAL_MINUTES: parseNumber(
         process.env.DEAL_TIMEOUTS_CRON_INTERVAL_MINUTES,
         1,
