@@ -5,7 +5,7 @@ export class CreateDealsEscrow20260215090000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
-            "CREATE TYPE \"deals_escrow_status_enum\" AS ENUM('DRAFT', 'WAITING_SCHEDULE', 'WAITING_CREATIVE', 'CREATIVE_SUBMITTED', 'ADMIN_REVIEW', 'CHANGES_REQUESTED', 'AWAITING_PAYMENT', 'PAYMENT_PENDING', 'FUNDS_CONFIRMED', 'SCHEDULED', 'POSTING', 'POSTED_VERIFYING', 'RELEASED', 'CANCELED', 'REFUNDED', 'DISPUTED')",
+            "CREATE TYPE \"deals_escrow_status_enum\" AS ENUM('DRAFT', 'WAITING_SCHEDULE', 'WAITING_CREATIVE', 'CREATIVE_SUBMITTED', 'ADMIN_REVIEW', 'CHANGES_REQUESTED', 'AWAITING_PAYMENT', 'PAYMENT_AWAITING', 'FUNDS_CONFIRMED', 'SCHEDULED', 'POSTING', 'POSTED_VERIFYING', 'RELEASED', 'CANCELED', 'REFUNDED', 'DISPUTED')",
         );
         await queryRunner.query(
             "CREATE TYPE \"escrow_wallets_scope_enum\" AS ENUM('DEAL', 'USER')",

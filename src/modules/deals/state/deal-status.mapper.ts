@@ -12,7 +12,7 @@ export function mapEscrowToDealStatus(
         case DealEscrowStatus.ADMIN_REVIEW:
         case DealEscrowStatus.CHANGES_REQUESTED:
         case DealEscrowStatus.AWAITING_PAYMENT:
-        case DealEscrowStatus.PAYMENT_PENDING:
+        case DealEscrowStatus.PAYMENT_AWAITING:
             return DealStatus.PENDING;
         case DealEscrowStatus.FUNDS_CONFIRMED:
         case DealEscrowStatus.SCHEDULED:

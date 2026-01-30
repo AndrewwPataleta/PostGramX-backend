@@ -22,7 +22,6 @@ const ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
         DealEscrowStatus.ADMIN_REVIEW,
     ],
     [DealEscrowStatus.ADMIN_REVIEW]: [
-        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
         DealEscrowStatus.PAYMENT_WINDOW_PENDING,
     ],
     [DealEscrowStatus.PAYMENT_WINDOW_PENDING]: [

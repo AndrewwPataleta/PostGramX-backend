@@ -96,7 +96,7 @@ export class RemovePredealsAndUpdateDeals20260405090000
                         'ADMIN_REVIEW',
                         'CHANGES_REQUESTED',
                         'AWAITING_PAYMENT',
-                        'PAYMENT_PENDING',
+                        'PAYMENT_AWAITING',
                         'FUNDS_CONFIRMED',
                         'SCHEDULED',
                         'POSTING',
@@ -117,7 +117,7 @@ export class RemovePredealsAndUpdateDeals20260405090000
                                 WHEN 'CREATIVE_AWAITING_CONFIRM' THEN 'CREATIVE_SUBMITTED'
                                 WHEN 'PAYMENT_WINDOW_PENDING' THEN 'AWAITING_PAYMENT'
                                 WHEN 'PAYMENT_AWAITING' THEN 'AWAITING_PAYMENT'
-                                WHEN 'FUNDS_PENDING' THEN 'PAYMENT_PENDING'
+                                WHEN 'FUNDS_PENDING' THEN 'PAYMENT_AWAITING'
                                 WHEN 'CREATIVE_PENDING' THEN 'CHANGES_REQUESTED'
                                 WHEN 'CREATIVE_REVIEW' THEN 'ADMIN_REVIEW'
                                 WHEN 'APPROVED_SCHEDULED' THEN 'SCHEDULED'
@@ -192,7 +192,7 @@ export class RemovePredealsAndUpdateDeals20260405090000
                                 WHEN 'CREATIVE_SUBMITTED' THEN 'CREATIVE_AWAITING_CONFIRM'
                                 WHEN 'CHANGES_REQUESTED' THEN 'CREATIVE_PENDING'
                                 WHEN 'AWAITING_PAYMENT' THEN 'PAYMENT_AWAITING'
-                                WHEN 'PAYMENT_PENDING' THEN 'FUNDS_PENDING'
+                                WHEN 'PAYMENT_AWAITING' THEN 'FUNDS_PENDING'
                                 WHEN 'SCHEDULED' THEN 'APPROVED_SCHEDULED'
                                 WHEN 'POSTING' THEN 'APPROVED_SCHEDULED'
                                 WHEN 'RELEASED' THEN 'COMPLETED'

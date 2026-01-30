@@ -113,7 +113,7 @@
       "admin_review": "Ожидает одобрения администратора",
       "changes_requested": "Запрошены правки",
       "awaiting_payment": "Ожидается оплата",
-      "payment_pending": "Платёж обрабатывается",
+      "PAYMENT_AWAITING": "Платёж обрабатывается",
       "funds_confirmed": "Платёж подтверждён",
       "scheduled": "Запланировано",
       "posting": "Публикация",

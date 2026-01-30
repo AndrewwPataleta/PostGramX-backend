@@ -46,7 +46,7 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         actionHint: 'Complete payment within the window.',
     },
     [DealEscrowStatus.FUNDS_PENDING]: {
-        stageKey: 'deals.stages.payment_pending',
+        stageKey: 'deals.stages.PAYMENT_AWAITING',
         shortLabel: 'Payment processing',
     },
     [DealEscrowStatus.FUNDS_CONFIRMED]: {

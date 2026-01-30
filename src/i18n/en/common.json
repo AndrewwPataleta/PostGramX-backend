@@ -113,7 +113,7 @@
       "admin_review": "Awaiting admin approval",
       "changes_requested": "Changes requested",
       "awaiting_payment": "Awaiting payment",
-      "payment_pending": "Payment processing",
+      "PAYMENT_AWAITING": "Payment processing",
       "funds_confirmed": "Payment confirmed",
       "scheduled": "Scheduled",
       "posting": "Posting",
