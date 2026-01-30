@@ -12,5 +12,8 @@ export interface TelegramBotConfig {
 export interface TelegramInlineButton {
     text: string;
     url?: string;
+    web_app?: {
+        url: string;
+    };
     callback_data?: string;
 }

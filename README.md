@@ -78,6 +78,7 @@ Test the bot in Telegram:
 
 Deal notifications use the `startapp` payload format `deal_<dealId>`. The Mini App should parse
 `initData.start_param` and route users to `/deals/:id` accordingly.
+Ensure `TELEGRAM_BOT_USERNAME` is set in stage/prod so deep links can open the Mini App directly.
 
 ## Test
 

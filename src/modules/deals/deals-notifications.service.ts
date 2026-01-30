@@ -9,6 +9,7 @@ import {ChannelParticipantsService} from '../channels/channel-participants.servi
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
 import {User} from '../auth/entities/user.entity';
+import {buildMiniAppDealLink} from '../../telegram/bot/utils/miniapp-links';
 
 const NOTIFICATION_CONCURRENCY = 5;
 
@@ -202,6 +203,53 @@ export class DealsNotificationsService {
             return;
         }
         await this.telegramBotService.sendMessage(user.telegramId, message);
+    }
+
+    async notifyAdvertiserPaymentRequired(deal: DealEntity): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const paymentDeadline = deal.paymentDeadlineAt ?? deal.escrowExpiresAt;
+        const messageLines = [
+            '✅ Creative approved',
+            '',
+            `Deal: ${deal.id.slice(0, 8)}`,
+            'Next: proceed with payment in the Mini App.',
+        ];
+
+        if (paymentDeadline) {
+            messageLines.push(
+                `Payment window: until ${paymentDeadline.toISOString()}`,
+            );
+        }
+
+        if (deal.escrowPaymentAddress) {
+            messageLines.push(`Payment address: ${deal.escrowPaymentAddress}`);
+        }
+
+        const link = buildMiniAppDealLink(deal.id);
+        const keyboard = {
+            inline_keyboard: [
+                [{text: '💳 Pay in app', web_app: {url: link}}],
+                [{text: 'Open Mini App', url: link}],
+            ],
+        };
+
+        await this.telegramBotService.sendMessage(
+            user.telegramId,
+            messageLines.join('\n'),
+            {reply_markup: keyboard},
+        );
+
+        this.logger.log('Sent pay-in-app button to advertiser', {
+            dealId: deal.id,
+            advertiserTelegramId: user.telegramId,
+            url: link,
+        });
     }
 
     async notifyDealCreated(deal: DealEntity): Promise<void> {
