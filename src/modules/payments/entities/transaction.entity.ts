@@ -36,6 +36,9 @@ export class TransactionEntity extends BaseEntity {
     @Column({type: 'bigint'})
     amountNano: string;
 
+    @Column({type: 'bigint', default: '0'})
+    receivedNano: string;
+
     @Column({default: 'TON'})
     currency: string;
 

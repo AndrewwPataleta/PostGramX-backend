@@ -1,8 +1,10 @@
-import {Module} from '@nestjs/common';
+import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {DealEntity} from '../deals/entities/deal.entity';
+import {DealsModule} from '../deals/deals.module';
 import {EscrowWalletEntity} from './entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from './entities/escrow-wallet-key.entity';
+import {TonTransferEntity} from './entities/ton-transfer.entity';
 import {TransactionEntity} from './entities/transaction.entity';
 import {EscrowController} from './escrow/escrow.controller';
 import {EscrowService} from './escrow/escrow.service';
@@ -19,8 +21,10 @@ import {TonPaymentWatcher} from "./ton-payment.watcher";
             DealEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
+            TonTransferEntity,
             TransactionEntity,
         ]),
+        forwardRef(() => DealsModule),
         WalletsModule,
     ],
     controllers: [PaymentsController, EscrowController],

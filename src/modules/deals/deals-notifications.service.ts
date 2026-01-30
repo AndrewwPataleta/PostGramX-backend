@@ -10,6 +10,7 @@ import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
 import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../../telegram/bot/utils/miniapp-links';
+import {formatTon} from '../payments/utils/bigint';
 
 const NOTIFICATION_CONCURRENCY = 5;
 
@@ -250,6 +251,86 @@ export class DealsNotificationsService {
             advertiserTelegramId: user.telegramId,
             url: link,
         });
+    }
+
+    async notifyAdvertiserPartialPayment(
+        deal: DealEntity,
+        receivedNano: string,
+        remainingNano: string,
+    ): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const link = buildMiniAppDealLink(deal.id);
+        const messageLines = [
+            '💰 Partial payment received',
+            '',
+            `Deal: ${deal.id.slice(0, 8)}`,
+            `Received: ${formatTon(receivedNano)} TON`,
+            `Remaining: ${formatTon(remainingNano)} TON`,
+            '',
+            'Please complete payment in the Mini App.',
+        ];
+        const keyboard = {
+            inline_keyboard: [
+                [{text: '💳 Pay in app', web_app: {url: link}}],
+                [{text: 'Open Mini App', url: link}],
+            ],
+        };
+
+        await this.telegramBotService.sendMessage(
+            user.telegramId,
+            messageLines.join('\n'),
+            {reply_markup: keyboard},
+        );
+    }
+
+    async notifyPaymentConfirmed(deal: DealEntity): Promise<void> {
+        const recipients: User[] = [];
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (advertiser?.telegramId) {
+            recipients.push(advertiser);
+        }
+
+        if (deal.publisherOwnerUserId) {
+            const publisher = await this.userRepository.findOne({
+                where: {id: deal.publisherOwnerUserId},
+            });
+            if (publisher?.telegramId) {
+                recipients.push(publisher);
+            }
+        }
+
+        if (recipients.length === 0) {
+            return;
+        }
+
+        const link = buildMiniAppDealLink(deal.id);
+        const messageLines = [
+            '✅ Payment confirmed',
+            '',
+            `Deal: ${deal.id.slice(0, 8)}`,
+            'Next: continue in the Mini App.',
+        ];
+        const keyboard = {
+            inline_keyboard: [[{text: 'Open Mini App', url: link}]],
+        };
+
+        await Promise.all(
+            recipients.map((recipient) =>
+                this.telegramBotService.sendMessage(
+                    recipient.telegramId as string,
+                    messageLines.join('\n'),
+                    {reply_markup: keyboard},
+                ),
+            ),
+        );
     }
 
     async notifyDealCreated(deal: DealEntity): Promise<void> {
