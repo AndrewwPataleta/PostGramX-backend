@@ -1,4 +1,4 @@
-import {Injectable, Logger} from '@nestjs/common';
+import {forwardRef, Inject, Injectable, Logger} from '@nestjs/common';
 import {Cron} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
 import {
@@ -55,6 +55,7 @@ export class DealsTimeoutsService {
         private readonly reminderRepository: Repository<DealReminderEntity>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        @Inject(forwardRef(() => TelegramBotService))
         private readonly telegramBotService: TelegramBotService,
         private readonly deepLinkService: DealsDeepLinkService,
         private readonly walletsService: WalletsService,
