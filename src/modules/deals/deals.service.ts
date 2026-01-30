@@ -19,6 +19,8 @@ import {DEALS_CONFIG} from '../../config/deals.config';
 import {User} from '../auth/entities/user.entity';
 import {DealCreativeType} from './types/deal-creative-type.enum';
 import {PaymentsService} from '../payments/payments.service';
+import {TransactionDirection} from '../payments/types/transaction-direction.enum';
+import {TransactionType} from '../payments/types/transaction-type.enum';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -752,6 +754,8 @@ export class DealsService {
 
                 const payment = await this.paymentsService.createTransaction({
                     userId: deal.advertiserUserId,
+                    type: TransactionType.ESCROW_HOLD,
+                    direction: TransactionDirection.IN,
                     amountNano,
                     currency,
                     description: 'Deal escrow payment',
