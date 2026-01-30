@@ -35,25 +35,39 @@ export const typeOrmEntities = [
     EscrowWalletKeyEntity,
 ];
 
-const getSslConfig = (nodeEnv: string): PostgresConnectionOptions['ssl'] => {
+const getSslConfig = (
+    nodeEnv: string,
+    logger: Logger,
+): PostgresConnectionOptions['ssl'] => {
     const isProdLike = ['production', 'stage'].includes(nodeEnv);
 
     if (!isProdLike) {
         return false;
     }
 
+    const certificateFileName = 'postgramx-ca-certificate.crt';
+    const certificateCandidates = [
+        path.join(process.cwd(), 'certs', certificateFileName),
+        path.join(__dirname, '..', 'certs', certificateFileName),
+    ];
+    const certificatePath = certificateCandidates.find((candidate) =>
+        fs.existsSync(candidate),
+    );
+
+    if (!certificatePath) {
+        logger.warn(
+            [
+                'SSL requested but certificate file was not found.',
+                `Expected one of: ${certificateCandidates.join(', ')}`,
+                'Disabling SSL configuration.',
+            ].join(' '),
+        );
+        return false;
+    }
+
     return {
         rejectUnauthorized: false,
-        ca: fs
-            .readFileSync(
-                path.join(
-                    __dirname,
-                    '..',
-                    'certs',
-                    'postgramx-ca-certificate.crt',
-                ),
-            )
-            .toString(),
+        ca: fs.readFileSync(certificatePath).toString(),
     };
 };
 
@@ -69,7 +83,7 @@ export const buildTypeOrmOptions = (
         synchronizeEnv !== undefined
             ? synchronizeEnv === 'true'
             : nodeEnv !== 'production';
-    const sslConfig = getSslConfig(nodeEnv);
+    const sslConfig = getSslConfig(nodeEnv, logger);
 
     const host = config.get('POSTGRES_HOST');
     const port = Number(config.get<number>('POSTGRES_PORT') ?? 5432);
