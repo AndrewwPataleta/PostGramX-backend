@@ -13,6 +13,13 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
     return parsed;
 };
 
+const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+    if (value === undefined) {
+        return fallback;
+    }
+    return value === 'true';
+};
+
 export const DEALS_CONFIG = {
     MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER: parseNumber(
         process.env.MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER,
@@ -49,6 +56,10 @@ export const DEALS_CONFIG = {
     CRON_INTERVAL_MINUTES: parseNumber(
         process.env.DEAL_TIMEOUTS_CRON_INTERVAL_MINUTES,
         1,
+    ),
+    AUTO_ADMIN_IMPPROVE: parseBoolean(
+        process.env.auto_admin_impprove,
+        false,
     ),
     MOCK_CREATIVE_APPROVE:
         process.env.DEALS_MOCK_CREATIVE_APPROVE === 'true',

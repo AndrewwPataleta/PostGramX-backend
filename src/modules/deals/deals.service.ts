@@ -331,6 +331,16 @@ export class DealsService {
         const updated = await this.dealRepository.findOne({
             where: {id: deal.id},
         });
+
+        if (DEALS_CONFIG.AUTO_ADMIN_IMPPROVE) {
+            const approval = await this.autoApproveCreative(updated ?? deal);
+            return {
+                ...approval,
+                scheduledAt: updated?.scheduledAt ?? deal.scheduledAt,
+                creative: this.buildCreativeSummary(creative),
+            };
+        }
+
         if (updated) {
             try {
                 await this.dealsNotificationsService.notifyCreativeSubmitted(
@@ -723,6 +733,92 @@ export class DealsService {
         const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
         //this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
+        const now = new Date();
+        const paymentDeadlineAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.PAYMENT_DEADLINE_MINUTES,
+        );
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            approvedAt: now,
+            paymentDeadlineAt,
+            adminReviewDeadlineAt: null,
+            ...this.buildActivityUpdate(now),
+        });
+
+        let escrowPaymentAddress = deal.escrowPaymentAddress;
+        if (!escrowPaymentAddress) {
+            try {
+                const amountNano =
+                    (deal.listingSnapshot as Partial<DealListingSnapshot> | null)
+                        ?.priceNano ??
+                    deal.listing?.priceNano ??
+                    '0';
+                const currency =
+                    (deal.listingSnapshot as Partial<DealListingSnapshot> | null)
+                        ?.currency ??
+                    deal.listing?.currency ??
+                    deal.escrowCurrency ??
+                    'TON';
+
+                const payment = await this.paymentsService.createTransaction({
+                    userId: deal.advertiserUserId,
+                    type: TransactionType.ESCROW_HOLD,
+                    direction: TransactionDirection.IN,
+                    amountNano,
+                    currency,
+                    description: 'Deal escrow payment',
+                    dealId: deal.id,
+                });
+                escrowPaymentAddress = payment.payToAddress;
+
+                await this.dealRepository.update(deal.id, {
+                    escrowPaymentAddress,
+                });
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Escrow payment address generation failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
+        }
+
+        try {
+            const message = escrowPaymentAddress
+                ? `Creative approved. Please proceed with payment.\nPayment address: ${escrowPaymentAddress}`
+                : 'Creative approved. Please proceed with payment.';
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                message,
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal approval notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
+
+        return {
+            id: deal.id,
+            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus,
+        };
+    }
+
+    private async autoApproveCreative(deal: DealEntity): Promise<{
+        id: string;
+        status: DealStatus;
+        escrowStatus: DealEscrowStatus;
+    }> {
+        this.logger.log('Auto creative approval enabled', {
+            dealId: deal.id,
+            decision: 'approve',
+        });
+
+        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
         const now = new Date();
         const paymentDeadlineAt = this.addMinutes(
             now,
