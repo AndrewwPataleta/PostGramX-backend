@@ -16,7 +16,15 @@ const ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
         DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     ],
     [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
+        DealEscrowStatus.CREATIVE_RECEIVED,
         DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
+    ],
+    [DealEscrowStatus.CREATIVE_RECEIVED]: [
+        DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+    ],
+    [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: [
+        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+        DealEscrowStatus.PAYMENT_WINDOW_PENDING,
     ],
     [DealEscrowStatus.CREATIVE_AWAITING_CONFIRM]: [
         DealEscrowStatus.ADMIN_REVIEW,

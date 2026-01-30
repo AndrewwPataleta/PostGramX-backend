@@ -7,6 +7,7 @@ import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {DealsService} from './deals.service';
 import {CreateDealDto} from './dto/create-deal.dto';
 import {CreativeConfirmSentDto} from './dto/creative-confirm-sent.dto';
+import {CreativeSubmitDto} from './dto/creative-submit.dto';
 import {AdminApproveDto} from './dto/admin-approve.dto';
 import {AdminRequestChangesDto} from './dto/admin-request-changes.dto';
 import {AdminRejectDto} from './dto/admin-reject.dto';
@@ -136,6 +137,30 @@ export class DealsController {
 
         try {
             return await this.dealsService.confirmCreativeSent(
+                user.id,
+                dto.data.dealId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('creative/submit')
+    @ApiOperation({summary: 'Submit creative confirmation for a deal'})
+    @ApiBody({type: CreativeSubmitDto})
+    async submitCreative(
+        @Body(dtoValidationPipe) dto: CreativeSubmitDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.submitCreative(
                 user.id,
                 dto.data.dealId,
             );

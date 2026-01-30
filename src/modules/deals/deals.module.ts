@@ -1,6 +1,7 @@
 import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {DealEntity} from './entities/deal.entity';
+import {DealCreativeEntity} from './entities/deal-creative.entity';
 import {DealReminderEntity} from './entities/deal-reminder.entity';
 import {ListingEntity} from '../listings/entities/listing.entity';
 import {DealsService} from './deals.service';
@@ -21,6 +22,7 @@ import {DealsBotHandler} from './deals-bot.handler';
     imports: [
         TypeOrmModule.forFeature([
             DealEntity,
+            DealCreativeEntity,
             DealReminderEntity,
             ListingEntity,
             ChannelEntity,

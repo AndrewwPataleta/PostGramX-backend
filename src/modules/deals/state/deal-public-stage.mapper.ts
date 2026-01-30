@@ -26,6 +26,15 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
+    [DealEscrowStatus.CREATIVE_RECEIVED]: {
+        stageKey: 'deals.stages.creative_submitted',
+        shortLabel: 'Creative received',
+        actionHint: 'Confirm the creative in the Mini App.',
+    },
+    [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: {
+        stageKey: 'deals.stages.admin_review',
+        shortLabel: 'Awaiting admin review',
+    },
     [DealEscrowStatus.CREATIVE_AWAITING_CONFIRM]: {
         stageKey: 'deals.stages.creative_submitted',
         shortLabel: 'Creative submitted',
