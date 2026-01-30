@@ -1,7 +1,6 @@
 
 import { ILike } from 'typeorm';
 
-const { convertFilter } = require('@adminjs/typeorm/lib/utils/filter/filter.converter');
 
 const NANO_IN_TON = 1_000_000_000n;
 const loadAdminJs = () => import('adminjs');
@@ -102,16 +101,16 @@ export const buildListActionWithSearch = (searchColumns: string[]) => ({
     const filter = await new Filter(normalizedFilters, resource).populate(
       context,
     );
-    const baseWhere = convertFilter(filter);
+
     const like = `%${qValue}%`;
     const searchConditions = searchColumns.map((column) => ({
-      ...baseWhere,
+
       [column]: ILike(like),
     }));
 
     const repository = (resource as any).model.getRepository();
     const [instances, total] = await repository.findAndCount({
-      where: searchConditions.length > 0 ? searchConditions : baseWhere,
+      where: searchConditions,
       take: perPage,
       skip: (page - 1) * perPage,
       order: sortField ? { [sortField]: sortDirection } : undefined,

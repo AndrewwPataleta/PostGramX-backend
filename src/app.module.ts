@@ -57,7 +57,7 @@ import {
         TypeOrmModule.forFeature(typeOrmEntities),
         AuthModule,
         HealthModule,
-        AdminModule,
+        // AdminModule,
         ChannelsModule,
         MarketplaceModule,
         DealsModule,
