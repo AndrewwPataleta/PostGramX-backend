@@ -26,7 +26,6 @@ export class TonPaymentWatcher {
         private readonly txRepo: Repository<TransactionEntity>,
     ) {}
 
-    // Каждые 15 секунд
     @Cron('*/15 * * * * *')
     async monitorIncomingPayments() {
         try {
@@ -45,7 +44,6 @@ export class TonPaymentWatcher {
                 return;
             }
 
-            this.logger.log(`Checking ${pending.length} escrow wallets...`);
 
             for (const tx of pending) {
                 if (!tx.depositAddress || !tx.dealId) {
