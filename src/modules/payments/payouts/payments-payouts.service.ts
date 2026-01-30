@@ -4,13 +4,14 @@ import {DataSource, Repository} from 'typeorm';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
 import {ChannelPayoutsFilters} from '../dto/channel-payouts.dto';
 import {TransactionEntity} from '../entities/transaction.entity';
-import {TransactionStatus} from '../types/transaction-status.enum';
-import {TransactionType} from '../types/transaction-type.enum';
-import {TransactionDirection} from '../types/transaction-direction.enum';
+
 import {
     PaymentsPayoutsError,
     PaymentsPayoutsErrorCode,
 } from './errors/payments-payouts.error';
+import {TransactionStatus} from "../../../common/constants/payments/transaction-status.constants";
+import {TransactionType} from "../../../common/constants/payments/transaction-type.constants";
+import {TransactionDirection} from "../../../common/constants/payments/transaction-direction.constants";
 
 const MIN_WITHDRAW_NANO = BigInt('100000000');
 
