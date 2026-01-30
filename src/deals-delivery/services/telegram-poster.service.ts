@@ -9,6 +9,7 @@ import {
     TelegramChatServiceError,
 } from '../../modules/telegram/telegram-chat.service';
 import {DeliveryCheckResult} from '../types/delivery-check-result';
+import {logMeta} from '../../common/logging/logContext';
 
 interface TelegramMessageResponse {
     message_id: number;
@@ -97,7 +98,8 @@ export class TelegramPosterService {
                 });
             default:
                 this.logger.warn(
-                    `Unsupported creative type for dealId=${deal.id}: ${creative.type}`,
+                    'delivery.deal.publish.unsupported',
+                    logMeta({dealId: deal.id, creativeType: creative.type}),
                 );
                 throw new Error('Unsupported creative type.');
         }
@@ -171,7 +173,10 @@ export class TelegramPosterService {
 
         if (!response.ok || !payload.ok) {
             const description = payload.description || 'Telegram API error.';
-            this.logger.warn(`Telegram API error on ${method}: ${description}`);
+            this.logger.warn(
+                'delivery.telegram.api.error',
+                logMeta({method, description, errorCode: payload.error_code}),
+            );
             throw new Error(description);
         }
 

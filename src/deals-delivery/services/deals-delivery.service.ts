@@ -15,6 +15,8 @@ import {PaymentsService} from '../../modules/payments/payments.service';
 import {ChannelParticipantsService} from '../../modules/channels/channel-participants.service';
 import {TelegramBotService} from '../../modules/telegram-bot/telegram-bot.service';
 import {User} from '../../modules/auth/entities/user.entity';
+import {logMeta} from '../../common/logging/logContext';
+import {durationMs, nowMs} from '../../common/logging/time';
 
 @Injectable()
 export class DealsDeliveryService {
@@ -36,12 +38,21 @@ export class DealsDeliveryService {
         private readonly telegramBotService: TelegramBotService,
     ) {}
 
-    async processScheduledDeals(): Promise<void> {
+    async processScheduledDeals(
+        runId: string,
+    ): Promise<{
+        processed: number;
+        posted: number;
+        skipped: number;
+        failed: number;
+    }> {
+        const overallStartMs = nowMs();
         const now = new Date();
         const lookaheadSeconds =
             DEAL_DELIVERY_CONFIG.POSTING_LOOKAHEAD_SECONDS;
         const cutoff = new Date(now.getTime() + lookaheadSeconds * 1000);
 
+        const selectStartMs = nowMs();
         const deals = await this.dealRepository
             .createQueryBuilder('deal')
             .where('deal.status = :status', {status: DealStatus.ACTIVE})
@@ -55,18 +66,93 @@ export class DealsDeliveryService {
             .limit(20)
             .getMany();
 
+        this.logger.log(
+            'delivery.cron.selected',
+            logMeta({
+                runId,
+                count: deals.length,
+                selectMs: durationMs(selectStartMs),
+                dealIds: deals.slice(0, 50).map((deal) => deal.id),
+            }),
+        );
+
+        let processed = 0;
+        let posted = 0;
+        let skipped = 0;
+        let failed = 0;
+
         for (const deal of deals) {
+            const traceId = `${runId}-${deal.id.slice(0, 8)}`;
+            const lockStartMs = nowMs();
             const locked = await this.lockDealForPosting(deal.id, now);
             if (!locked) {
+                skipped += 1;
+                this.logger.warn(
+                    'delivery.deal.lock.skip',
+                    logMeta({
+                        runId,
+                        traceId,
+                        dealId: deal.id,
+                        reason: 'already_processing_or_not_ready',
+                        ms: durationMs(lockStartMs),
+                    }),
+                );
                 continue;
             }
-            this.logger.log('Picked deal for posting', {dealId: deal.id});
-            await this.processDealPosting(deal.id);
+            this.logger.log(
+                'delivery.deal.lock',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    ok: true,
+                    ms: durationMs(lockStartMs),
+                }),
+            );
+            this.logger.log(
+                'delivery.deal.picked',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    scheduledAt: deal.scheduledAt?.toISOString() ?? null,
+                    escrowStatus: deal.escrowStatus,
+                    channelId: deal.channelId ?? null,
+                }),
+            );
+            const result = await this.processDealPosting(deal.id, runId, traceId);
+            processed += 1;
+            if (result.outcome === 'posted') {
+                posted += 1;
+            } else if (result.outcome === 'skipped') {
+                skipped += 1;
+            } else {
+                failed += 1;
+            }
         }
+
+        this.logger.log(
+            'delivery.cron.processed',
+            logMeta({
+                runId,
+                totalMs: durationMs(overallStartMs),
+                processed,
+                posted,
+                skipped,
+                failed,
+            }),
+        );
+
+        return {processed, posted, skipped, failed};
     }
 
-    async processDealPosting(dealId: string): Promise<void> {
-        const now = new Date();
+    async processDealPosting(
+        dealId: string,
+        runId: string,
+        traceId: string,
+    ): Promise<{outcome: 'posted' | 'skipped' | 'failed'}> {
+        const startMs = nowMs();
+        let currentStep = 'load';
         try {
             const deal = await this.dealRepository.findOne({
                 where: {id: dealId},
@@ -74,17 +160,41 @@ export class DealsDeliveryService {
             });
 
             if (!deal) {
-                this.logger.warn(`Deal not found for posting: ${dealId}`);
-                return;
+                this.logger.warn(
+                    'delivery.deal.skip',
+                    logMeta({runId, traceId, dealId, reason: 'not_found'}),
+                );
+                return {outcome: 'skipped'};
             }
 
             if (deal.escrowStatus !== DealEscrowStatus.POSTING) {
                 this.logger.warn(
-                    `Skipping dealId=${dealId} due to escrow status ${deal.escrowStatus}`,
+                    'delivery.deal.skip',
+                    logMeta({
+                        runId,
+                        traceId,
+                        dealId,
+                        reason: 'escrow_status_mismatch',
+                        escrowStatus: deal.escrowStatus,
+                    }),
                 );
-                return;
+                return {outcome: 'skipped'};
             }
 
+            this.logger.log(
+                'delivery.deal.start',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    scheduledAt: deal.scheduledAt?.toISOString() ?? null,
+                    escrowStatus: deal.escrowStatus,
+                    channelId: deal.channelId ?? null,
+                    channelUsername: deal.channel?.username ?? null,
+                }),
+            );
+
+            currentStep = 'channel';
             const channel = deal.channel
                 ? deal.channel
                 : await this.channelRepository.findOne({
@@ -92,44 +202,111 @@ export class DealsDeliveryService {
                   });
 
             if (!channel) {
+                this.logger.error(
+                    'delivery.deal.fail',
+                    logMeta({
+                        runId,
+                        traceId,
+                        dealId,
+                        step: 'channel',
+                        reason: 'CHANNEL_NOT_FOUND',
+                        msTotal: durationMs(startMs),
+                    }),
+                );
                 await this.failDeal(deal, 'CHANNEL_NOT_FOUND');
-                return;
+                return {outcome: 'failed'};
             }
 
+            currentStep = 'creative';
             const creative = await this.creativeRepository.findOne({
                 where: {dealId: deal.id},
             });
 
             if (!creative) {
+                this.logger.error(
+                    'delivery.deal.fail',
+                    logMeta({
+                        runId,
+                        traceId,
+                        dealId,
+                        step: 'creative',
+                        reason: 'CREATIVE_NOT_FOUND',
+                        msTotal: durationMs(startMs),
+                    }),
+                );
                 await this.failDeal(deal, 'CREATIVE_NOT_FOUND');
-                return;
+                return {outcome: 'failed'};
             }
 
+            currentStep = 'rights_check';
+            const rightsStartMs = nowMs();
             const rightsResult = await this.telegramPosterService.checkCanPost(
                 channel,
             );
             if (!rightsResult.ok) {
-                this.logger.warn('Rights check failed', {
-                    dealId: deal.id,
-                    reason: rightsResult.reason,
-                });
+                this.logger.warn(
+                    'delivery.deal.rights.missing',
+                    logMeta({
+                        runId,
+                        traceId,
+                        dealId: deal.id,
+                        ok: false,
+                        ms: durationMs(rightsStartMs),
+                        reason: rightsResult.reason,
+                        channelId: channel.id,
+                        channelUsername: channel.username ?? null,
+                    }),
+                );
                 await this.cancelWithRefund(deal, channel, 'BOT_RIGHTS_MISSING');
-                return;
+                return {outcome: 'failed'};
             }
-            this.logger.log('Rights check ok', {dealId: deal.id});
+            this.logger.log(
+                'delivery.deal.rights.check',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    ok: true,
+                    ms: durationMs(rightsStartMs),
+                    details: {reason: rightsResult.reason ?? null},
+                }),
+            );
 
+            currentStep = 'publish';
+            const publishStartMs = nowMs();
+            this.logger.log(
+                'delivery.deal.publish.start',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    creativeType: creative.type,
+                    channelId: channel.id,
+                    channelUsername: channel.username ?? null,
+                }),
+            );
             const message =
                 await this.telegramPosterService.publishCreativeToChannel(
                     deal,
                     creative,
                     channel,
                 );
-            this.logger.log('Published message id', {
-                dealId: deal.id,
-                messageId: message.message_id,
-            });
-
             const publishedAt = new Date();
+            this.logger.log(
+                'delivery.deal.publish.success',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    channelUsername: channel.username ?? null,
+                    creativeType: creative.type,
+                    scheduledAt: deal.scheduledAt?.toISOString() ?? null,
+                    publishedAt: publishedAt.toISOString(),
+                    messageId: message.message_id,
+                    ms: durationMs(publishStartMs),
+                }),
+            );
+
             const lifetimeHours =
                 deal.listingSnapshot?.visibilityDurationHours ?? 0;
             const mustRemainUntil = new Date(
@@ -141,6 +318,8 @@ export class DealsDeliveryService {
                 DealEscrowStatus.POSTED_VERIFYING,
             );
 
+            currentStep = 'update';
+            const updateStartMs = nowMs();
             await this.dealRepository.update(deal.id, {
                 publishedMessageId: String(message.message_id),
                 publishedAt,
@@ -151,20 +330,60 @@ export class DealsDeliveryService {
                 lastActivityAt: publishedAt,
             });
 
-            this.logger.log('Deal updated to POSTED_VERIFYING', {
-                dealId: deal.id,
-                messageId: message.message_id,
-            });
+            this.logger.log(
+                'delivery.deal.update',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    newEscrowStatus: DealEscrowStatus.POSTED_VERIFYING,
+                    newStatus: mapEscrowToDealStatus(
+                        DealEscrowStatus.POSTED_VERIFYING,
+                    ),
+                    messageId: message.message_id,
+                    ms: durationMs(updateStartMs),
+                }),
+            );
 
+            currentStep = 'notify';
+            const notifyStartMs = nowMs();
             await this.notifyPublished(deal, channel, mustRemainUntil);
+            this.logger.log(
+                'delivery.deal.notify',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId: deal.id,
+                    advertiserNotified: true,
+                    publisherNotified: true,
+                    ms: durationMs(notifyStartMs),
+                }),
+            );
+            return {outcome: 'posted'};
         } catch (error) {
             const errorMessage =
                 error instanceof Error ? error.message : String(error);
-            this.logger.error('Delivery posting failed', {
-                dealId,
-                errorMessage,
-            });
+            this.logger.error(
+                'delivery.deal.fail',
+                logMeta({
+                    runId,
+                    traceId,
+                    dealId,
+                    step: currentStep,
+                    errorMessage,
+                    errorName: error instanceof Error ? error.name : undefined,
+                    msTotal: durationMs(startMs),
+                }),
+            );
+            if (error instanceof Error && error.stack) {
+                const isProd =
+                    this.configService.get<string>('NODE_ENV') === 'production';
+                if (!isProd) {
+                    this.logger.error(error.stack);
+                }
+            }
             await this.failDealById(dealId, errorMessage);
+            return {outcome: 'failed'};
         }
     }
 
