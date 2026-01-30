@@ -128,8 +128,8 @@ export class DealsTimeoutsService {
                 escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
             })
             .andWhere(
-                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy <= :now)
-                 OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt <= :now)',
+                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy <= :now)'+
+                 'OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt <= :now)',
                 {now},
             )
             .getMany();
@@ -337,8 +337,8 @@ export class DealsTimeoutsService {
                 escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
             })
             .andWhere(
-                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy > :now AND deal.paymentMustBePaidBy <= :cutoff)
-                 OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt > :now AND deal.escrowExpiresAt <= :cutoff)',
+                '(deal.paymentMustBePaidBy IS NOT NULL AND deal.paymentMustBePaidBy > :now AND deal.paymentMustBePaidBy <= :cutoff)'+
+                 'OR (deal.paymentMustBePaidBy IS NULL AND deal.escrowExpiresAt IS NOT NULL AND deal.escrowExpiresAt > :now AND deal.escrowExpiresAt <= :cutoff)',
                 {now, cutoff},
             )
             .getMany();
