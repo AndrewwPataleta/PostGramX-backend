@@ -1,15 +1,6 @@
-export enum DealErrorCode {
-    DEAL_NOT_FOUND = 'DEAL_NOT_FOUND',
-    LISTING_NOT_FOUND = 'LISTING_NOT_FOUND',
-    LISTING_DISABLED = 'LISTING_DISABLED',
-    UNAUTHORIZED_DEAL_ACCESS = 'UNAUTHORIZED_DEAL_ACCESS',
-    INVALID_SCHEDULE_TIME = 'INVALID_SCHEDULE_TIME',
-    INVALID_TRANSITION = 'INVALID_TRANSITION',
-    SELF_DEAL_NOT_ALLOWED = 'SELF_DEAL_NOT_ALLOWED',
-    ACTIVE_PENDING_LIMIT_REACHED = 'ACTIVE_PENDING_LIMIT_REACHED',
-    DEADLINE_PASSED = 'DEADLINE_PASSED',
-    CREATIVE_NOT_SUBMITTED = 'CREATIVE_NOT_SUBMITTED',
-}
+import {DealErrorCode} from '../../../common/constants/errors/error-codes.constants';
+
+export {DealErrorCode};
 
 export class DealServiceError extends Error {
     constructor(public readonly code: DealErrorCode) {

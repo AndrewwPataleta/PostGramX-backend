@@ -1,11 +1,12 @@
 import {ListingEntity} from '../entities/listing.entity';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 export type ListingListItem = {
     id: string;
     channelId: string;
     format: string;
     priceNano: string;
-    currency: string;
+    currency: CurrencyCode;
     availabilityFrom: Date;
     availabilityTo: Date;
     pinDurationHours: number | null;

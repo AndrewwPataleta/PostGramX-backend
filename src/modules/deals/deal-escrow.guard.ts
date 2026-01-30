@@ -1,4 +1,4 @@
-import {DealEscrowStatus} from './types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {assertTransitionAllowed, isTransitionAllowed} from './state/deal-state.machine';
 
 export function canTransitionDealEscrowStatus(

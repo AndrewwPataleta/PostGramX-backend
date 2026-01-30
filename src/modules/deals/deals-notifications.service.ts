@@ -11,6 +11,7 @@ import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
 import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 const NOTIFICATION_CONCURRENCY = 5;
 
@@ -270,8 +271,8 @@ export class DealsNotificationsService {
             '💰 Partial payment received',
             '',
             `Deal: ${deal.id.slice(0, 8)}`,
-            `Received: ${formatTon(receivedNano)} TON`,
-            `Remaining: ${formatTon(remainingNano)} TON`,
+            `Received: ${formatTon(receivedNano)} ${CurrencyCode.TON}`,
+            `Remaining: ${formatTon(remainingNano)} ${CurrencyCode.TON}`,
             '',
             'Please complete payment in the Mini App.',
         ];

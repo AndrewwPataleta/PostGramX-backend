@@ -1,5 +1,5 @@
-import {DealStatus} from '../types/deal-status.enum';
-import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
+import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 
 export function mapEscrowToDealStatus(
     escrow: DealEscrowStatus,
@@ -9,7 +9,7 @@ export function mapEscrowToDealStatus(
         case DealEscrowStatus.SCHEDULING_PENDING:
         case DealEscrowStatus.CREATIVE_AWAITING_SUBMIT:
         case DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW:
-        case DealEscrowStatus.PAYMENT_AWAITING:
+        case DealEscrowStatus.AWAITING_PAYMENT:
         case DealEscrowStatus.FUNDS_PENDING:
             return DealStatus.PENDING;
         case DealEscrowStatus.FUNDS_CONFIRMED:

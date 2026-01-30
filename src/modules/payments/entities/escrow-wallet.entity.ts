@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import {WalletScope} from '../wallets/types/wallet-scope.enum';
 import {WalletStatus} from '../wallets/types/wallet-status.enum';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 @Entity({name: 'escrow_wallets'})
 @Index('IDX_escrow_wallets_address', ['address'])
@@ -30,8 +31,8 @@ export class EscrowWalletEntity {
     @Column({type: 'enum', enum: WalletStatus, default: WalletStatus.ACTIVE})
     status: WalletStatus;
 
-    @Column({default: 'TON'})
-    provider: string;
+    @Column({default: CurrencyCode.TON})
+    provider: CurrencyCode;
 
     @Column({type: 'jsonb', nullable: true})
     metadata: Record<string, unknown> | null;

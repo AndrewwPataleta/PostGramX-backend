@@ -2,7 +2,7 @@ import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {DealEntity} from '../../modules/deals/entities/deal.entity';
-import {DealEscrowStatus} from '../../modules/deals/types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {logMeta} from '../../common/logging/logContext';
 import {durationMs, nowMs} from '../../common/logging/time';
 

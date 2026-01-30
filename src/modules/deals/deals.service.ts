@@ -3,10 +3,10 @@ import {InjectRepository} from '@nestjs/typeorm';
 import {Brackets, DataSource, In, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
 import {DealCreativeEntity} from './entities/deal-creative.entity';
-import {ListingEntity, ListingFormat} from '../listings/entities/listing.entity';
-import {DealEscrowStatus} from './types/deal-escrow-status.enum';
+import {ListingEntity} from '../listings/entities/listing.entity';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {DealInitiatorSide} from './types/deal-initiator-side.enum';
-import {DealStatus} from './types/deal-status.enum';
+import {DealStatus} from '../../common/constants/deals/deal-status.constants';
 import {DealErrorCode, DealServiceError} from './errors/deal-service.error';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
@@ -19,10 +19,12 @@ import {DEALS_CONFIG} from '../../config/deals.config';
 import {User} from '../auth/entities/user.entity';
 import {DealCreativeType} from './types/deal-creative-type.enum';
 import {PaymentsService} from '../payments/payments.service';
-import {TransactionDirection} from '../payments/types/transaction-direction.enum';
-import {TransactionType} from '../payments/types/transaction-type.enum';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
 import {TransactionEntity} from '../payments/entities/transaction.entity';
 import {subNano} from '../payments/utils/bigint';
+import {ListingFormat} from '../../common/constants/channels/listing-format.constants';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -32,7 +34,7 @@ const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.AWAITING_PAYMENT,
     DealEscrowStatus.FUNDS_PENDING,
 ];
 
@@ -231,7 +233,7 @@ export class DealsService {
         }
 
         if (deal.advertiserUserId !== userId) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         const parsedScheduledAt = new Date(scheduledAt);
@@ -301,14 +303,14 @@ export class DealsService {
         }
 
         if (deal.advertiserUserId !== userId) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         const advertiser = await this.userRepository.findOne({
             where: {id: userId},
         });
         if (!advertiser) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW;
@@ -546,7 +548,7 @@ export class DealsService {
             deal.advertiserUserId !== userId &&
             deal.publisherOwnerUserId !== userId
         ) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         const creative = await this.creativeRepository.findOne({
@@ -585,13 +587,13 @@ export class DealsService {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
                         return {handled: true, message: 'Deal not found.'};
-                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                    case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
                             message:
                                 'You are not authorized to review this creative.',
                         };
-                    case DealErrorCode.INVALID_TRANSITION:
+                    case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
                             message: 'This deal is not ready for approval.',
@@ -637,13 +639,13 @@ export class DealsService {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
                         return {handled: true, message: 'Deal not found.'};
-                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                    case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
                             message:
                                 'You are not authorized to review this creative.',
                         };
-                    case DealErrorCode.INVALID_TRANSITION:
+                    case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
                             message: 'This deal is not ready for changes.',
@@ -689,13 +691,13 @@ export class DealsService {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
                         return {handled: true, message: 'Deal not found.'};
-                    case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+                    case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
                             message:
                                 'You are not authorized to review this creative.',
                         };
-                    case DealErrorCode.INVALID_TRANSITION:
+                    case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
                             message: 'This deal is not ready for rejection.',
@@ -726,7 +728,7 @@ export class DealsService {
         const hasAdminAccess = await this.hasAdminAccess(deal, userId);
         if (!hasAdminAccess) {
             await this.cancelDealForAdminRights(deal);
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         this.logger.log('Admin creative decision', {
@@ -735,7 +737,7 @@ export class DealsService {
             adminUserId: userId,
         });
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        const escrowStatus = DealEscrowStatus.AWAITING_PAYMENT;
         //this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
@@ -765,7 +767,7 @@ export class DealsService {
                         ?.currency ??
                     deal.listing?.currency ??
                     deal.escrowCurrency ??
-                    'TON';
+                    CurrencyCode.TON;
 
                 const payment = await this.paymentsService.createTransaction({
                     userId: deal.advertiserUserId,
@@ -823,7 +825,7 @@ export class DealsService {
             decision: 'approve',
         });
 
-        const escrowStatus = DealEscrowStatus.PAYMENT_AWAITING;
+        const escrowStatus = DealEscrowStatus.AWAITING_PAYMENT;
         const now = new Date();
         const paymentDeadlineAt = this.addMinutes(
             now,
@@ -851,7 +853,7 @@ export class DealsService {
                         ?.currency ??
                     deal.listing?.currency ??
                     deal.escrowCurrency ??
-                    'TON';
+                    CurrencyCode.TON;
 
                 const payment = await this.paymentsService.createTransaction({
                     userId: deal.advertiserUserId,
@@ -913,7 +915,7 @@ export class DealsService {
         const hasAdminAccess = await this.hasAdminAccess(deal, userId);
         if (!hasAdminAccess) {
             await this.cancelDealForAdminRights(deal);
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         this.logger.log('Admin creative decision', {
@@ -970,7 +972,7 @@ export class DealsService {
         const hasAdminAccess = await this.hasAdminAccess(deal, userId);
         if (!hasAdminAccess) {
             await this.cancelDealForAdminRights(deal);
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         this.logger.log('Admin creative decision', {
@@ -1066,7 +1068,7 @@ export class DealsService {
             deal.advertiserUserId !== userId &&
             deal.publisherOwnerUserId !== userId
         ) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         const transaction = await this.transactionRepository.findOne({
@@ -1268,7 +1270,7 @@ export class DealsService {
             assertTransitionAllowed(from, to);
         } catch (error) {
             if (error instanceof DealStateError) {
-                throw new DealServiceError(DealErrorCode.INVALID_TRANSITION);
+                throw new DealServiceError(DealErrorCode.INVALID_STATUS);
             }
             throw error;
         }

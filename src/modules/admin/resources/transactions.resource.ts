@@ -1,6 +1,7 @@
-import { TransactionEntity } from '../../payments/entities/transaction.entity';
-import { ResourceOptions } from '../types/admin.types';
-import { applyNanoToTon, applyNanoToTonForRecords } from './resource-utils';
+import {TransactionEntity} from '../../payments/entities/transaction.entity';
+import {ResourceOptions} from '../types/admin.types';
+import {applyNanoToTon, applyNanoToTonForRecords} from './resource-utils';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 const options: ResourceOptions = {
   navigation: { name: 'PostgramX', icon: 'Currency' },
@@ -67,7 +68,7 @@ const options: ResourceOptions = {
     metadata: { isVisible: { list: false, edit: false, filter: false } },
     amountTon: {
       isVisible: { list: true, show: true, edit: false, filter: false },
-      label: 'Amount (TON)',
+      label: `Amount (${CurrencyCode.TON})`,
       isSortable: false,
     },
   },

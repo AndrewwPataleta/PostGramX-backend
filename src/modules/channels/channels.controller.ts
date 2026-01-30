@@ -19,6 +19,8 @@ import {
     mapChannelErrorToMessageKey,
     mapChannelErrorToStatus,
 } from './channel-error-mapper';
+import {AuthType} from '../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../common/constants/platform/platform-types.constants';
 
 @Controller('channels')
 @ApiTags('channels')
@@ -203,8 +205,8 @@ export class ChannelsController {
     @ApiBody({
         schema: {
             example: {
-                platformType: 'telegram',
-                authType: 'telegram',
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
                 token: '<initData>',
                 data: {
                     disabled: true,

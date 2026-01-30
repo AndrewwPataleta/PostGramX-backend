@@ -5,7 +5,7 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {ChannelStatus} from '../channels/types/channel-status.enum';
 import {ChannelRole} from '../channels/types/channel-role.enum';
-import {ListingEntity, ListingFormat} from './entities/listing.entity';
+import {ListingEntity} from './entities/listing.entity';
 import {
     ListingServiceError,
     ListingServiceErrorCode,
@@ -15,8 +15,11 @@ import {
     mapListingToListItem,
 } from './types/listing-list-item.type';
 import {definedOnly} from '../../common/utils/defined-only';
+import {ListingFormat} from '../../common/constants/channels/listing-format.constants';
+import {SYSTEM_LISTING_TAGS} from '../../common/constants/channels/listing-tags.constants';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
-const REQUIRED_TAG = 'Must be pre-approved';
+const REQUIRED_TAG = SYSTEM_LISTING_TAGS.PRE_APPROVED;
 
 @Injectable()
 export class ListingsService {
@@ -32,7 +35,7 @@ export class ListingsService {
     async createListing(
         data: {
             channelId: string;
-            format: string;
+            format: ListingFormat;
             priceTon: number;
             availabilityFrom: string;
             availabilityTo: string;
@@ -115,7 +118,7 @@ export class ListingsService {
             createdByUserId: userId,
             format: ListingFormat.POST,
             priceNano,
-            currency: 'TON',
+            currency: CurrencyCode.TON,
             availabilityFrom,
             availabilityTo,
             pinDurationHours: data.pinDurationHours ?? null,

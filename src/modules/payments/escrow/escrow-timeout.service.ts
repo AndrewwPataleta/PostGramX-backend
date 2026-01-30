@@ -4,7 +4,7 @@ import {Cron, CronExpression} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, In, LessThan, Repository} from 'typeorm';
 import {DealEntity} from '../../deals/entities/deal.entity';
-import {DealEscrowStatus} from '../../deals/types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {mapEscrowToDealStatus} from '../../deals/state/deal-status.mapper';
 import {assertTransitionAllowed} from '../../deals/state/deal-state.machine';
 
@@ -35,7 +35,7 @@ export class EscrowTimeoutService {
             DealEscrowStatus.SCHEDULING_PENDING,
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
             DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.AWAITING_PAYMENT,
         ];
 
         const stalledBeforeFunding = await this.dealRepository.find({

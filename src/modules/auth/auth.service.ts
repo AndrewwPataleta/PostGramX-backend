@@ -9,27 +9,16 @@ import {Repository} from 'typeorm';
 import {User} from './entities/user.entity';
 import {I18nService} from 'nestjs-i18n';
 import {MembershipsAutoLinkService} from '../channels/memberships-auto-link.service';
+import {AuthType} from '../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../common/constants/platform/platform-types.constants';
 
-
-import {
-    SUPPORTED_AUTH_TYPES,
-    SUPPORTED_PLATFORM_TYPES,
-    SupportedAuthType,
-    SupportedPlatformType,
-} from './constants/auth.constants';
-
-
-const isSupportedAuthType = (value: string): value is SupportedAuthType =>
-    (SUPPORTED_AUTH_TYPES as readonly string[]).includes(
-        value as SupportedAuthType,
-    );
+const isSupportedAuthType = (value: string): value is AuthType =>
+    Object.values(AuthType).includes(value as AuthType);
 
 const isSupportedPlatformType = (
     value: string,
-): value is SupportedPlatformType =>
-    (SUPPORTED_PLATFORM_TYPES as readonly string[]).includes(
-        value as SupportedPlatformType,
-    );
+): value is PlatformType =>
+    Object.values(PlatformType).includes(value as PlatformType);
 
 
 @Injectable()
@@ -55,7 +44,7 @@ export class AuthService {
             return null;
         }
 
-        const normalizedAuthType: SupportedAuthType = normalizedAuthTypeCandidate;
+        const normalizedAuthType: AuthType = normalizedAuthTypeCandidate;
 
         const normalizedPlatformCandidate = platformType?.trim().toLowerCase();
         const normalizedPlatformType =
@@ -68,7 +57,7 @@ export class AuthService {
         let userInfo: Partial<User> = {};
         let user: User | null = null;
 
-        if (normalizedAuthType === 'telegram') {
+        if (normalizedAuthType === AuthType.TELEGRAM) {
             const parsed = new URLSearchParams(token);
             const rawUserData = parsed.get('user');
 
@@ -98,7 +87,7 @@ export class AuthService {
             const firstName = (data.first_name ?? data.firstName)?.trim();
             const lastName = (data.last_name ?? data.lastName)?.trim();
             const avatar = (data.photo_url ?? data.avatar)?.trim();
-            const platformForUser = normalizedPlatformType ?? 'telegram';
+            const platformForUser = normalizedPlatformType ?? PlatformType.TELEGRAM;
 
             const telegramLang = data.language_code?.trim() || 'en';
 
@@ -143,7 +132,7 @@ export class AuthService {
             user.authType = normalizedAuthType;
         }
 
-        if (normalizedAuthType === 'telegram' && userId && user.telegramId !== userId) {
+        if (normalizedAuthType === AuthType.TELEGRAM && userId && user.telegramId !== userId) {
             user.telegramId = userId;
         }
 
@@ -167,7 +156,7 @@ export class AuthService {
 
         user = await this.userRepository.save(user);
 
-        if (normalizedAuthType === 'telegram' && user.telegramId) {
+        if (normalizedAuthType === AuthType.TELEGRAM && user.telegramId) {
             try {
                 await this.membershipsAutoLinkService.autoLinkMembershipsForTelegramAdmin(
                     user.id,

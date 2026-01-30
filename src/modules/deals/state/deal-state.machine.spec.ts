@@ -1,4 +1,4 @@
-import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {isTransitionAllowed} from './deal-state.machine';
 
 describe('deal state machine', () => {
@@ -8,7 +8,7 @@ describe('deal state machine', () => {
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
             DealEscrowStatus.CREATIVE_RECEIVED,
             DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.AWAITING_PAYMENT,
             DealEscrowStatus.FUNDS_PENDING,
             DealEscrowStatus.FUNDS_CONFIRMED,
             DealEscrowStatus.CREATIVE_PENDING,
@@ -32,7 +32,7 @@ describe('deal state machine', () => {
             DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
             DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
             DealEscrowStatus.ADMIN_REVIEW,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.AWAITING_PAYMENT,
             DealEscrowStatus.FUNDS_PENDING,
         ];
 

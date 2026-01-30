@@ -1,3 +1,5 @@
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
+
 export type MarketplaceChannelItem = {
     id: string;
     name: string;
@@ -8,7 +10,7 @@ export type MarketplaceChannelItem = {
     subscribers: number | null;
     placementsCount: number;
     minPriceNano: string;
-    currency: 'TON';
+    currency: CurrencyCode;
     tags: string[];
 };
 

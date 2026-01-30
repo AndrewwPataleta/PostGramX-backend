@@ -5,6 +5,8 @@ import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {assertUser} from '../../core/controller-utils';
 import {MarketplaceListChannelsDto} from './dto/marketplace-list-channels.dto';
 import {MarketplaceService} from './marketplace.service';
+import {AuthType} from '../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../common/constants/platform/platform-types.constants';
 
 @Controller('marketplace')
 @ApiTags('marketplace')
@@ -19,8 +21,8 @@ export class MarketplaceController {
         type: MarketplaceListChannelsDto,
         schema: {
             example: {
-                platformType: 'telegram',
-                authType: 'telegram',
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
                 token: '<initData>',
                 data: {
                     q: 'crypto',

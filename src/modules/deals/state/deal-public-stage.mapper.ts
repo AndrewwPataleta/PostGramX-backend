@@ -1,4 +1,4 @@
-import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 
 export type DealPublicStage = {
     stageKey: string;
@@ -30,7 +30,7 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.admin_review',
         shortLabel: 'Awaiting admin review',
     },
-    [DealEscrowStatus.PAYMENT_AWAITING]: {
+    [DealEscrowStatus.AWAITING_PAYMENT]: {
         stageKey: 'deals.stages.awaiting_payment',
         shortLabel: 'Awaiting payment',
         actionHint: 'Complete payment within the window.',
