@@ -1,4 +1,5 @@
 import {
+    BaseEntity,
     Column,
     CreateDateColumn,
     Entity,
@@ -16,7 +17,7 @@ import {TransactionType} from '../types/transaction-type.enum';
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
 @Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
-export class TransactionEntity {
+export class TransactionEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 

@@ -1,4 +1,5 @@
 import {
+    BaseEntity,
     Column,
     CreateDateColumn,
     Entity,
@@ -13,7 +14,7 @@ import {ListingEntity} from '../../listings/entities/listing.entity';
 @Entity({name: 'channels'})
 @Index('IDX_channels_username', ['username'])
 @Index('IDX_channels_subscribers_count', ['subscribersCount'])
-export class ChannelEntity {
+export class ChannelEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 

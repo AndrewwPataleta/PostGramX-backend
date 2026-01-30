@@ -15,6 +15,7 @@ import {AdminModule} from './modules/admin/admin.module';
 import {CacheModule, CacheInterceptor} from '@nestjs/cache-manager';
 import {APP_INTERCEPTOR} from '@nestjs/core';
 import {CacheInvalidationSubscriber} from './database/cache-invalidation.subscriber';
+import {AdminAccessMiddleware} from './modules/admin/middleware/admin-access.middleware';
 import {ChannelsModule} from './modules/channels/channels.module';
 import {PaymentsModule} from './modules/payments/payments.module';
 import {DealsModule} from './modules/deals/deals.module';
@@ -76,6 +77,7 @@ export class AppModule implements NestModule {
 
     configure(consumer: MiddlewareConsumer) {
         consumer.apply(RequestResponseLoggerMiddleware).forRoutes('*');
-        consumer.apply(AuthMiddleware).exclude('admin/(.*)').forRoutes('*');
+        consumer.apply(AuthMiddleware).forRoutes('*');
+        consumer.apply(AdminAccessMiddleware).forRoutes('admin/(.*)');
     }
 }

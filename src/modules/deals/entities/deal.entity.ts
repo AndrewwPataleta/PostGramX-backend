@@ -1,4 +1,5 @@
 import {
+    BaseEntity,
     Column,
     CreateDateColumn,
     Entity,
@@ -27,7 +28,7 @@ import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
 @Index('IDX_deals_creative_deadline', ['creativeMustBeSubmittedBy'])
 @Index('IDX_deals_admin_deadline', ['adminMustRespondBy'])
 @Index('IDX_deals_payment_deadline', ['paymentMustBePaidBy'])
-export class DealEntity {
+export class DealEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
