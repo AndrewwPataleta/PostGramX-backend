@@ -1,10 +1,13 @@
-import type { BaseRecord } from 'adminjs';
+
 import { ILike } from 'typeorm';
 
 const { convertFilter } = require('@adminjs/typeorm/lib/utils/filter/filter.converter');
 
 const NANO_IN_TON = 1_000_000_000n;
 const loadAdminJs = () => import('adminjs');
+type BaseRecord = {
+  params: Record<string, any>;
+};
 
 export const formatNanoToTon = (
   value: string | number | null | undefined,
