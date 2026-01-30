@@ -7,6 +7,7 @@ import {WalletScope} from './types/wallet-scope.enum';
 import {WalletStatus} from './types/wallet-status.enum';
 import {TonWalletProvider} from './providers/ton-wallet.provider';
 import {KeyEncryptionService} from './crypto/key-encryption.service';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 @Injectable()
 export class WalletsService {
@@ -48,7 +49,7 @@ export class WalletsService {
             dealId,
             address: generated.address,
             status: WalletStatus.ACTIVE,
-            provider: 'TON',
+            provider: CurrencyCode.TON,
             metadata: generated.metadata ?? null,
         });
         const savedWallet = await walletRepository.save(wallet);

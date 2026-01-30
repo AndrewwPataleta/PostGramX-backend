@@ -1,6 +1,7 @@
-import {TransactionDirection} from '../types/transaction-direction.enum';
-import {TransactionStatus} from '../types/transaction-status.enum';
-import {TransactionType} from '../types/transaction-type.enum';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 export class CreateTransactionDto {
     userId: string;
@@ -8,7 +9,7 @@ export class CreateTransactionDto {
     direction: TransactionDirection;
     status?: TransactionStatus;
     amountNano: string;
-    currency?: string;
+    currency?: CurrencyCode;
     description?: string | null;
     dealId?: string | null;
     escrowWalletId?: string | null;

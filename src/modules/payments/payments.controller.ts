@@ -7,6 +7,12 @@ import {GetTransactionDto} from './dto/get-transaction.dto';
 import {ListTransactionsDto} from './dto/list-transactions.dto';
 import {PaymentsService} from './payments.service';
 import {CreateTransactionDto} from "./dto/create-transaction.dto";
+import {AuthType} from '../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../common/constants/platform/platform-types.constants';
+import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 @Controller('payments')
 @ApiTags('payments')
@@ -18,13 +24,13 @@ export class PaymentsController {
     @ApiBody({
         schema: {
             example: {
-                platformType: 'telegram',
-                authType: 'telegram',
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
                 token: '<initData>',
                 data: {
                     page: 1,
                     limit: 20,
-                    status: 'COMPLETED',
+                    status: TransactionStatus.COMPLETED,
                     sort: 'recent',
                     order: 'desc',
                 },
@@ -44,8 +50,8 @@ export class PaymentsController {
     @ApiBody({
         schema: {
             example: {
-                platformType: 'telegram',
-                authType: 'telegram',
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
                 token: '<initData>',
                 data: {},
             },
@@ -61,16 +67,18 @@ export class PaymentsController {
     }
 
     @Post('transactions')
-    @ApiOperation({ summary: 'Create TON transaction and generate deposit address' })
+    @ApiOperation({
+        summary: `Create ${CurrencyCode.TON} transaction and generate deposit address`,
+    })
     @ApiBody({
         schema: {
             example: {
-                platformType: 'telegram',
-                authType: 'telegram',
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
                 token: '<initData>',
                 data: {
-                    type: 'DEPOSIT',
-                    direction: 'IN',
+                    type: TransactionType.DEPOSIT,
+                    direction: TransactionDirection.IN,
                     amountNano: '1000000000',
                     description: 'Ad campaign payment',
                     dealId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',

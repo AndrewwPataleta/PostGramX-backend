@@ -3,7 +3,7 @@ import {Type, Transform} from 'class-transformer';
 import {
     IsDateString,
     IsDefined,
-    IsIn,
+    IsEnum,
     IsInt,
     IsOptional,
     IsString,
@@ -13,9 +13,9 @@ import {
     Min,
     ValidateNested,
 } from 'class-validator';
-import {TransactionDirection} from '../types/transaction-direction.enum';
-import {TransactionStatus} from '../types/transaction-status.enum';
-import {TransactionType} from '../types/transaction-type.enum';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 
 const SORT_OPTIONS = ['recent', 'amount'] as const;
 const ORDER_OPTIONS = ['asc', 'desc'] as const;
@@ -26,17 +26,17 @@ type OrderOption = (typeof ORDER_OPTIONS)[number];
 class ListTransactionsDataDto {
     @ApiPropertyOptional({enum: TransactionType})
     @IsOptional()
-    @IsIn(Object.values(TransactionType))
+    @IsEnum(TransactionType)
     type?: TransactionType;
 
     @ApiPropertyOptional({enum: TransactionStatus})
     @IsOptional()
-    @IsIn(Object.values(TransactionStatus))
+    @IsEnum(TransactionStatus)
     status?: TransactionStatus;
 
     @ApiPropertyOptional({enum: TransactionDirection})
     @IsOptional()
-    @IsIn(Object.values(TransactionDirection))
+    @IsEnum(TransactionDirection)
     direction?: TransactionDirection;
 
     @ApiPropertyOptional()

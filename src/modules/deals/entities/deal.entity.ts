@@ -9,12 +9,13 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
 import {DealInitiatorSide} from '../types/deal-initiator-side.enum';
-import {DealStatus} from '../types/deal-status.enum';
 import {ListingEntity} from '../../listings/entities/listing.entity';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
 import {DealListingSnapshot} from '../types/deal-listing-snapshot.type';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 @Entity({name: 'deals'})
 @Index('IDX_deals_advertiser_status', ['advertiserUserId', 'status'])
@@ -78,8 +79,8 @@ export class DealEntity extends BaseEntity {
     @Column({type: 'bigint', nullable: true})
     escrowAmountNano: string | null;
 
-    @Column({default: 'TON'})
-    escrowCurrency: string;
+    @Column({default: CurrencyCode.TON})
+    escrowCurrency: CurrencyCode;
 
     @Column({type: 'text', nullable: true})
     escrowPaymentAddress: string | null;

@@ -7,9 +7,10 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import {TransactionDirection} from '../types/transaction-direction.enum';
-import {TransactionStatus} from '../types/transaction-status.enum';
-import {TransactionType} from '../types/transaction-type.enum';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 @Entity({name: 'transactions'})
 @Index('IDX_transactions_user_created_at', ['userId', 'createdAt'])
@@ -39,8 +40,8 @@ export class TransactionEntity extends BaseEntity {
     @Column({type: 'bigint', default: '0'})
     receivedNano: string;
 
-    @Column({default: 'TON'})
-    currency: string;
+    @Column({default: CurrencyCode.TON})
+    currency: CurrencyCode;
 
     @Column({type: 'text', nullable: true})
     description: string | null;

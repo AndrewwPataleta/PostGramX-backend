@@ -1,17 +1,17 @@
 import {HttpStatus} from '@nestjs/common';
-import {DealErrorCode} from './errors/deal-service.error';
+import {DealErrorCode} from '../../common/constants/errors/error-codes.constants';
 
 export const mapDealErrorToStatus = (code: DealErrorCode): HttpStatus => {
     switch (code) {
         case DealErrorCode.DEAL_NOT_FOUND:
         case DealErrorCode.LISTING_NOT_FOUND:
             return HttpStatus.NOT_FOUND;
-        case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+        case DealErrorCode.UNAUTHORIZED:
             return HttpStatus.FORBIDDEN;
         case DealErrorCode.INVALID_SCHEDULE_TIME:
         case DealErrorCode.LISTING_DISABLED:
         case DealErrorCode.SELF_DEAL_NOT_ALLOWED:
-        case DealErrorCode.INVALID_TRANSITION:
+        case DealErrorCode.INVALID_STATUS:
         case DealErrorCode.ACTIVE_PENDING_LIMIT_REACHED:
         case DealErrorCode.DEADLINE_PASSED:
         case DealErrorCode.CREATIVE_NOT_SUBMITTED:
@@ -27,11 +27,11 @@ export const mapDealErrorToMessageKey = (code: DealErrorCode): string => {
             return 'deals.errors.listingNotFound';
         case DealErrorCode.LISTING_DISABLED:
             return 'deals.errors.listingDisabled';
-        case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
+        case DealErrorCode.UNAUTHORIZED:
             return 'deals.errors.unauthorized';
         case DealErrorCode.INVALID_SCHEDULE_TIME:
             return 'deals.errors.invalidScheduleTime';
-        case DealErrorCode.INVALID_TRANSITION:
+        case DealErrorCode.INVALID_STATUS:
             return 'errors.deals.deal_not_actionable';
         case DealErrorCode.DEAL_NOT_FOUND:
             return 'deals.errors.dealNotFound';

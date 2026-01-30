@@ -1,1 +1,1 @@
-import {DealEscrowStatus} from '../types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';

@@ -8,8 +8,8 @@ import {
     Repository,
 } from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
-import {DealEscrowStatus} from './types/deal-escrow-status.enum';
-import {DealStatus} from './types/deal-status.enum';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
+import {DealStatus} from '../../common/constants/deals/deal-status.constants';
 import {DealReminderEntity} from './entities/deal-reminder.entity';
 import {DealReminderType} from './types/deal-reminder-type.enum';
 import {DEAL_TIMEOUTS_CRON, DEALS_CONFIG} from '../../config/deals.config';
@@ -24,7 +24,7 @@ const AGREEMENT_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-    DealEscrowStatus.PAYMENT_AWAITING,
+    DealEscrowStatus.AWAITING_PAYMENT,
     DealEscrowStatus.FUNDS_PENDING,
 ];
 
@@ -129,7 +129,7 @@ export class DealsTimeoutsService {
             .where('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
                 escrowStatuses: [
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.AWAITING_PAYMENT,
                 ],
             })
             .andWhere(
@@ -142,7 +142,7 @@ export class DealsTimeoutsService {
         await this.cancelDeals(expiredDeals, {
             reason: 'PAYMENT_TIMEOUT',
             allowedEscrowStatuses: [
-                DealEscrowStatus.PAYMENT_AWAITING,
+                DealEscrowStatus.AWAITING_PAYMENT,
             ],
             closeWallet: true,
         });
@@ -342,7 +342,7 @@ export class DealsTimeoutsService {
             .andWhere('deal.status = :status', {status: DealStatus.PENDING})
             .andWhere('deal.escrowStatus IN (:...escrowStatuses)', {
                 escrowStatuses: [
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.AWAITING_PAYMENT,
                 ],
             })
             .andWhere(

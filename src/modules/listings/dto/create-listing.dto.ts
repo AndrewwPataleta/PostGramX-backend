@@ -7,7 +7,6 @@ import {
     IsArray,
     IsBoolean,
     IsDefined,
-    IsIn,
     IsInt,
     IsISO8601,
     IsNotEmpty,
@@ -19,7 +18,9 @@ import {
     MaxLength,
     Min,
     ValidateNested,
+    IsEnum,
 } from 'class-validator';
+import {ListingFormat} from '../../../common/constants/channels/listing-format.constants';
 
 class CreateListingDataDto {
     @ApiProperty()
@@ -27,10 +28,9 @@ class CreateListingDataDto {
     @IsNotEmpty()
     channelId: string;
 
-    @ApiProperty({enum: ['POST']})
-    @IsString()
-    @IsIn(['POST'])
-    format: string;
+    @ApiProperty({enum: ListingFormat})
+    @IsEnum(ListingFormat)
+    format: ListingFormat;
 
     @ApiProperty({example: 25})
     @Type(() => Number)

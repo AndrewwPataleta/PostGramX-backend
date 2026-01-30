@@ -5,15 +5,12 @@ import {
     IsString,
     MaxLength,
     Matches,
-    ValidateNested, IsIn,
+    ValidateNested,
+    IsEnum,
 } from 'class-validator';
 import {Type} from 'class-transformer';
-import {
-    SUPPORTED_AUTH_TYPES,
-    SUPPORTED_PLATFORM_TYPES,
-    SupportedAuthType,
-    SupportedPlatformType
-} from "../constants/auth.constants";
+import {AuthType} from '../../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../../common/constants/platform/platform-types.constants';
 
 class AuthDataDto {
     @ApiProperty({required: false, description: 'BCP-47 language tag, e.g. ru, en-US, pt-BR, zh-Hans'})
@@ -59,9 +56,9 @@ export class AuthDto {
     @IsString()
     token: string;
 
-    @ApiProperty({enum: SUPPORTED_AUTH_TYPES})
-    @IsIn(SUPPORTED_AUTH_TYPES)
-    authType: SupportedAuthType;
+    @ApiProperty({enum: AuthType})
+    @IsEnum(AuthType)
+    authType: AuthType;
 
     @ApiProperty({required: false})
     @IsOptional()
@@ -78,9 +75,9 @@ export class AuthDto {
     @IsBoolean()
     isPremium?: boolean;
 
-    @ApiProperty({enum: SUPPORTED_PLATFORM_TYPES})
-    @IsIn(SUPPORTED_PLATFORM_TYPES)
-    platformType: SupportedPlatformType;
+    @ApiProperty({enum: PlatformType})
+    @IsEnum(PlatformType)
+    platformType: PlatformType;
 
     @ApiProperty({required: false, type: () => AuthDataDto})
     @IsOptional()
@@ -88,4 +85,3 @@ export class AuthDto {
     @Type(() => AuthDataDto)
     data?: AuthDataDto;
 }
-

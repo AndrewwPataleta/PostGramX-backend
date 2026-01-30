@@ -3,7 +3,7 @@ import {ConfigService} from '@nestjs/config';
 import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, Repository} from 'typeorm';
 import {DealEntity} from '../../deals/entities/deal.entity';
-import {DealEscrowStatus} from '../../deals/types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {
     assertTransitionAllowed,
     DealStateError,
@@ -12,14 +12,16 @@ import {
 import {mapEscrowToDealStatus} from '../../deals/state/deal-status.mapper';
 import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 import {TransactionEntity} from '../entities/transaction.entity';
-import {TransactionDirection} from '../types/transaction-direction.enum';
-import {TransactionStatus} from '../types/transaction-status.enum';
-import {TransactionType} from '../types/transaction-type.enum';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {WalletsService} from '../wallets/wallets.service';
 import {
     EscrowServiceError,
     EscrowServiceErrorCode,
 } from './errors/escrow-service.error';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
+import {DEAL_TIMEOUTS} from '../../../common/constants/deals/deal-timeouts.constants';
 
 @Injectable()
 export class EscrowService {
@@ -44,7 +46,7 @@ export class EscrowService {
             throw new EscrowServiceError(EscrowServiceErrorCode.FORBIDDEN);
         }
 
-        if (deal.escrowStatus === DealEscrowStatus.PAYMENT_AWAITING) {
+        if (deal.escrowStatus === DealEscrowStatus.AWAITING_PAYMENT) {
             if (deal.escrowAmountNano && deal.escrowAmountNano !== amountNano) {
                 throw new EscrowServiceError(
                     EscrowServiceErrorCode.ESCROW_AMOUNT_MISMATCH,
@@ -65,10 +67,10 @@ export class EscrowService {
             }
         }
 
-        if (deal.escrowStatus !== DealEscrowStatus.PAYMENT_AWAITING) {
+        if (deal.escrowStatus !== DealEscrowStatus.AWAITING_PAYMENT) {
             this.ensureTransitionAllowed(
                 deal.escrowStatus,
-                DealEscrowStatus.PAYMENT_AWAITING,
+                DealEscrowStatus.AWAITING_PAYMENT,
             );
         }
 
@@ -82,13 +84,13 @@ export class EscrowService {
             );
 
             await manager.getRepository(DealEntity).update(deal.id, {
-                escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
                 status: mapEscrowToDealStatus(
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.AWAITING_PAYMENT,
                 ),
                 escrowWalletId: createdWallet.id,
                 escrowAmountNano: amountNano,
-                escrowCurrency: 'TON',
+                escrowCurrency: CurrencyCode.TON,
                 escrowExpiresAt: expiresAt,
                 paymentDeadlineAt: expiresAt,
                 lastActivityAt: now,
@@ -101,7 +103,7 @@ export class EscrowService {
 
         return {
             dealId: deal.id,
-            escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+            escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
             depositAddress: wallet.address,
             expiresAt,
         };
@@ -173,7 +175,7 @@ export class EscrowService {
 
         const canMoveToPending = isTransitionAllowed(
             deal.escrowStatus,
-            DealEscrowStatus.PAYMENT_AWAITING,
+            DealEscrowStatus.AWAITING_PAYMENT,
         );
         const canMoveToConfirmed = isTransitionAllowed(
             deal.escrowStatus,
@@ -204,12 +206,12 @@ export class EscrowService {
             if (canMoveToPending) {
                 this.ensureTransitionAllowed(
                     deal.escrowStatus,
-                    DealEscrowStatus.PAYMENT_AWAITING,
+                    DealEscrowStatus.AWAITING_PAYMENT,
                 );
                 await dealRepository.update(deal.id, {
-                    escrowStatus: DealEscrowStatus.PAYMENT_AWAITING,
+                    escrowStatus: DealEscrowStatus.AWAITING_PAYMENT,
                     status: mapEscrowToDealStatus(
-                        DealEscrowStatus.PAYMENT_AWAITING,
+                        DealEscrowStatus.AWAITING_PAYMENT,
                     ),
                     lastActivityAt: now,
                     stalledAt: null,
@@ -219,7 +221,7 @@ export class EscrowService {
 
             this.ensureTransitionAllowed(
                 canMoveToPending
-                    ? DealEscrowStatus.PAYMENT_AWAITING
+                    ? DealEscrowStatus.AWAITING_PAYMENT
                     : deal.escrowStatus,
                 DealEscrowStatus.FUNDS_CONFIRMED,
             );
@@ -243,7 +245,7 @@ export class EscrowService {
                 direction: TransactionDirection.IN,
                 status: TransactionStatus.CONFIRMED,
                 amountNano: deal.escrowAmountNano,
-                currency: 'TON',
+                currency: CurrencyCode.TON,
                 depositAddress: wallet.address,
                 externalTxHash: externalTxHash ?? null,
                 confirmedAt: now,
@@ -257,7 +259,7 @@ export class EscrowService {
                 direction: TransactionDirection.INTERNAL,
                 status: TransactionStatus.COMPLETED,
                 amountNano: deal.escrowAmountNano,
-                currency: 'TON',
+                currency: CurrencyCode.TON,
                 completedAt: now,
             });
 
@@ -276,7 +278,8 @@ export class EscrowService {
 
     private calculatePaymentExpiry(now: Date): Date {
         const timeoutMinutes = Number(
-            this.configService.get<string>('DEAL_PAYMENT_TIMEOUT_MINUTES') ?? 60,
+            this.configService.get<string>('DEAL_PAYMENT_TIMEOUT_MINUTES') ??
+                DEAL_TIMEOUTS.PAYMENT_WINDOW_MINUTES,
         );
         const expiresAt = new Date(now.getTime());
         expiresAt.setMinutes(expiresAt.getMinutes() + timeoutMinutes);

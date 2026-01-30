@@ -2,6 +2,7 @@ import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {createHash} from 'crypto';
 import {WalletScope} from '../types/wallet-scope.enum';
+import {CurrencyCode} from '../../../../common/constants/currency/currency.constants';
 
 export type WalletGenerationOptions = {
     scope: WalletScope;
@@ -25,7 +26,9 @@ export class TonWalletProvider {
         const nodeEnv = this.configService.get<string>('NODE_ENV');
 
         if (nodeEnv === 'production') {
-            throw new Error('TON wallet provider is not configured');
+            throw new Error(
+                `${CurrencyCode.TON} wallet provider is not configured`,
+            );
         }
 
         const seed = [options.scope, options.dealId ?? '', options.userId ?? '']

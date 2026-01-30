@@ -1,6 +1,7 @@
 import { DealEntity } from '../../deals/entities/deal.entity';
-import { DealEscrowStatus } from '../../deals/types/deal-escrow-status.enum';
-import { DealStatus } from '../../deals/types/deal-status.enum';
+import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import { ResourceOptions } from '../types/admin.types';
 import { applyNanoToTon, applyNanoToTonForRecords } from './resource-utils';
 
@@ -80,7 +81,7 @@ const options: ResourceOptions = {
     listingSnapshot: { isVisible: { list: false, edit: false, filter: false } },
     escrowAmountTon: {
       isVisible: { list: true, show: true, edit: false, filter: false },
-      label: 'Escrow (TON)',
+      label: `Escrow (${CurrencyCode.TON})`,
       isSortable: false,
     },
   },

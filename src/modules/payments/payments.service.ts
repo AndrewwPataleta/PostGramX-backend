@@ -9,15 +9,16 @@ import {DataSource, In, Repository} from 'typeorm';
 import {CreateTransactionDto} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
-import {TransactionStatus} from './types/transaction-status.enum';
+import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
 import {definedOnly} from '../../common/utils/defined-only';
 import {generateDealWallet} from "./ton/generate-ton-wallet";
 import {encryptMnemonic} from "./ton/mnemonic-crypto";
-import {TransactionType} from "./types/transaction-type.enum";
-import {TransactionDirection} from "./types/transaction-direction.enum";
+import {TransactionType} from "../../common/constants/payments/transaction-type.constants";
+import {TransactionDirection} from "../../common/constants/payments/transaction-direction.constants";
 import {DealEntity} from '../deals/entities/deal.entity';
-import {DealEscrowStatus} from '../deals/types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {mapEscrowToDealStatus} from '../deals/state/deal-status.mapper';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -172,7 +173,7 @@ export class PaymentsService {
             direction: TransactionDirection.IN,
 
             amountNano: "1000000000",
-            currency: data.currency ?? "TON",
+            currency: data.currency ?? CurrencyCode.TON,
 
             status: TransactionStatus.PENDING,
 

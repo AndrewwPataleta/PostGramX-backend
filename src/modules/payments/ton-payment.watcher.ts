@@ -3,20 +3,21 @@ import {Cron} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, In, Repository} from 'typeorm';
 import {DealEntity} from '../deals/entities/deal.entity';
-import {DealEscrowStatus} from '../deals/types/deal-escrow-status.enum';
+import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {isTransitionAllowed} from '../deals/state/deal-state.machine';
 import {mapEscrowToDealStatus} from '../deals/state/deal-status.mapper';
 import {DealsNotificationsService} from '../deals/deals-notifications.service';
 import {TonTransferEntity} from './entities/ton-transfer.entity';
 import {TransactionEntity} from './entities/transaction.entity';
-import {TransactionStatus} from './types/transaction-status.enum';
-import {TransactionType} from './types/transaction-type.enum';
+import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
 import {TonCenterClient} from './ton/toncenter.client';
 import {addNano, gteNano, subNano, formatTon} from './utils/bigint';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 @Injectable()
 export class TonPaymentWatcher {
-    private readonly logger = new Logger('TON-WATCHER');
+    private readonly logger = new Logger(`${CurrencyCode.TON}-WATCHER`);
 
     constructor(
         private readonly ton: TonCenterClient,
@@ -224,14 +225,16 @@ export class TonPaymentWatcher {
                 this.logger.warn('✅ PAYMENT CONFIRMED');
                 this.logger.warn(`TX ID: ${tx.id}`);
                 this.logger.warn(`Address: ${tx.depositAddress}`);
-                this.logger.warn(`Amount: ${formatTon(nextReceived)} TON`);
+                this.logger.warn(
+                    `Amount: ${formatTon(nextReceived)} ${CurrencyCode.TON}`,
+                );
                 this.logger.warn(`Hash: ${transfer.txHash}`);
 
                 return {type: 'confirmed', deal};
             }
 
             if (
-                deal.escrowStatus === DealEscrowStatus.PAYMENT_AWAITING &&
+                deal.escrowStatus === DealEscrowStatus.AWAITING_PAYMENT &&
                 isTransitionAllowed(
                     deal.escrowStatus,
                     DealEscrowStatus.FUNDS_PENDING,
@@ -247,8 +250,12 @@ export class TonPaymentWatcher {
                 this.logger.warn('💰 PARTIAL PAYMENT RECEIVED');
                 this.logger.warn(`TX ID: ${tx.id}`);
                 this.logger.warn(`Address: ${tx.depositAddress}`);
-                this.logger.warn(`Received: ${formatTon(nextReceived)} TON`);
-                this.logger.warn(`Remaining: ${formatTon(remaining)} TON`);
+                this.logger.warn(
+                    `Received: ${formatTon(nextReceived)} ${CurrencyCode.TON}`,
+                );
+                this.logger.warn(
+                    `Remaining: ${formatTon(remaining)} ${CurrencyCode.TON}`,
+                );
                 this.logger.warn(`Hash: ${transfer.txHash}`);
 
                 return {

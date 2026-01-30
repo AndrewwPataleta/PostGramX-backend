@@ -9,6 +9,7 @@ import {
     MarketplaceChannelItem,
     MarketplaceChannelsResponse,
 } from './types/marketplace-channel-item.type';
+import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
 @Injectable()
 export class MarketplaceService {
@@ -141,7 +142,7 @@ export class MarketplaceService {
             subscribers: row.subscribers === null ? null : Number(row.subscribers),
             placementsCount: Number(row.placementsCount ?? 0),
             minPriceNano: row.minPriceNano ?? '0',
-            currency: 'TON',
+            currency: CurrencyCode.TON,
             tags: this.normalizeAggregatedTags(row.listingTags),
         }));
 

@@ -10,10 +10,8 @@ import {
 } from 'typeorm';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
 import {User} from '../../auth/entities/user.entity';
-
-export enum ListingFormat {
-    POST = 'POST',
-}
+import {ListingFormat} from '../../../common/constants/channels/listing-format.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 
 @Entity({name: 'listings'})
 @Index('IDX_listings_channel_active_created_at', [
@@ -49,8 +47,8 @@ export class ListingEntity {
     @Column({type: 'bigint'})
     priceNano: string;
 
-    @Column({type: 'text', default: 'TON'})
-    currency: string;
+    @Column({type: 'text', default: CurrencyCode.TON})
+    currency: CurrencyCode;
 
     @Column({type: 'timestamptz'})
     availabilityFrom: Date;
