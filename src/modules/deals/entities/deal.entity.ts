@@ -127,14 +127,9 @@ export class DealEntity extends BaseEntity {
     @Column({type: 'timestamptz', nullable: true})
     approvedAt: Date | null;
 
-    @Column({type: 'jsonb', nullable: true})
-    offerSnapshot: Record<string, unknown> | null;
-
     @Column({type: 'jsonb', default: () => "'{}'"})
     listingSnapshot: DealListingSnapshot;
 
-    @Column({type: 'text', nullable: true})
-    brief: string | null;
 
     @Column({type: 'timestamptz', nullable: true})
     scheduledAt: Date | null;

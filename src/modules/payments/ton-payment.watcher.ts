@@ -116,11 +116,7 @@ export class TonPaymentWatcher {
             const txRepo = manager.getRepository(TransactionEntity);
             const dealRepo = manager.getRepository(DealEntity);
 
-            /**
-             * 1) DEDUPE HARD:
-             * Your @Index(unique) only works if it's actually in the DB.
-             * Also don't rely on identifiers.length — it's flaky with DO NOTHING.
-             */
+
             const insertResult = await transferRepo
                 .createQueryBuilder()
                 .insert()
@@ -134,19 +130,17 @@ export class TonPaymentWatcher {
                     observedAt: transfer.observedAt,
                     raw: transfer.raw,
                 })
-                // Explicit conflict target: requires unique constraint/index in DB
+
                 .onConflict(`("txHash") DO NOTHING`)
                 .execute();
 
-            // TypeORM/Postgres may not fill identifiers. affected is the reliable indicator here.
+
             const inserted = (insertResult as any).affected ? (insertResult as any).affected > 0 : false;
 
             if (!inserted) {
-                // duplicate transfer => do nothing
                 return null;
             }
 
-            // 2) Lock tx row and update received/status
             const lockedTx = await txRepo.findOne({
                 where: { id: tx.id },
                 lock: { mode: "pessimistic_write" },
@@ -189,17 +183,14 @@ export class TonPaymentWatcher {
 
             const upd = await txRepo.update(lockedTx.id, updatePayload);
 
-            // DEBUG: if status isn't changing, you will see it here immediately
             this.logger.warn(
                 `[TX UPDATE] id=${lockedTx.id} affected=${upd.affected ?? "?"} status->${updatePayload.status} received->${nextReceived}`
             );
 
-            // If update didn't touch row => something is off
             if (!upd.affected) {
                 return null;
             }
 
-            // 3) Deal processing
             if (!lockedTx.dealId) return null;
 
             const deal = await dealRepo.findOne({
