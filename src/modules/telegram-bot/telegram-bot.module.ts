@@ -9,24 +9,26 @@ import {DealsModule} from '../deals/deals.module';
 import {ChannelsModule} from '../channels/channels.module';
 
 import {User} from '../auth/entities/user.entity';
-import {TelegramI18nService} from "../telegram/i18n/telegram-i18n.service";
-import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
+import {TelegramModule} from '../telegram/telegram.module';
+import {TelegramBotModuleInitService} from './telegram-bot.module-init.service';
 
 @Module({
     imports: [
         ConfigModule,
         ChannelsModule,
         TypeOrmModule.forFeature([User]),
-        forwardRef(() => DealsModule),
+        DealsModule,
+        // TelegramBotUpdate index [2] depends on TelegramMessengerService,
+        // which is owned + exported by TelegramModule to keep boundaries clear.
+        forwardRef(() => TelegramModule),
     ],
     providers: [
         TelegramBotService,
         TelegramBotUpdate,
         StartHandler,
         HelpHandler,
-        TelegramI18nService,
-        TelegramMessengerService,
+        TelegramBotModuleInitService,
     ],
-    exports: [TelegramBotService, TelegramI18nService, TelegramMessengerService],
+    exports: [TelegramBotService],
 })
 export class TelegramBotModule {}

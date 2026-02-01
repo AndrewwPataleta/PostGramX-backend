@@ -12,13 +12,13 @@ import {ChannelMembershipEntity} from '../channels/entities/channel-membership.e
 import {DealsNotificationsService} from './deals-notifications.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {ChannelsModule} from '../channels/channels.module';
-import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 import {DealsTimeoutsService} from './deals-timeouts.service';
 import {WalletsModule} from '../payments/wallets/wallets.module';
 import {PaymentsModule} from '../payments/payments.module';
 import {User} from '../auth/entities/user.entity';
 import {DealsBotHandler} from './deals-bot.handler';
 import {TransactionEntity} from '../payments/entities/transaction.entity';
+import {TelegramModule} from '../telegram/telegram.module';
 
 @Module({
     imports: [
@@ -34,7 +34,7 @@ import {TransactionEntity} from '../payments/entities/transaction.entity';
             TransactionEntity,
         ]),
         ChannelsModule,
-        forwardRef(() => TelegramBotModule),
+        TelegramModule,
         WalletsModule,
         forwardRef(() => PaymentsModule),
     ],
