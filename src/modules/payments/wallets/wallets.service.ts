@@ -3,11 +3,10 @@ import {InjectRepository} from '@nestjs/typeorm';
 import {EntityManager, Repository} from 'typeorm';
 import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from '../entities/escrow-wallet-key.entity';
-import {WalletScope} from './types/wallet-scope.enum';
-import {WalletStatus} from './types/wallet-status.enum';
 import {TonWalletProvider} from './providers/ton-wallet.provider';
 import {KeyEncryptionService} from './crypto/key-encryption.service';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
+import {WalletScope} from './types/wallet-scope.enum';
 
 @Injectable()
 export class WalletsService {
@@ -20,7 +19,7 @@ export class WalletsService {
         private readonly keyEncryptionService: KeyEncryptionService,
     ) {}
 
-    async createDealEscrowWallet(
+    async createEscrowWallet(
         dealId: string,
         manager?: EntityManager,
     ): Promise<EscrowWalletEntity> {
@@ -31,26 +30,14 @@ export class WalletsService {
             ? manager.getRepository(EscrowWalletKeyEntity)
             : this.escrowWalletKeyRepository;
 
-        const existing = await walletRepository.findOne({
-            where: {dealId},
-        });
-
-        if (existing) {
-            return existing;
-        }
-
         const generated = await this.tonWalletProvider.generateAddress({
             scope: WalletScope.DEAL,
             dealId,
         });
 
         const wallet = walletRepository.create({
-            scope: WalletScope.DEAL,
-            dealId,
             address: generated.address,
-            status: WalletStatus.ACTIVE,
-            provider: CurrencyCode.TON,
-            metadata: generated.metadata ?? null,
+            network: CurrencyCode.TON,
         });
         const savedWallet = await walletRepository.save(wallet);
 
@@ -73,6 +60,6 @@ export class WalletsService {
         const walletRepository = manager
             ? manager.getRepository(EscrowWalletEntity)
             : this.escrowWalletRepository;
-        await walletRepository.update(walletId, {status: WalletStatus.CLOSED});
+        await walletRepository.update(walletId, {});
     }
 }

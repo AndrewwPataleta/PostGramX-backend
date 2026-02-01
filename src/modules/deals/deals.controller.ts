@@ -6,7 +6,6 @@ import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
 import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {DealsService} from './deals.service';
 import {CreateDealDto} from './dto/create-deal.dto';
-import {CreativeConfirmSentDto} from './dto/creative-confirm-sent.dto';
 import {CreativeStatusDto} from './dto/creative-status.dto';
 import {CreativeSubmitDto} from './dto/creative-submit.dto';
 import {AdminApproveDto} from './dto/admin-approve.dto';
@@ -17,20 +16,13 @@ import {ListDealsDto} from './dto/list-deals.dto';
 import {ScheduleDealDto} from './dto/schedule-deal.dto';
 import {DealServiceError} from './errors/deal-service.error';
 import {mapDealErrorToMessageKey, mapDealErrorToStatus} from './deal-error-mapper';
-import {RequestPaymentAddressDto} from './dto/request-payment-address.dto';
-import {EscrowService} from '../payments/escrow/escrow.service';
-import {EscrowServiceError} from '../payments/escrow/errors/escrow-service.error';
-import {
-    mapEscrowErrorToMessageKey,
-    mapEscrowErrorToStatus,
-} from '../payments/escrow/errors/escrow-error-mapper';
+import {CancelDealDto} from './dto/cancel-deal.dto';
 
 @Controller('deals')
 @ApiTags('deals')
 export class DealsController {
     constructor(
         private readonly dealsService: DealsService,
-        private readonly escrowService: EscrowService,
     ) {}
 
     @Post('create')
@@ -248,27 +240,27 @@ export class DealsController {
         }
     }
 
-    @Post('payment/requestAddress')
-    @ApiOperation({summary: 'Request escrow payment address for a deal'})
-    @ApiBody({type: RequestPaymentAddressDto})
-    async requestPaymentAddress(
-        @Body(dtoValidationPipe) dto: RequestPaymentAddressDto,
+    @Post('cancel')
+    @ApiOperation({summary: 'Cancel a deal'})
+    @ApiBody({type: CancelDealDto})
+    async cancelDeal(
+        @Body(dtoValidationPipe) dto: CancelDealDto,
         @Req() req: Request,
         @I18n() i18n: I18nContext,
     ) {
         const user = assertUser(req);
 
         try {
-            return await this.escrowService.initDealEscrow(
+            return await this.dealsService.cancelDeal(
                 user.id,
                 dto.data.dealId,
-                dto.data.amountNano,
+                dto.data.reason,
             );
         } catch (error) {
             await handleMappedError(error, i18n, {
-                errorType: EscrowServiceError,
-                mapStatus: mapEscrowErrorToStatus,
-                mapMessageKey: mapEscrowErrorToMessageKey,
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
             });
         }
     }

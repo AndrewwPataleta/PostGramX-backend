@@ -4,6 +4,8 @@ import {
     CreateDateColumn,
     Entity,
     Index,
+    JoinColumn,
+    ManyToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
@@ -11,10 +13,12 @@ import {TransactionDirection} from '../../../common/constants/payments/transacti
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
+import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 
 @Entity({name: 'transactions'})
 @Index('IDX_transactions_user_created_at', ['userId', 'createdAt'])
 @Index('IDX_transactions_deal_id', ['dealId'])
+@Index('IDX_transactions_escrow_id', ['escrowId'])
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
 @Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
@@ -50,7 +54,7 @@ export class TransactionEntity extends BaseEntity {
     dealId: string | null;
 
     @Column({type: 'uuid', nullable: true})
-    escrowWalletId: string | null;
+    escrowId: string | null;
 
     @Column({type: 'uuid', nullable: true})
     channelId: string | null;
@@ -87,4 +91,8 @@ export class TransactionEntity extends BaseEntity {
 
     @Column({type: 'timestamptz', nullable: true})
     completedAt: Date | null;
+
+    @ManyToOne(() => DealEscrowEntity, {nullable: true})
+    @JoinColumn({name: 'escrowId'})
+    escrow: DealEscrowEntity | null;
 }

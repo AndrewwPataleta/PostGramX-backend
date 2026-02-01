@@ -1,7 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {DealCreativeEntity} from '../../modules/deals/entities/deal-creative.entity';
-import {DealCreativeType} from '../../modules/deals/types/deal-creative-type.enum';
 import {DealEntity} from '../../modules/deals/entities/deal.entity';
 import {ChannelEntity} from '../../modules/channels/entities/channel.entity';
 import {
@@ -76,30 +75,36 @@ export class TelegramPosterService {
             throw new Error('Channel chat id is missing.');
         }
 
-        switch (creative.type) {
-            case DealCreativeType.TEXT:
+        const payload = (creative.payload ?? {}) as Record<string, unknown>;
+        const type = String(payload.type ?? 'TEXT');
+        const text = String(payload.text ?? payload.caption ?? '');
+        const caption = payload.caption ? String(payload.caption) : undefined;
+        const mediaFileId = payload.mediaFileId ? String(payload.mediaFileId) : undefined;
+
+        switch (type) {
+            case 'TEXT':
                 return this.sendMessage(
                     chatId,
-                    this.ensureText(creative.text ?? deal.creativeText ?? ''),
+                    this.ensureText(text),
                 );
-            case DealCreativeType.IMAGE:
-                if (!creative.mediaFileId) {
+            case 'IMAGE':
+                if (!mediaFileId) {
                     throw new Error('Creative media file is missing.');
                 }
-                return this.sendPhoto(chatId, creative.mediaFileId, {
-                    caption: creative.caption ?? creative.text ?? undefined,
+                return this.sendPhoto(chatId, mediaFileId, {
+                    caption: caption ?? (text || undefined),
                 });
-            case DealCreativeType.VIDEO:
-                if (!creative.mediaFileId) {
+            case 'VIDEO':
+                if (!mediaFileId) {
                     throw new Error('Creative media file is missing.');
                 }
-                return this.sendVideo(chatId, creative.mediaFileId, {
-                    caption: creative.caption ?? creative.text ?? undefined,
+                return this.sendVideo(chatId, mediaFileId, {
+                    caption: caption ?? (text || undefined),
                 });
             default:
                 this.logger.warn(
                     'delivery.deal.publish.unsupported',
-                    logMeta({dealId: deal.id, creativeType: creative.type}),
+                    logMeta({dealId: deal.id, creativeType: type}),
                 );
                 throw new Error('Unsupported creative type.');
         }

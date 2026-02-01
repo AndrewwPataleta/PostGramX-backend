@@ -1,4 +1,4 @@
-import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
 
 export type DealPublicStage = {
     stageKey: string;
@@ -11,80 +11,62 @@ const DEFAULT_STAGE: DealPublicStage = {
     shortLabel: 'Unknown status',
 };
 
-const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
-    [DealEscrowStatus.DRAFT]: {
-        stageKey: 'deals.stages.draft',
-        shortLabel: 'Draft',
-    },
-    [DealEscrowStatus.SCHEDULING_PENDING]: {
+const STAGE_MAP: Record<DealStage, DealPublicStage> = {
+    [DealStage.SCHEDULING_PENDING]: {
         stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Choose time',
         actionHint: 'Select a posting date and time.',
     },
-    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: {
+    [DealStage.CREATIVE_AWAITING_SUBMIT]: {
         stageKey: 'deals.stages.waiting_creative',
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
-    [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: {
+    [DealStage.CREATIVE_SUBMITTED]: {
+        stageKey: 'deals.stages.creative_received',
+        shortLabel: 'Creative received',
+        actionHint: 'Confirm submission in the Mini App.',
+    },
+    [DealStage.ADMIN_REVIEW_PENDING]: {
         stageKey: 'deals.stages.admin_review',
         shortLabel: 'Awaiting admin review',
     },
-    [DealEscrowStatus.AWAITING_PAYMENT]: {
+    [DealStage.PAYMENT_AWAITING]: {
         stageKey: 'deals.stages.awaiting_payment',
         shortLabel: 'Awaiting payment',
         actionHint: 'Complete payment within the window.',
     },
-    [DealEscrowStatus.FUNDS_PENDING]: {
-        stageKey: 'deals.stages.PAYMENT_AWAITING',
-        shortLabel: 'Payment processing',
+    [DealStage.PAYMENT_PARTIALLY_PAID]: {
+        stageKey: 'deals.stages.payment_partial',
+        shortLabel: 'Partial payment',
+        actionHint: 'Complete the remaining payment.',
     },
-    [DealEscrowStatus.FUNDS_CONFIRMED]: {
-        stageKey: 'deals.stages.funds_confirmed',
-        shortLabel: 'Payment confirmed',
-    },
-    [DealEscrowStatus.CREATIVE_PENDING]: {
-        stageKey: 'deals.stages.waiting_creative',
-        shortLabel: 'Creative pending',
-        actionHint: 'Send the final creative for review.',
-    },
-    [DealEscrowStatus.CREATIVE_REVIEW]: {
-        stageKey: 'deals.stages.creative_submitted',
-        shortLabel: 'Creative review',
-        actionHint: 'Awaiting final approval.',
-    },
-    [DealEscrowStatus.APPROVED_SCHEDULED]: {
+    [DealStage.POST_SCHEDULED]: {
         stageKey: 'deals.stages.scheduled',
         shortLabel: 'Scheduled',
     },
-    [DealEscrowStatus.POSTING]: {
+    [DealStage.POST_PUBLISHING]: {
         stageKey: 'deals.stages.posting',
         shortLabel: 'Posting',
     },
-    [DealEscrowStatus.POSTED_VERIFYING]: {
+    [DealStage.POSTED_VERIFYING]: {
         stageKey: 'deals.stages.posted_verifying',
         shortLabel: 'Verifying post',
     },
-    [DealEscrowStatus.COMPLETED]: {
+    [DealStage.DELIVERY_CONFIRMED]: {
         stageKey: 'deals.stages.released',
-        shortLabel: 'Released',
+        shortLabel: 'Delivered',
     },
-    [DealEscrowStatus.CANCELED]: {
-        stageKey: 'deals.stages.canceled',
-        shortLabel: 'Canceled',
+    [DealStage.REFUNDING]: {
+        stageKey: 'deals.stages.refunding',
+        shortLabel: 'Refunding',
     },
-    [DealEscrowStatus.REFUNDED]: {
-        stageKey: 'deals.stages.refunded',
-        shortLabel: 'Refunded',
-    },
-    [DealEscrowStatus.DISPUTED]: {
-        stageKey: 'deals.stages.disputed',
-        shortLabel: 'Disputed',
+    [DealStage.FINALIZED]: {
+        stageKey: 'deals.stages.finalized',
+        shortLabel: 'Finalized',
     },
 };
 
-export function mapEscrowToPublicStage(
-    escrow: DealEscrowStatus,
-): DealPublicStage {
-    return STAGE_MAP[escrow] ?? DEFAULT_STAGE;
+export function mapStageToPublicStage(stage: DealStage): DealPublicStage {
+    return STAGE_MAP[stage] ?? DEFAULT_STAGE;
 }

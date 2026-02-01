@@ -1,6 +1,7 @@
 import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {DealEntity} from '../deals/entities/deal.entity';
+import {DealEscrowEntity} from '../deals/entities/deal-escrow.entity';
 import {DealsModule} from '../deals/deals.module';
 import {EscrowWalletEntity} from './entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from './entities/escrow-wallet-key.entity';
@@ -8,7 +9,6 @@ import {TonTransferEntity} from './entities/ton-transfer.entity';
 import {TransactionEntity} from './entities/transaction.entity';
 import {EscrowController} from './escrow/escrow.controller';
 import {EscrowService} from './escrow/escrow.service';
-import {EscrowTimeoutService} from './escrow/escrow-timeout.service';
 import {WalletsModule} from './wallets/wallets.module';
 import {PaymentsController} from './payments.controller';
 import {PaymentsService} from './payments.service';
@@ -16,12 +16,15 @@ import {TonCenterClient} from "./ton/toncenter.client";
 import {TonPaymentWatcher} from "./ton-payment.watcher";
 import {PaymentsPayoutsService} from './payouts/payments-payouts.service';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             ChannelEntity,
+            ChannelMembershipEntity,
             DealEntity,
+            DealEscrowEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
             TonTransferEntity,
@@ -35,7 +38,6 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
         PaymentsService,
         PaymentsPayoutsService,
         EscrowService,
-        EscrowTimeoutService,
         {
             provide: TonCenterClient,
             useFactory: () => {

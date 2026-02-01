@@ -5,20 +5,19 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {DataSource, In, Repository} from 'typeorm';
+import {DataSource, EntityManager, In, Repository} from 'typeorm';
 import {CreateTransactionDto} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
 import {definedOnly} from '../../common/utils/defined-only';
-import {generateDealWallet} from "./ton/generate-ton-wallet";
-import {encryptMnemonic} from "./ton/mnemonic-crypto";
-import {TransactionType} from "../../common/constants/payments/transaction-type.constants";
-import {TransactionDirection} from "../../common/constants/payments/transaction-direction.constants";
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
 import {DealEntity} from '../deals/entities/deal.entity';
-import {DealEscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
-import {mapEscrowToDealStatus} from '../deals/state/deal-status.mapper';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {WalletsService} from './wallets/wallets.service';
+import {DealEscrowEntity} from '../deals/entities/deal-escrow.entity';
+import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -31,8 +30,12 @@ export class PaymentsService {
         private readonly dataSource: DataSource,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
-    ) {
-    }
+        @InjectRepository(DealEntity)
+        private readonly dealRepository: Repository<DealEntity>,
+        @InjectRepository(DealEscrowEntity)
+        private readonly escrowRepository: Repository<DealEscrowEntity>,
+        private readonly walletsService: WalletsService,
+    ) {}
 
     async listTransactionsForUser(
         userId: string,
@@ -120,6 +123,7 @@ export class PaymentsService {
                 currency: item.currency,
                 description: item.description,
                 dealId: item.dealId,
+                escrowId: item.escrowId,
                 channelId: item.channelId,
                 externalTxHash: item.externalTxHash,
                 createdAt: item.createdAt,
@@ -152,60 +156,74 @@ export class PaymentsService {
     }
 
     async createTransaction(data: CreateTransactionDto) {
+        const wallet = data.depositAddress
+            ? {address: data.depositAddress}
+            : await this.walletsService.createEscrowWallet(
+                  data.dealId ?? data.userId,
+              );
 
-
-        // 1) генерим уникальный адрес (wallet)
-        const wallet = await generateDealWallet();
-
-        // 2) шифруем mnemonic (секрет)
-        const masterKey = process.env.WALLET_MASTER_KEY;
-        if (!masterKey) throw new Error("WALLET_MASTER_KEY missing");
-        const mnemonicEnc = encryptMnemonic(wallet.mnemonic, masterKey);
-
-        // 3) сохраняем транзакцию + адрес
         const transaction = this.transactionRepository.create({
             userId: data.userId,
-
-            // ⬇️ ВАЖНО — жёстко задаём тип escrow
-            type: TransactionType.ESCROW_HOLD,
-
-            // advertiser платит В ТЕБЯ
-            direction: TransactionDirection.IN,
-
-            amountNano: "1000000000",
+            type: data.type,
+            direction: data.direction,
+            amountNano: data.amountNano,
             currency: data.currency ?? CurrencyCode.TON,
-
-            status: TransactionStatus.PENDING,
-
+            status: data.status ?? TransactionStatus.PENDING,
             description: data.description ?? null,
             dealId: data.dealId ?? null,
+            escrowId: data.escrowId ?? null,
             channelId: data.channelId ?? null,
             counterpartyUserId: data.counterpartyUserId ?? null,
-
             depositAddress: wallet.address,
-
-            metadata: {
-                ...(data.metadata ?? {}),
-                escrow: {
-                    walletVersion: "v4r2",
-                    mnemonicEnc,
-                    publicKeyHex: wallet.publicKeyHex,
-                },
-            },
+            externalTxHash: data.externalTxHash ?? null,
+            externalExplorerUrl: data.externalExplorerUrl ?? null,
+            errorCode: data.errorCode ?? null,
+            errorMessage: data.errorMessage ?? null,
+            metadata: data.metadata ?? null,
         });
 
         const saved = await this.transactionRepository.save(transaction);
 
-        // 4) возвращаем клиенту адрес для оплаты
         return {
             id: saved.id,
             status: saved.status,
             currency: saved.currency,
             amountNano: saved.amountNano,
-            payToAddress: wallet.address,
+            payToAddress: saved.depositAddress,
         };
     }
 
+    async createEscrowHold(options: {
+        manager?: EntityManager;
+        deal: DealEntity;
+        escrow: DealEscrowEntity;
+        amountNano: string;
+    }): Promise<{wallet: {id: string; address: string} | null; transactionId: string}> {
+        const manager = options.manager ?? this.dataSource.manager;
+        const transactionRepository = manager.getRepository(TransactionEntity);
+        const wallet = await this.walletsService.createEscrowWallet(
+            options.deal.id,
+            manager,
+        );
+
+        const transaction = transactionRepository.create({
+            userId: options.deal.advertiserUserId,
+            type: TransactionType.ESCROW_HOLD,
+            direction: TransactionDirection.IN,
+            amountNano: options.amountNano,
+            currency: options.escrow.currency ?? CurrencyCode.TON,
+            status: TransactionStatus.PENDING,
+            description: 'Escrow hold',
+            dealId: options.deal.id,
+            escrowId: options.escrow.id,
+            channelId: options.deal.channelId,
+            depositAddress: wallet.address,
+        });
+
+        const saved = await transactionRepository.save(transaction);
+
+        return {wallet, transactionId: saved.id};
+    }
 
     async updateTransactionStatus(
         id: string,
@@ -224,20 +242,33 @@ export class PaymentsService {
         await this.transactionRepository.update(id, updatePayload);
     }
 
-    async refundDealEscrow(dealId: string, reason: string): Promise<void> {
+    async refundEscrow(dealId: string, reason: string): Promise<void> {
         const now = new Date();
         await this.dataSource.transaction(async (manager) => {
             const dealRepository = manager.getRepository(DealEntity);
+            const escrowRepository = manager.getRepository(DealEscrowEntity);
             const transactionRepository =
                 manager.getRepository(TransactionEntity);
 
+            const deal = await dealRepository.findOne({where: {id: dealId}});
+            if (!deal) {
+                return;
+            }
+
+            const escrow = await escrowRepository.findOne({where: {dealId}});
+            if (!escrow) {
+                return;
+            }
+
             await transactionRepository.update(
                 {
-                    dealId,
+                    escrowId: escrow.id,
                     type: TransactionType.ESCROW_HOLD,
                     status: In([
                         TransactionStatus.CONFIRMED,
                         TransactionStatus.COMPLETED,
+                        TransactionStatus.PARTIAL,
+                        TransactionStatus.PENDING,
                     ]),
                 },
                 {
@@ -247,13 +278,69 @@ export class PaymentsService {
                 },
             );
 
+            await transactionRepository.save(
+                transactionRepository.create({
+                    userId: deal.advertiserUserId,
+                    type: TransactionType.ESCROW_REFUND,
+                    direction: TransactionDirection.OUT,
+                    amountNano: escrow.paidNano ?? escrow.amountNano,
+                    currency: escrow.currency,
+                    status: TransactionStatus.COMPLETED,
+                    description: reason,
+                    dealId,
+                    escrowId: escrow.id,
+                }),
+            );
+
+            await escrowRepository.update(escrow.id, {
+                status: EscrowStatus.REFUNDED,
+                refundedAt: now,
+            });
+
             await dealRepository.update(dealId, {
-                escrowStatus: DealEscrowStatus.REFUNDED,
-                status: mapEscrowToDealStatus(DealEscrowStatus.REFUNDED),
                 lastActivityAt: now,
             });
         });
 
         this.logger.log(`Refund queued for deal ${dealId}: ${reason}`);
+    }
+
+    async releaseEscrow(dealId: string, reason: string): Promise<void> {
+        const now = new Date();
+        await this.dataSource.transaction(async (manager) => {
+            const dealRepository = manager.getRepository(DealEntity);
+            const escrowRepository = manager.getRepository(DealEscrowEntity);
+            const transactionRepository =
+                manager.getRepository(TransactionEntity);
+
+            const deal = await dealRepository.findOne({where: {id: dealId}});
+            if (!deal) {
+                return;
+            }
+
+            const escrow = await escrowRepository.findOne({where: {dealId}});
+            if (!escrow) {
+                return;
+            }
+
+            await transactionRepository.save(
+                transactionRepository.create({
+                    userId: deal.advertiserUserId,
+                    type: TransactionType.ESCROW_RELEASE,
+                    direction: TransactionDirection.OUT,
+                    amountNano: escrow.amountNano,
+                    currency: escrow.currency,
+                    status: TransactionStatus.COMPLETED,
+                    description: reason,
+                    dealId,
+                    escrowId: escrow.id,
+                }),
+            );
+
+            await escrowRepository.update(escrow.id, {
+                status: EscrowStatus.RELEASED,
+                releasedAt: now,
+            });
+        });
     }
 }

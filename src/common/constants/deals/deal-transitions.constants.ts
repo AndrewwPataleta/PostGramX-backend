@@ -1,54 +1,51 @@
-import {DealEscrowStatus} from './deal-escrow-status.constants';
+import {DealStage} from './deal-stage.constants';
 
-export const DEAL_ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[]> = {
-    [DealEscrowStatus.DRAFT]: [
-        DealEscrowStatus.SCHEDULING_PENDING,
-        DealEscrowStatus.CANCELED,
+export const DEAL_STAGE_TRANSITIONS: Record<DealStage, DealStage[]> = {
+    [DealStage.SCHEDULING_PENDING]: [
+        DealStage.CREATIVE_AWAITING_SUBMIT,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.SCHEDULING_PENDING]: [
-        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    [DealStage.CREATIVE_AWAITING_SUBMIT]: [
+        DealStage.CREATIVE_SUBMITTED,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: [
-        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    [DealStage.CREATIVE_SUBMITTED]: [
+        DealStage.ADMIN_REVIEW_PENDING,
+        DealStage.CREATIVE_AWAITING_SUBMIT,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
-        DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+    [DealStage.ADMIN_REVIEW_PENDING]: [
+        DealStage.PAYMENT_AWAITING,
+        DealStage.CREATIVE_AWAITING_SUBMIT,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.AWAITING_PAYMENT]: [
-        DealEscrowStatus.FUNDS_PENDING,
+    [DealStage.PAYMENT_AWAITING]: [
+        DealStage.PAYMENT_PARTIALLY_PAID,
+        DealStage.POST_SCHEDULED,
+        DealStage.REFUNDING,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.FUNDS_PENDING]: [
-        DealEscrowStatus.FUNDS_CONFIRMED,
-        DealEscrowStatus.REFUNDED,
+    [DealStage.PAYMENT_PARTIALLY_PAID]: [
+        DealStage.POST_SCHEDULED,
+        DealStage.REFUNDING,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.FUNDS_CONFIRMED]: [
-        DealEscrowStatus.CREATIVE_PENDING,
-        DealEscrowStatus.APPROVED_SCHEDULED,
-        DealEscrowStatus.DISPUTED,
+    [DealStage.POST_SCHEDULED]: [
+        DealStage.POST_PUBLISHING,
+        DealStage.REFUNDING,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.CREATIVE_PENDING]: [
-        DealEscrowStatus.CREATIVE_REVIEW,
-        DealEscrowStatus.DISPUTED,
+    [DealStage.POST_PUBLISHING]: [
+        DealStage.POSTED_VERIFYING,
+        DealStage.REFUNDING,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.CREATIVE_REVIEW]: [
-        DealEscrowStatus.APPROVED_SCHEDULED,
-        DealEscrowStatus.DISPUTED,
+    [DealStage.POSTED_VERIFYING]: [
+        DealStage.DELIVERY_CONFIRMED,
+        DealStage.REFUNDING,
+        DealStage.FINALIZED,
     ],
-    [DealEscrowStatus.APPROVED_SCHEDULED]: [
-        DealEscrowStatus.POSTING,
-        DealEscrowStatus.POSTED_VERIFYING,
-        DealEscrowStatus.DISPUTED,
-    ],
-    [DealEscrowStatus.POSTING]: [
-        DealEscrowStatus.POSTED_VERIFYING,
-        DealEscrowStatus.DISPUTED,
-    ],
-    [DealEscrowStatus.POSTED_VERIFYING]: [
-        DealEscrowStatus.COMPLETED,
-        DealEscrowStatus.DISPUTED,
-    ],
-    [DealEscrowStatus.COMPLETED]: [],
-    [DealEscrowStatus.CANCELED]: [],
-    [DealEscrowStatus.REFUNDED]: [],
-    [DealEscrowStatus.DISPUTED]: [],
+    [DealStage.DELIVERY_CONFIRMED]: [DealStage.FINALIZED],
+    [DealStage.REFUNDING]: [DealStage.FINALIZED],
+    [DealStage.FINALIZED]: [],
 };

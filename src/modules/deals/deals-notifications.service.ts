@@ -3,7 +3,7 @@ import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
 import {DealCreativeEntity} from './entities/deal-creative.entity';
-import {DealCreativeType} from './types/deal-creative-type.enum';
+import {DealEscrowEntity} from './entities/deal-escrow.entity';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
@@ -128,15 +128,18 @@ export class DealsNotificationsService {
             '',
             'Creative:',
         ];
-        const creativeText = creative.text ?? creative.caption ?? '';
+        const payload = (creative.payload ?? {}) as Record<string, unknown>;
+        const creativeText = String(payload.text ?? payload.caption ?? '');
         const textContent = this.truncateText(creativeText, 500);
+        const creativeType = String(payload.type ?? 'TEXT');
+        const mediaFileId = payload.mediaFileId as string | undefined;
 
         await this.runWithConcurrency(
             recipients,
             NOTIFICATION_CONCURRENCY,
             async (recipient) => {
                 try {
-                    if (creative.type === DealCreativeType.TEXT) {
+                    if (creativeType === 'TEXT') {
                         const message = [...baseLines, textContent].join('\n');
                         await this.telegramBotService.sendMessage(
                             recipient.telegramId as string,
@@ -145,25 +148,19 @@ export class DealsNotificationsService {
                                 reply_markup: {inline_keyboard: buttons},
                             },
                         );
-                    } else if (
-                        creative.type === DealCreativeType.IMAGE &&
-                        creative.mediaFileId
-                    ) {
+                    } else if (creativeType === 'IMAGE' && mediaFileId) {
                         const caption = this.buildCaption(baseLines, textContent);
                         await this.telegramBotService.sendPhoto(
                             recipient.telegramId as string,
-                            creative.mediaFileId,
+                            mediaFileId,
                             caption,
                             {reply_markup: {inline_keyboard: buttons}},
                         );
-                    } else if (
-                        creative.type === DealCreativeType.VIDEO &&
-                        creative.mediaFileId
-                    ) {
+                    } else if (creativeType === 'VIDEO' && mediaFileId) {
                         const caption = this.buildCaption(baseLines, textContent);
                         await this.telegramBotService.sendVideo(
                             recipient.telegramId as string,
-                            creative.mediaFileId,
+                            mediaFileId,
                             caption,
                             {reply_markup: {inline_keyboard: buttons}},
                         );
@@ -207,7 +204,10 @@ export class DealsNotificationsService {
         await this.telegramBotService.sendMessage(user.telegramId, message);
     }
 
-    async notifyAdvertiserPaymentRequired(deal: DealEntity): Promise<void> {
+    async notifyAdvertiserPaymentRequired(
+        deal: DealEntity,
+        escrow: DealEscrowEntity,
+    ): Promise<void> {
         const user = await this.userRepository.findOne({
             where: {id: deal.advertiserUserId},
         });
@@ -215,7 +215,7 @@ export class DealsNotificationsService {
             return;
         }
 
-        const paymentDeadline = deal.paymentDeadlineAt ?? deal.escrowExpiresAt;
+        const paymentDeadline = escrow.paymentDeadlineAt;
         const messageLines = [
             '✅ Creative approved',
             '',
@@ -229,22 +229,24 @@ export class DealsNotificationsService {
             );
         }
 
-        if (deal.escrowPaymentAddress) {
-            messageLines.push(`Payment address: ${deal.escrowPaymentAddress}`);
+        if (escrow.paymentAddress) {
+            messageLines.push(`Payment address: ${escrow.paymentAddress}`);
         }
 
-        const link = buildMiniAppDealLink(deal.id);
-        const keyboard = {
-            inline_keyboard: [
-                [{text: '💳 Pay in app', web_app: {url: link}}],
-                [{text: 'Open Mini App', url: link}],
-            ],
-        };
+        const link = this.ensureMiniAppLink(deal.id);
+        const keyboard = link
+            ? {
+                  inline_keyboard: [
+                      [{text: '💳 Pay in app', web_app: {url: link}}],
+                      [{text: 'Open Mini App', url: link}],
+                  ],
+              }
+            : undefined;
 
         await this.telegramBotService.sendMessage(
             user.telegramId,
             messageLines.join('\n'),
-            {reply_markup: keyboard},
+            keyboard ? {reply_markup: keyboard} : undefined,
         );
 
         this.logger.log('Sent pay-in-app button to advertiser', {
@@ -266,7 +268,7 @@ export class DealsNotificationsService {
             return;
         }
 
-        const link = buildMiniAppDealLink(deal.id);
+        const link = this.ensureMiniAppLink(deal.id);
         const messageLines = [
             '💰 Partial payment received',
             '',
@@ -276,61 +278,62 @@ export class DealsNotificationsService {
             '',
             'Please complete payment in the Mini App.',
         ];
-        const keyboard = {
-            inline_keyboard: [
-                [{text: '💳 Pay in app', web_app: {url: link}}],
-                [{text: 'Open Mini App', url: link}],
-            ],
-        };
+        const keyboard = link
+            ? {
+                  inline_keyboard: [
+                      [{text: '💳 Pay in app', web_app: {url: link}}],
+                      [{text: 'Open Mini App', url: link}],
+                  ],
+              }
+            : undefined;
 
         await this.telegramBotService.sendMessage(
             user.telegramId,
             messageLines.join('\n'),
-            {reply_markup: keyboard},
+            keyboard ? {reply_markup: keyboard} : undefined,
         );
     }
 
     async notifyPaymentConfirmed(deal: DealEntity): Promise<void> {
-        const recipients: User[] = [];
         const advertiser = await this.userRepository.findOne({
             where: {id: deal.advertiserUserId},
         });
-        if (advertiser?.telegramId) {
-            recipients.push(advertiser);
-        }
 
-        if (deal.publisherOwnerUserId) {
-            const publisher = await this.userRepository.findOne({
-                where: {id: deal.publisherOwnerUserId},
-            });
-            if (publisher?.telegramId) {
-                recipients.push(publisher);
-            }
-        }
-
-        if (recipients.length === 0) {
-            return;
-        }
-
-        const link = buildMiniAppDealLink(deal.id);
+        const link = this.ensureMiniAppLink(deal.id);
         const messageLines = [
             '✅ Payment confirmed',
             '',
             `Deal: ${deal.id.slice(0, 8)}`,
             'Next: continue in the Mini App.',
         ];
-        const keyboard = {
-            inline_keyboard: [[{text: 'Open Mini App', url: link}]],
-        };
+        const keyboard = link
+            ? {
+                  inline_keyboard: [[{text: 'Open Mini App', url: link}]],
+              }
+            : undefined;
 
-        await Promise.all(
-            recipients.map((recipient) =>
-                this.telegramBotService.sendMessage(
+        if (advertiser?.telegramId) {
+            await this.telegramBotService.sendMessage(
+                advertiser.telegramId,
+                messageLines.join('\n'),
+                keyboard ? {reply_markup: keyboard} : undefined,
+            );
+        }
+
+        const recipients =
+            await this.participantsService.getNotificationRecipients(
+                deal.channelId,
+            );
+        await this.runWithConcurrency(
+            recipients,
+            NOTIFICATION_CONCURRENCY,
+            async (recipient) => {
+                await this.telegramBotService.sendMessage(
                     recipient.telegramId as string,
                     messageLines.join('\n'),
-                    {reply_markup: keyboard},
-                ),
-            ),
+                    keyboard ? {reply_markup: keyboard} : undefined,
+                );
+            },
         );
     }
 
@@ -437,15 +440,13 @@ export class DealsNotificationsService {
             ? `Channel: <b>${channel.title}</b> (@${channel.username})`
             : `Channel: <b>${channel.title}</b>`;
         const dealShortId = deal.id.slice(0, 8);
-        const statusLine = `Status: ${deal.status ?? 'unknown'} / ${deal.escrowStatus ?? 'unknown'}`;
-        const initiatorLine = `Initiator: ${deal.sideInitiator ?? 'unknown'}`;
+        const statusLine = `Status: ${deal.status ?? 'unknown'} / ${deal.stage ?? 'unknown'}`;
 
         return [
             `<b>${header}</b>`,
             channelLine,
             `Deal: ${dealShortId}`,
             statusLine,
-            initiatorLine,
             actionLine,
         ].join('\n');
     }
@@ -462,6 +463,21 @@ export class DealsNotificationsService {
                 return 'Publish confirmation required';
             default:
                 return 'Action required';
+        }
+    }
+
+    private ensureMiniAppLink(dealId: string): string | null {
+        const link = buildMiniAppDealLink(dealId);
+        try {
+            const url = new URL(link);
+            if (url.protocol !== 'https:') {
+                this.logger.warn(`Invalid MINI_APP_URL protocol for deal ${dealId}`);
+                return null;
+            }
+            return link;
+        } catch (error) {
+            this.logger.warn(`Invalid MINI_APP_URL for deal ${dealId}`);
+            return null;
         }
     }
 

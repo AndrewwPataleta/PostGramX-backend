@@ -21,7 +21,7 @@ async function bootstrap() {
     );
 
 
-    const bodyLimit = process.env.REQUEST_BODY_LIMIT || '50mb';
+    const bodyLimit = process.env.REQUEST_BODY_LIMIT || '30mb';
     app.use(json({limit: bodyLimit}));
     app.use(urlencoded({extended: true, limit: bodyLimit}));
     const corsOrigins = (process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || '')
