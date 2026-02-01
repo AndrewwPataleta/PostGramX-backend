@@ -17,7 +17,7 @@ import {TelegramBotModuleInitService} from './telegram-bot.module-init.service';
         ConfigModule,
         forwardRef(() => ChannelsModule),
         TypeOrmModule.forFeature([User]),
-        DealsModule,
+        forwardRef(() => DealsModule),
         forwardRef(() => TelegramModule),
     ],
     providers: [
