@@ -93,10 +93,11 @@ export class DealsTimeoutsService {
             lastActivityAt: new Date(),
         });
 
-        await this.dealsNotificationsService.notifyAdvertiser(
-            deal,
-            `❌ Deal canceled: ${reason}`,
-        );
+        const reasonKey =
+            reason === 'PAYMENT_TIMEOUT'
+                ? 'telegram.deal.canceled.payment_timeout'
+                : 'telegram.deal.canceled.idle_timeout';
+        await this.dealsNotificationsService.notifyAdvertiser(deal, reasonKey);
         await this.dealsNotificationsService.notifyDealActionRequired(
             deal,
             'approval',

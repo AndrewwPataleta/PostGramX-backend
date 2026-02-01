@@ -3,6 +3,7 @@ import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
 import {DealCreativeType} from './types/deal-creative-type.enum';
 import {DealsDeepLinkService} from './deals-deep-link.service';
+import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
 
 const getStartPayload = (context: Context): string | undefined => {
     if (!('startPayload' in context)) {
@@ -31,6 +32,7 @@ export class DealsBotHandler {
         @Inject(forwardRef(() => DealsService))
         private readonly dealsService: DealsService,
         private readonly dealsDeepLinkService: DealsDeepLinkService,
+        private readonly telegramMessengerService: TelegramMessengerService,
     ) {}
 
     async handleStart(context: Context): Promise<boolean> {
@@ -41,13 +43,17 @@ export class DealsBotHandler {
 
         const dealId = payload.replace('deal_', '').trim();
         if (!dealId) {
-            await context.reply('Invalid deal link.');
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                'telegram.errors.invalid_deal_link',
+            );
             return true;
         }
 
-        await context.reply(
-            `Ready to receive creative for deal ${dealId.slice(0, 8)}.\n` +
-                'Please send the post content to this bot.',
+        await this.telegramMessengerService.sendText(
+            getTelegramUserId(context),
+            'telegram.deal.creative_ready',
+            {dealId: dealId.slice(0, 8)},
         );
         return true;
     }
@@ -64,8 +70,9 @@ export class DealsBotHandler {
             | undefined;
 
         if (!message) {
-            await context.reply(
-                '⚠️ Unsupported format.\nSend: text, photo+caption, or video+caption.',
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                'telegram.deal.creative.unsupported_format',
             );
             return true;
         }
@@ -80,11 +87,9 @@ export class DealsBotHandler {
         const hasVideo = Boolean(message.video);
         let type: DealCreativeType | null = null;
         let mediaFileId: string | null = null;
-        let replyMessage =
-            '❌ Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.';
-        let replyOptions: {
-            reply_markup?: {inline_keyboard: Array<Array<{text: string; url: string}>>};
-        } | undefined;
+        let replyKey = 'telegram.deal.creative.save_failed';
+        let replyArgs: Record<string, any> | undefined;
+        let replyMiniAppUrl: string | null = null;
 
         this.logger.log('DealsBot creative message received', {
             traceId,
@@ -110,8 +115,7 @@ export class DealsBotHandler {
 
         try {
             if (!type) {
-                replyMessage =
-                    '⚠️ Unsupported format.\nSend: text, photo+caption, or video+caption.';
+                replyKey = 'telegram.deal.creative.unsupported_format';
                 this.logger.warn('DealsBot unsupported creative format', {
                     traceId,
                     telegramId: telegramUserId,
@@ -121,8 +125,7 @@ export class DealsBotHandler {
                     type === DealCreativeType.VIDEO) &&
                 !caption
             ) {
-                replyMessage =
-                    '⚠️ Please add a caption (text) to your media, or send text separately.';
+                replyKey = 'telegram.deal.creative.missing_caption';
                 this.logger.warn('DealsBot creative missing caption', {
                     traceId,
                     telegramId: telegramUserId,
@@ -146,21 +149,13 @@ export class DealsBotHandler {
                     },
                 });
 
-                replyMessage =
-                    result.message ??
-                    '⚠️ I can’t process your creative right now. Please try again.';
+                replyKey = result.messageKey;
+                replyArgs = result.messageArgs;
 
                 if (result.success && result.dealId) {
-                    const link = this.dealsDeepLinkService.buildDealLink(
+                    replyMiniAppUrl = this.dealsDeepLinkService.buildDealLink(
                         result.dealId,
                     );
-                    replyOptions = {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{text: 'Open Mini App', url: link}],
-                            ],
-                        },
-                    };
                 }
             }
         } catch (error) {
@@ -172,9 +167,23 @@ export class DealsBotHandler {
                 errorMessage,
                 stack: error instanceof Error ? error.stack : undefined,
             });
-        } finally {
-            await context.reply(replyMessage, replyOptions);
         }
+
+        if (replyMiniAppUrl) {
+            await this.telegramMessengerService.sendInlineKeyboard(
+                telegramUserId,
+                replyKey,
+                replyArgs,
+                [[{textKey: 'telegram.common.open_mini_app', url: replyMiniAppUrl}]],
+            );
+            return true;
+        }
+
+        await this.telegramMessengerService.sendText(
+            telegramUserId,
+            replyKey,
+            replyArgs,
+        );
 
         return true;
     }
@@ -193,8 +202,12 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.message) {
-            await context.reply(result.message);
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
         }
 
         return true;
@@ -215,8 +228,12 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.message) {
-            await context.reply(result.message);
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
         }
 
         return true;
@@ -236,8 +253,12 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.message) {
-            await context.reply(result.message);
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
         }
 
         return true;

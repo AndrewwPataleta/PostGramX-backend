@@ -1,46 +1,37 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {Markup} from 'telegraf';
-import {
-    TELEGRAM_MINI_APP_ROUTES,
-} from '../telegram-bot.constants';
+import {TELEGRAM_MINI_APP_ROUTES} from '../telegram-bot.constants';
+import {TelegramInlineButtonSpec} from '../../../telegram/telegram-messenger.service';
 
 @Injectable()
 export class StartHandler {
     constructor(private readonly configService: ConfigService) {}
 
-    getMessage(): string {
-        return [
-            'Welcome to PostgramX',
-            'Buy and sell Telegram ads with escrow and auto-posting.',
-            '',
-            'Use the buttons below to open the Mini App.',
-        ].join('\n');
-    }
-
-    getKeyboard() {
+    getButtons(): TelegramInlineButtonSpec[][] {
         const openMiniAppUrl = this.buildMiniAppUrl();
         const marketplaceUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.marketplace);
         const dealsUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.deals);
         const channelsUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.channels);
 
-        return Markup.inlineKeyboard([
+        return [
             [
-                Markup.button.url('Open Mini App', openMiniAppUrl),
+                {textKey: 'telegram.common.open_mini_app', url: openMiniAppUrl},
             ],
             [
-                Markup.button.url('Marketplace', marketplaceUrl),
-                Markup.button.url('My Deals', dealsUrl),
+                {textKey: 'telegram.common.marketplace', url: marketplaceUrl},
+                {textKey: 'telegram.common.my_deals', url: dealsUrl},
             ],
             [
-                Markup.button.url('My Channels', channelsUrl),
-                Markup.button.callback('Help', 'help'),
+                {textKey: 'telegram.common.my_channels', url: channelsUrl},
+                {textKey: 'telegram.common.help', callbackData: 'help'},
             ],
-        ]);
+        ];
     }
 
     private buildMiniAppUrl(route?: string): string {
-        const baseUrl = this.configService.get<string>('TELEGRAM_MINI_APP_URL');
+        const baseUrl =
+            this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
+            this.configService.get<string>('TELEGRAM_MINI_APP_URL');
         const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME');
 
         if (route && botUsername) {
@@ -48,14 +39,18 @@ export class StartHandler {
         }
 
         if (baseUrl) {
+            const safeBase = this.ensureHttpsUrl(baseUrl);
+            if (!safeBase) {
+                return 'https://t.me';
+            }
             try {
-                const url = new URL(baseUrl);
+                const url = new URL(safeBase);
                 if (route) {
                     url.searchParams.set('startapp', route);
                 }
                 return url.toString();
             } catch (error) {
-                return baseUrl;
+                return safeBase;
             }
         }
 
@@ -64,5 +59,14 @@ export class StartHandler {
         }
 
         return 'https://t.me';
+    }
+
+    private ensureHttpsUrl(value: string): string | null {
+        try {
+            const url = new URL(value);
+            return url.protocol === 'https:' ? url.toString() : null;
+        } catch (error) {
+            return null;
+        }
     }
 }

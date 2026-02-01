@@ -4,6 +4,7 @@ import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TELEGRAM_BOT_COMMANDS} from './telegram-bot.constants';
 import {DealsBotHandler} from '../deals/deals-bot.handler';
+import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
 
 @Injectable()
 export class TelegramBotUpdate {
@@ -12,6 +13,7 @@ export class TelegramBotUpdate {
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
+        private readonly telegramMessengerService: TelegramMessengerService,
         @Inject(forwardRef(() => DealsBotHandler))
         private readonly dealsBotHandler: DealsBotHandler,
     ) {}
@@ -46,17 +48,30 @@ export class TelegramBotUpdate {
             if (handled) {
                 return;
             }
+            const telegramId = context.from?.id;
+            if (!telegramId) {
+                return;
+            }
 
-            await context.reply(
-                this.startHandler.getMessage(),
-                this.startHandler.getKeyboard(),
+            await this.telegramMessengerService.sendInlineKeyboard(
+                telegramId,
+                'telegram.start.message',
+                undefined,
+                this.startHandler.getButtons(),
             );
         });
 
         bot.command(TELEGRAM_BOT_COMMANDS.help, async (context) => {
-            await context.reply(
-                this.helpHandler.getMessage(),
-                this.helpHandler.getKeyboard(),
+            const telegramId = context.from?.id;
+            if (!telegramId) {
+                return;
+            }
+
+            await this.telegramMessengerService.sendInlineKeyboard(
+                telegramId,
+                'telegram.help.message',
+                undefined,
+                this.helpHandler.getButtons(),
             );
         });
 
@@ -67,9 +82,15 @@ export class TelegramBotUpdate {
                     : undefined;
             if (data === 'help') {
                 await context.answerCbQuery();
-                await context.reply(
-                    this.helpHandler.getMessage(),
-                    this.helpHandler.getKeyboard(),
+                const telegramId = context.from?.id;
+                if (!telegramId) {
+                    return;
+                }
+                await this.telegramMessengerService.sendInlineKeyboard(
+                    telegramId,
+                    'telegram.help.message',
+                    undefined,
+                    this.helpHandler.getButtons(),
                 );
                 return;
             }
@@ -138,13 +159,23 @@ export class TelegramBotUpdate {
             }
 
             if (messageText.startsWith('/')) {
-                await context.reply('I don’t recognize this command. Type /help.');
+                const telegramId = context.from?.id;
+                if (telegramId) {
+                    await this.telegramMessengerService.sendText(
+                        telegramId,
+                        'telegram.errors.unknown_command',
+                    );
+                }
                 return;
             }
 
-            await context.reply(
-                'To manage deals, open the Mini App. Type /help.',
-            );
+            const telegramId = context.from?.id;
+            if (telegramId) {
+                await this.telegramMessengerService.sendText(
+                    telegramId,
+                    'telegram.errors.manage_in_app',
+                );
+            }
         });
     }
 

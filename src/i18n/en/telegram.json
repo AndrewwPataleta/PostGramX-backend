@@ -1,20 +1,88 @@
 {
-  "welcome": "<b>Welcome to PostgramX</b> — where your wishes come true! \n\nHere you can:\n- Add your dream items and share them with friends\n- Follow your loved ones to stay in the loop\n- Let our AI helper suggest the perfect gifts\n\nReady to get gifts and make dreams happen? Let's start! ✨",
-  "button_start": "Start exploring",
-  "button_support": "Contact us",
-  "button_community": "Our community",
-  "profile_invite": "Hello from PostgramX! Someone invited you to explore their wishlist. Tap below to see their dreams.",
-  "button_view_wishlist": "See wishlist",
-  "gift_booked": "Hello from PostgramX! Great news—someone booked your gift. Check your profile for details!",
-  "notification_disable_hint": "You can disable this notification in your profile.",
-  "button_profile": "Profile",
-  "follow_notification": "Hello from PostgramX! You have a new follower. Open PostgramX to see who.",
-  "button_open_profile": "Open profile",
-  "friend_new_gift": "Hello from PostgramX! {{friendName}} just added a new wish. Tap below to view the list.",
-  "friend_new_gift_default_name": "your friend",
-  "invoice_purchase_title": "Credits",
-  "invoice_purchase_description": "Purchase of {{credits}} credits",
-  "secret_santa_new_participant": "Hello from PostgramX! A new participant joined your Secret Santa draw.",
-  "secret_santa_removed": "Hello from PostgramX! You were removed from the Secret Santa draw.",
-  "secret_santa_started": "Hello from PostgramX! The Secret Santa draw has been completed. Open PostgramX to see the results."
+  "common": {
+    "open_mini_app": "Open Mini App",
+    "open_deal": "Open Deal",
+    "pay_in_app": "Pay in app",
+    "marketplace": "Marketplace",
+    "my_deals": "My Deals",
+    "my_channels": "My Channels",
+    "help": "Help",
+    "support": "Support",
+    "tbd": "TBD"
+  },
+  "start": {
+    "message": "Welcome to PostgramX\nBuy and sell Telegram ads with escrow and auto-posting.\n\nUse the buttons below to open the Mini App."
+  },
+  "help": {
+    "message": "Need help getting started? Here is the flow:\n1) Advertisers create a deal in the Mini App.\n2) Channel owners verify their channel by adding the bot as admin.\n3) Escrow holds funds until the post goes live.\n4) Both sides can track status inside the Mini App.\n5) Use notifications here for quick updates.\n\nTap a button below to continue."
+  },
+  "errors": {
+    "invalid_deal_link": "Invalid deal link.",
+    "unknown_command": "I do not recognize this command. Type /help.",
+    "manage_in_app": "To manage deals, open the Mini App. Type /help."
+  },
+  "deal": {
+    "creative_required": {
+      "message": "Ad creative required\n\nYour deal has been scheduled.\nPlease send the ad post content to this bot.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the Mini App and press Submit Creative."
+    },
+    "creative_ready": "Ready to receive creative for deal {{dealId}}.\nPlease send the post content to this bot.",
+    "creative": {
+      "unsupported_format": "Unsupported format.\nSend: text, photo with caption, or video with caption.",
+      "save_failed": "Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.",
+      "missing_caption": "Please add a caption (text) to your media, or send text separately.",
+      "processing_failed": "I cannot process your creative right now. Please try again.",
+      "link_account_required": "Please open the Mini App first to link your account.",
+      "no_active_deal": "No active deal found. Please schedule a deal first.",
+      "saved": "Creative saved for Deal #{{dealId}}. Return to the Mini App and press Submit Creative.",
+      "approved_payment_sent": "Creative approved. Payment request sent to advertiser.",
+      "changes_requested": "Changes requested. Advertiser has been notified.",
+      "rejected_notified": "Creative rejected. Advertiser has been notified.",
+      "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App."
+    },
+    "creative_submitted": {
+      "message": "Creative submitted for review\nChannel: {{channel}}\nDeal: {{dealId}}\nScheduled: {{scheduledAt}}\n\nCreative:\n{{creativeText}}",
+      "unsupported_preview": "Creative submitted for review\nChannel: {{channel}}\nDeal: {{dealId}}\nScheduled: {{scheduledAt}}\n\nCreative preview is not supported for this format."
+    },
+    "payment_required": {
+      "basic": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.",
+      "with_deadline": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}",
+      "with_address": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment address: {{paymentAddress}}",
+      "with_deadline_and_address": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}\nPayment address: {{paymentAddress}}"
+    },
+    "partial_payment": {
+      "message": "Partial payment received\n\nDeal: {{dealId}}\nReceived: {{received}} {{currency}}\nRemaining: {{remaining}} {{currency}}\n\nPlease complete payment in the Mini App."
+    },
+    "payment_confirmed": {
+      "message": "Payment confirmed\n\nDeal: {{dealId}}\nNext: continue in the Mini App."
+    },
+    "notification": {
+      "created": "New deal request\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}\nAction: Please review and confirm in the Mini App.",
+      "action_required": "Deal action required\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}\nAction: {{reason}}."
+    },
+    "action_reason": {
+      "verification": "Verification required",
+      "approval": "Approval required",
+      "payment": "Payment required",
+      "publish": "Publish confirmation required",
+      "generic": "Action required"
+    },
+    "canceled": {
+      "admin_rights_lost": "Deal canceled: channel admin rights were revoked. Refund initiated.",
+      "bot_rights_lost": "Deal canceled: bot lost admin rights. Refund initiated.",
+      "idle_timeout": "Deal canceled: no activity before the deadline.",
+      "payment_timeout": "Deal canceled: payment deadline passed."
+    },
+    "post": {
+      "published": "Post published. We will verify delivery.",
+      "delivery_confirmed": "Delivery confirmed. Funds released."
+    },
+    "buttons": {
+      "approve": "Approve",
+      "request_changes": "Request changes",
+      "reject": "Reject"
+    }
+  },
+  "payment": {
+    "expired": "Payment window expired; funds cannot be applied automatically. Contact support."
+  }
 }
