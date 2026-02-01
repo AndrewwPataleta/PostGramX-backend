@@ -897,35 +897,35 @@ export class DealsService {
                       }
                     : null,
                 listingSnapshot: deal.listingSnapshot,
+                escrow: escrow
+                    ? {
+                          status: escrow.status,
+                          amountNano: escrow.amountNano,
+                          paidNano: escrow.paidNano,
+                          paymentAddress: escrow.paymentAddress,
+                          paymentDeadlineAt: escrow.paymentDeadlineAt,
+                      }
+                    : null,
+                creative: creative
+                    ? {
+                          id: creative.id,
+                          version: creative.version,
+                          status: creative.status,
+                          submittedAt: creative.submittedAt,
+                          reviewedAt: creative.reviewedAt,
+                      }
+                    : null,
+                publication: publication
+                    ? {
+                          status: publication.status,
+                          publishedMessageId: publication.publishedMessageId,
+                          publishedAt: publication.publishedAt,
+                          mustRemainUntil: publication.mustRemainUntil,
+                          verifiedAt: publication.verifiedAt,
+                          error: publication.error,
+                      }
+                    : null,
             },
-            escrow: escrow
-                ? {
-                      status: escrow.status,
-                      amountNano: escrow.amountNano,
-                      paidNano: escrow.paidNano,
-                      paymentAddress: escrow.paymentAddress,
-                      paymentDeadlineAt: escrow.paymentDeadlineAt,
-                  }
-                : null,
-            creative: creative
-                ? {
-                      id: creative.id,
-                      version: creative.version,
-                      status: creative.status,
-                      submittedAt: creative.submittedAt,
-                      reviewedAt: creative.reviewedAt,
-                  }
-                : null,
-            publication: publication
-                ? {
-                      status: publication.status,
-                      publishedMessageId: publication.publishedMessageId,
-                      publishedAt: publication.publishedAt,
-                      mustRemainUntil: publication.mustRemainUntil,
-                      verifiedAt: publication.verifiedAt,
-                      error: publication.error,
-                  }
-                : null,
         };
     }
 
