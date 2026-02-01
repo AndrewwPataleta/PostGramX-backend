@@ -8,6 +8,7 @@ import {DealsService} from './deals.service';
 import {CreateDealDto} from './dto/create-deal.dto';
 import {CreativeStatusDto} from './dto/creative-status.dto';
 import {CreativeSubmitDto} from './dto/creative-submit.dto';
+import {DealDetailDto} from './dto/deal-detail.dto';
 import {AdminApproveDto} from './dto/admin-approve.dto';
 import {AdminRequestChangesDto} from './dto/admin-request-changes.dto';
 import {AdminRejectDto} from './dto/admin-reject.dto';
@@ -17,6 +18,8 @@ import {ScheduleDealDto} from './dto/schedule-deal.dto';
 import {DealServiceError} from './errors/deal-service.error';
 import {mapDealErrorToMessageKey, mapDealErrorToStatus} from './deal-error-mapper';
 import {CancelDealDto} from './dto/cancel-deal.dto';
+import {AuthType} from '../../common/constants/auth/auth-types.constants';
+import {PlatformType} from '../../common/constants/platform/platform-types.constants';
 
 @Controller('deals')
 @ApiTags('deals')
@@ -84,6 +87,37 @@ export class DealsController {
 
         try {
             return await this.dealsService.getDeal(user.id, dto.data.dealId);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('detail')
+    @ApiOperation({summary: 'Get deal details for timeline screen'})
+    @ApiBody({
+        type: DealDetailDto,
+        schema: {
+            example: {
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
+                token: '<initData>',
+                data: {id: '<deal uuid>'},
+            },
+        },
+    })
+    async detail(
+        @Body(dtoValidationPipe) dto: DealDetailDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.getDeal(user.id, dto.data.id);
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: DealServiceError,
