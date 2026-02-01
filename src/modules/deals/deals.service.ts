@@ -259,7 +259,7 @@ export class DealsService {
         if (!advertiser) {
             return {
                 success: false,
-                message: '⚠️ Please open the Mini App first to link your account.',
+                message: 'Please open the Mini App first to link your account.',
             };
         }
 

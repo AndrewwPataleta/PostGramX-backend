@@ -1,14 +1,14 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {DealCreativeEntity} from '../../modules/deals/entities/deal-creative.entity';
-import {DealEntity} from '../../modules/deals/entities/deal.entity';
-import {ChannelEntity} from '../../modules/channels/entities/channel.entity';
+import {DealCreativeEntity} from '../../deals/entities/deal-creative.entity';
+import {DealEntity} from '../../deals/entities/deal.entity';
+import {ChannelEntity} from '../../channels/entities/channel.entity';
 import {
     TelegramChatService,
     TelegramChatServiceError,
-} from '../../modules/telegram/telegram-chat.service';
+} from '../../telegram/telegram-chat.service';
 import {DeliveryCheckResult} from '../types/delivery-check-result';
-import {logMeta} from '../../common/logging/logContext';
+import {logMeta} from '../../../common/logging/logContext';
 
 interface TelegramMessageResponse {
     message_id: number;

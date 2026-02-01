@@ -2,19 +2,19 @@ import {Injectable, Logger} from '@nestjs/common';
 import {Cron} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
 import {LessThanOrEqual, Repository} from 'typeorm';
-import {DealEntity} from '../../modules/deals/entities/deal.entity';
-import {DealCreativeEntity} from '../../modules/deals/entities/deal-creative.entity';
-import {DealEscrowEntity} from '../../modules/deals/entities/deal-escrow.entity';
-import {DealPublicationEntity} from '../../modules/deals/entities/deal-publication.entity';
-import {ChannelEntity} from '../../modules/channels/entities/channel.entity';
-import {DealStage} from '../../common/constants/deals/deal-stage.constants';
-import {DealStatus} from '../../common/constants/deals/deal-status.constants';
-import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
-import {CreativeStatus} from '../../common/constants/deals/creative-status.constants';
-import {PublicationStatus} from '../../common/constants/deals/publication-status.constants';
+import {DealEntity} from '../../deals/entities/deal.entity';
+import {DealCreativeEntity} from '../../deals/entities/deal-creative.entity';
+import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
+import {DealPublicationEntity} from '../../deals/entities/deal-publication.entity';
+import {ChannelEntity} from '../../channels/entities/channel.entity';
+import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
+import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
+import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {CreativeStatus} from '../../../common/constants/deals/creative-status.constants';
+import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
 import {TelegramPosterService} from './telegram-poster.service';
-import {PaymentsService} from '../../modules/payments/payments.service';
-import {DealsNotificationsService} from '../../modules/deals/deals-notifications.service';
+import {PaymentsService} from '../../payments/payments.service';
+import {DealsNotificationsService} from '../../deals/deals-notifications.service';
 
 @Injectable()
 export class DealPostingWorker {
