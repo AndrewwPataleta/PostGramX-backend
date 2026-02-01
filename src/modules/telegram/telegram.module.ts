@@ -1,6 +1,6 @@
 import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
-import {I18nModule} from 'nestjs-i18n';
+import {AppI18nModule} from '../i18n/app-i18n.module';
 import {TelegramService} from './telegram.service';
 import {TelegramChatService} from './telegram-chat.service';
 import {User} from '../auth/entities/user.entity';
@@ -20,7 +20,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
         TelegramMessengerService,
     ],
     imports: [
-        I18nModule,
+        AppI18nModule,
         TypeOrmModule.forFeature([
             User,
             ChannelEntity,
