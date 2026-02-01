@@ -793,22 +793,23 @@ export class DealsService {
             .skip((group.page - 1) * group.limit)
             .take(group.limit);
 
+        qb.leftJoin(
+            ChannelMembershipEntity,
+            'membership',
+            'membership.channelId = deal.channelId AND membership.userId = :userId AND membership.isActive = true',
+            {userId},
+        );
+
         if (role === 'advertiser') {
             qb.andWhere('deal.advertiserUserId = :userId', {userId});
         } else if (role === 'publisher') {
-            qb.andWhere(
-                'deal.channelId IN (SELECT channelId FROM channel_memberships WHERE userId = :userId AND isActive = true)',
-                {userId},
-            );
+            qb.andWhere('membership.id IS NOT NULL');
         } else {
             qb.andWhere(
                 new Brackets((builder) => {
                     builder
                         .where('deal.advertiserUserId = :userId', {userId})
-                        .orWhere(
-                            'deal.channelId IN (SELECT channelId FROM channel_memberships WHERE userId = :userId AND isActive = true)',
-                            {userId},
-                        );
+                        .orWhere('membership.id IS NOT NULL');
                 }),
             );
         }
