@@ -539,36 +539,6 @@ export class ChannelsService {
         return {channelId: channel.id, unlinked: true};
     }
 
-    async refreshStats(
-        channelId: string,
-    ): Promise<{channelId: string; subscribers: number | null}> {
-        // TODO: wire this method into a cron job for periodic refreshes.
-        const channel = await this.channelRepository.findOne({
-            where: {id: channelId},
-        });
-
-        if (!channel) {
-            throw new NotFoundException('Channel not found.');
-        }
-
-        const chat = await this.telegramChatService.getChatByUsername(
-            channel.username,
-        );
-        const publicChat = this.telegramChatService.assertPublicChannel(chat);
-        const subscribers = this.normalizeSubscribersCount(
-            publicChat.members_count,
-        );
-
-        channel.lastCheckedAt = new Date();
-        if (subscribers !== null) {
-            channel.subscribersCount = subscribers;
-        }
-
-        await this.channelRepository.save(channel);
-
-        return {channelId: channel.id, subscribers: channel.subscribersCount};
-    }
-
     private findUserAdmin(
         admins: TelegramChatMember[],
         telegramUserId?: string | null,

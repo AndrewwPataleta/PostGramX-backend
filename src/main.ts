@@ -7,7 +7,6 @@ import {NestFactory} from '@nestjs/core';
 import {AppModule} from './app.module';
 import {SwaggerModule, DocumentBuilder} from '@nestjs/swagger';
 import {ResponseSanitizerInterceptor} from './common/interceptors/response-sanitizer.interceptor';
-import {ADMIN_ROOT_PATH} from './modules/admin/config/paths';
 
 async function bootstrap() {
     loadEnvConfig();
@@ -54,7 +53,6 @@ async function bootstrap() {
 
     logger.log(`Database: ${dbHost}:${dbPort}/${dbName}`);
     logger.log(`Server is running on port ${port}`);
-    logger.log(`Admin panel path: ${ADMIN_ROOT_PATH}`);
 }
 
 bootstrap();

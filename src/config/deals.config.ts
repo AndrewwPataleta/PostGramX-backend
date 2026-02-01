@@ -24,7 +24,7 @@ const parseBoolean = (value: string | undefined, fallback: boolean): boolean => 
 export const DEALS_CONFIG = {
     MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER: parseNumber(
         process.env.MAX_ACTIVE_PENDING_DEALS_PER_LISTING_PER_USER,
-        2,
+        3,
     ),
     DEAL_IDLE_EXPIRE_MINUTES: parseNumber(
         process.env.DEAL_IDLE_EXPIRE_MINUTES,
@@ -44,7 +44,7 @@ export const DEALS_CONFIG = {
     ),
     REMINDER_BEFORE_EXPIRE_MINUTES: parseNumber(
         process.env.REMINDER_BEFORE_EXPIRE_MINUTES,
-        10,
+        60,
     ),
     REMINDER_BEFORE_ADMIN_DEADLINE_MINUTES: parseNumber(
         process.env.REMINDER_BEFORE_ADMIN_DEADLINE_MINUTES,
@@ -52,14 +52,14 @@ export const DEALS_CONFIG = {
     ),
     REMINDER_BEFORE_PAYMENT_DEADLINE_MINUTES: parseNumber(
         process.env.REMINDER_BEFORE_PAYMENT_DEADLINE_MINUTES,
-        10,
+        60,
     ),
     CRON_INTERVAL_MINUTES: parseNumber(
         process.env.DEAL_TIMEOUTS_CRON_INTERVAL_MINUTES,
         1,
     ),
-    AUTO_ADMIN_IMPPROVE: parseBoolean(
-        process.env.auto_admin_impprove,
+    AUTO_ADMIN_APPROVE: parseBoolean(
+        process.env.AUTO_ADMIN_APPROVE,
         false,
     ),
     MOCK_CREATIVE_APPROVE:
