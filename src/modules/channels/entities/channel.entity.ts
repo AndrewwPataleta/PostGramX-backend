@@ -33,9 +33,6 @@ export class ChannelEntity extends BaseEntity {
     @Column({type: 'uuid'})
     createdByUserId: string;
 
-    @Column({type: 'uuid', nullable: true})
-    ownerUserId: string | null;
-
     @Column({type: 'timestamptz', nullable: true})
     verifiedAt: Date | null;
 
@@ -56,12 +53,6 @@ export class ChannelEntity extends BaseEntity {
 
     @Column({type: 'jsonb', nullable: true})
     languageStats: Record<string, unknown> | null;
-
-    @Column({nullable: true})
-    verificationErrorCode: string | null;
-
-    @Column({type: 'text', nullable: true})
-    verificationErrorMessage: string | null;
 
     @CreateDateColumn({type: 'timestamptz'})
     createdAt: Date;
