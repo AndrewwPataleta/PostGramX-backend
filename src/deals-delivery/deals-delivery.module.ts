@@ -12,6 +12,7 @@ import {TelegramModule} from '../modules/telegram/telegram.module';
 import {TelegramBotModule} from '../modules/telegram-bot/telegram-bot.module';
 import {ChannelsModule} from '../modules/channels/channels.module';
 import {PaymentsModule} from '../modules/payments/payments.module';
+import {DealsModule} from '../modules/deals/deals.module';
 
 @Module({
     imports: [
@@ -27,6 +28,7 @@ import {PaymentsModule} from '../modules/payments/payments.module';
         TelegramBotModule,
         ChannelsModule,
         PaymentsModule,
+        DealsModule,
     ],
     providers: [
         TelegramPosterService,
