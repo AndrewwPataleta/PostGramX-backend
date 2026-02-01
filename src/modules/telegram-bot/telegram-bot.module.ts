@@ -15,11 +15,9 @@ import {TelegramBotModuleInitService} from './telegram-bot.module-init.service';
 @Module({
     imports: [
         ConfigModule,
-        ChannelsModule,
+        forwardRef(() => ChannelsModule),
         TypeOrmModule.forFeature([User]),
         DealsModule,
-        // TelegramBotUpdate index [2] depends on TelegramMessengerService,
-        // which is owned + exported by TelegramModule to keep boundaries clear.
         forwardRef(() => TelegramModule),
     ],
     providers: [
