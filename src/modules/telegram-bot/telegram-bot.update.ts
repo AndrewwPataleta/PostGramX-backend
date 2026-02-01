@@ -112,6 +112,12 @@ export class TelegramBotUpdate {
         });
 
         bot.on('message', async (context) => {
+            const handledReply =
+                await this.dealsBotHandler.handleAdminReviewReply(context);
+            if (handledReply) {
+                return;
+            }
+
             if ('text' in context.message) {
                 return;
             }
@@ -127,6 +133,12 @@ export class TelegramBotUpdate {
         bot.on('text', async (context) => {
             const messageText = context.message.text?.trim() ?? '';
             if (this.isKnownCommand(messageText)) {
+                return;
+            }
+
+            const handledReply =
+                await this.dealsBotHandler.handleAdminReviewReply(context);
+            if (handledReply) {
                 return;
             }
 

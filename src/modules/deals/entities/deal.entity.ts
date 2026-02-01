@@ -125,6 +125,21 @@ export class DealEntity extends BaseEntity {
     adminReviewComment: string | null;
 
     @Column({type: 'timestamptz', nullable: true})
+    adminReviewRequestedAt: Date | null;
+
+    @Column({type: 'uuid', nullable: true})
+    adminReviewRequestedByUserId: string | null;
+
+    @Column({type: 'bigint', nullable: true})
+    adminReviewActionMessageId: string | null;
+
+    @Column({type: 'bigint', nullable: true})
+    adminReviewChatId: string | null;
+
+    @Column({type: 'bigint', nullable: true})
+    adminReviewReplyMessageId: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
     approvedAt: Date | null;
 
     @Column({type: 'jsonb', default: () => "'{}'"})

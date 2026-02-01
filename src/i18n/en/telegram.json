@@ -16,5 +16,27 @@
   "invoice_purchase_description": "Purchase of {{credits}} credits",
   "secret_santa_new_participant": "Hello from PostgramX! A new participant joined your Secret Santa draw.",
   "secret_santa_removed": "Hello from PostgramX! You were removed from the Secret Santa draw.",
-  "secret_santa_started": "Hello from PostgramX! The Secret Santa draw has been completed. Open PostgramX to see the results."
+  "secret_santa_started": "Hello from PostgramX! The Secret Santa draw has been completed. Open PostgramX to see the results.",
+  "deals": {
+    "action_unavailable": "This action is no longer available.",
+    "review_locked": {
+      "approved": "✅ Approved by {{actor}}",
+      "rejected": "❌ Rejected by {{actor}}",
+      "changes_pending": "✏️ Changes requested by {{actor}} (awaiting publisher notes)"
+    },
+    "request_changes_prompt": "Changes requested by the advertiser.\nReply to THIS message with what needs to be fixed (bullet points are best).\nWe will forward your reply to the advertiser.",
+    "changes_requested_advertiser": "Changes requested by the publisher:\n{{comment}}\n\nUpdate the post and send a new creative to the bot.\nThen return to the Mini App and press ‘Submit Creative’.",
+    "errors": {
+      "unauthorized": "You are not authorized to review this creative.",
+      "deal_not_found": "Deal not found.",
+      "not_ready_approval": "This deal is not ready for approval.",
+      "not_ready_changes": "This deal is not ready for changes.",
+      "not_ready_reject": "This deal is not ready for rejection.",
+      "unable_approve": "Unable to approve this creative.",
+      "unable_request_changes": "Unable to request changes for this deal.",
+      "unable_reject": "Unable to reject this creative.",
+      "reply_empty": "Please send text describing the changes.",
+      "reply_too_long": "Please limit your response to 1000 characters."
+    }
+  }
 }

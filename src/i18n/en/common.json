@@ -116,6 +116,7 @@
       "waiting_creative": "Send creative",
       "creative_submitted": "Creative submitted",
       "admin_review": "Awaiting admin approval",
+      "changes_pending": "Awaiting change notes",
       "changes_requested": "Changes requested",
       "awaiting_payment": "Awaiting payment",
       "PAYMENT_AWAITING": "Payment processing",

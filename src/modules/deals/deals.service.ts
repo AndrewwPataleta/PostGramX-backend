@@ -34,6 +34,8 @@ const PENDING_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+    DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING,
+    DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
     DealEscrowStatus.AWAITING_PAYMENT,
     DealEscrowStatus.FUNDS_PENDING,
 ];
@@ -400,7 +402,10 @@ export class DealsService {
         const deal = await this.dealRepository.findOne({
             where: {
                 advertiserUserId: user.id,
-                escrowStatus: DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+                escrowStatus: In([
+                    DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+                    DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
+                ]),
             },
             order: {updatedAt: 'DESC'},
         });
@@ -479,6 +484,12 @@ export class DealsService {
                 escrowStatus,
                 status: mapEscrowToDealStatus(escrowStatus),
                 creativeDeadlineAt: null,
+                adminReviewComment: null,
+                adminReviewRequestedAt: null,
+                adminReviewRequestedByUserId: null,
+                adminReviewActionMessageId: null,
+                adminReviewChatId: null,
+                adminReviewReplyMessageId: null,
                 ...this.buildActivityUpdate(now),
             });
 
@@ -548,7 +559,9 @@ export class DealsService {
     async handleCreativeApprovalFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }): Promise<{handled: boolean; message?: string}> {
+        actionMessageId?: string;
+        actionChatId?: string;
+    }): Promise<{handled: boolean; messageKey?: string; action?: 'approved' | 'unavailable'}> {
         if (!payload.dealId) {
             return {handled: false};
         }
@@ -559,32 +572,51 @@ export class DealsService {
         if (!user) {
             return {
                 handled: true,
-                message: 'You are not authorized to review this creative.',
+                messageKey: 'telegram.deals.errors.unauthorized',
             };
         }
 
+        const deal = await this.dealRepository.findOne({
+            where: {id: payload.dealId},
+        });
+        if (!deal) {
+            return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
+        }
+
+        const hasAdminAccess = await this.hasAdminAccess(deal, user.id);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
+            return {handled: true, messageKey: 'telegram.deals.errors.unauthorized'};
+        }
+
+        if (!this.isAdminReviewActionAvailable(deal)) {
+            return {handled: true, action: 'unavailable'};
+        }
+
         try {
-            await this.approveByAdmin(user.id, payload.dealId);
+            await this.approveByAdmin(user.id, payload.dealId, {
+                actionMessageId: payload.actionMessageId,
+                actionChatId: payload.actionChatId,
+            });
         } catch (error) {
             if (error instanceof DealServiceError) {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
-                        return {handled: true, message: 'Deal not found.'};
+                        return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
                     case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
-                            message:
-                                'You are not authorized to review this creative.',
+                            messageKey: 'telegram.deals.errors.unauthorized',
                         };
                     case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
-                            message: 'This deal is not ready for approval.',
+                            messageKey: 'telegram.deals.errors.not_ready_approval',
                         };
                     default:
                         return {
                             handled: true,
-                            message: 'Unable to approve this creative.',
+                            messageKey: 'telegram.deals.errors.unable_approve',
                         };
                 }
             }
@@ -593,14 +625,16 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '✅ Creative approved. The advertiser has been notified.',
+            action: 'approved',
         };
     }
 
     async handleCreativeRequestChangesFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }): Promise<{handled: boolean; message?: string}> {
+        actionMessageId?: string;
+        actionChatId?: string;
+    }): Promise<{handled: boolean; messageKey?: string; action?: 'requested' | 'unavailable'}> {
         if (!payload.dealId) {
             return {handled: false};
         }
@@ -611,32 +645,52 @@ export class DealsService {
         if (!user) {
             return {
                 handled: true,
-                message: 'You are not authorized to review this creative.',
+                messageKey: 'telegram.deals.errors.unauthorized',
             };
         }
 
+        const deal = await this.dealRepository.findOne({
+            where: {id: payload.dealId},
+        });
+        if (!deal) {
+            return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
+        }
+
+        const hasAdminAccess = await this.hasAdminAccess(deal, user.id);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
+            return {handled: true, messageKey: 'telegram.deals.errors.unauthorized'};
+        }
+
+        if (!this.isAdminReviewActionAvailable(deal)) {
+            return {handled: true, action: 'unavailable'};
+        }
+
         try {
-            await this.requestChangesByAdmin(user.id, payload.dealId);
+            await this.requestChangesByAdmin(user.id, payload.dealId, undefined, {
+                actionMessageId: payload.actionMessageId,
+                actionChatId: payload.actionChatId,
+            });
         } catch (error) {
             if (error instanceof DealServiceError) {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
-                        return {handled: true, message: 'Deal not found.'};
+                        return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
                     case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
-                            message:
-                                'You are not authorized to review this creative.',
+                            messageKey: 'telegram.deals.errors.unauthorized',
                         };
                     case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
-                            message: 'This deal is not ready for changes.',
+                            messageKey: 'telegram.deals.errors.not_ready_changes',
                         };
                     default:
                         return {
                             handled: true,
-                            message: 'Unable to request changes for this deal.',
+                            messageKey:
+                                'telegram.deals.errors.unable_request_changes',
                         };
                 }
             }
@@ -645,14 +699,16 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '✏️ Requested changes from the advertiser.',
+            action: 'requested',
         };
     }
 
     async handleCreativeRejectFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }): Promise<{handled: boolean; message?: string}> {
+        actionMessageId?: string;
+        actionChatId?: string;
+    }): Promise<{handled: boolean; messageKey?: string; action?: 'rejected' | 'unavailable'}> {
         if (!payload.dealId) {
             return {handled: false};
         }
@@ -663,32 +719,51 @@ export class DealsService {
         if (!user) {
             return {
                 handled: true,
-                message: 'You are not authorized to review this creative.',
+                messageKey: 'telegram.deals.errors.unauthorized',
             };
         }
 
+        const deal = await this.dealRepository.findOne({
+            where: {id: payload.dealId},
+        });
+        if (!deal) {
+            return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
+        }
+
+        const hasAdminAccess = await this.hasAdminAccess(deal, user.id);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
+            return {handled: true, messageKey: 'telegram.deals.errors.unauthorized'};
+        }
+
+        if (!this.isAdminReviewActionAvailable(deal)) {
+            return {handled: true, action: 'unavailable'};
+        }
+
         try {
-            await this.rejectByAdmin(user.id, payload.dealId);
+            await this.rejectByAdmin(user.id, payload.dealId, undefined, {
+                actionMessageId: payload.actionMessageId,
+                actionChatId: payload.actionChatId,
+            });
         } catch (error) {
             if (error instanceof DealServiceError) {
                 switch (error.code) {
                     case DealErrorCode.DEAL_NOT_FOUND:
-                        return {handled: true, message: 'Deal not found.'};
+                        return {handled: true, messageKey: 'telegram.deals.errors.deal_not_found'};
                     case DealErrorCode.UNAUTHORIZED:
                         return {
                             handled: true,
-                            message:
-                                'You are not authorized to review this creative.',
+                            messageKey: 'telegram.deals.errors.unauthorized',
                         };
                     case DealErrorCode.INVALID_STATUS:
                         return {
                             handled: true,
-                            message: 'This deal is not ready for rejection.',
+                            messageKey: 'telegram.deals.errors.not_ready_reject',
                         };
                     default:
                         return {
                             handled: true,
-                            message: 'Unable to reject this creative.',
+                            messageKey: 'telegram.deals.errors.unable_reject',
                         };
                 }
             }
@@ -697,11 +772,126 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '❌ Creative rejected. The deal has been canceled.',
+            action: 'rejected',
         };
     }
 
-    async approveByAdmin(userId: string, dealId: string) {
+    async handleCreativeRequestChangesNotesFromTelegram(payload: {
+        telegramUserId: string;
+        replyMessageId: string;
+        text: string;
+    }): Promise<{handled: boolean; messageKey?: string}> {
+        if (!payload.replyMessageId) {
+            return {handled: false};
+        }
+
+        const deal = await this.dealRepository.findOne({
+            where: {adminReviewReplyMessageId: payload.replyMessageId},
+        });
+        if (!deal) {
+            return {handled: false};
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+        if (!user) {
+            return {handled: true, messageKey: 'telegram.deals.errors.unauthorized'};
+        }
+
+        const hasAdminAccess = await this.hasAdminAccess(deal, user.id);
+        if (!hasAdminAccess) {
+            await this.cancelDealForAdminRights(deal);
+            return {handled: true, messageKey: 'telegram.deals.errors.unauthorized'};
+        }
+
+        const trimmed = payload.text.trim();
+        if (!trimmed) {
+            return {handled: true, messageKey: 'telegram.deals.errors.reply_empty'};
+        }
+
+        if (trimmed.length > 1000) {
+            return {handled: true, messageKey: 'telegram.deals.errors.reply_too_long'};
+        }
+
+        const escrowStatus = DealEscrowStatus.CREATIVE_CHANGES_REQUESTED;
+        try {
+            this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+        } catch (error) {
+            return {handled: true, messageKey: 'telegram.deals.action_unavailable'};
+        }
+
+        const now = new Date();
+        const creativeDeadlineAt = this.addMinutes(
+            now,
+            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+        );
+        await this.dealRepository.update(deal.id, {
+            escrowStatus,
+            status: mapEscrowToDealStatus(escrowStatus),
+            adminReviewComment: trimmed,
+            adminReviewRequestedAt: now,
+            adminReviewRequestedByUserId: user.id,
+            adminReviewReplyMessageId: null,
+            creativeDeadlineAt,
+            adminReviewDeadlineAt: null,
+            adminReviewNotifiedAt: null,
+            ...this.buildActivityUpdate(now),
+        });
+
+        this.logger.log('[BOT] request_changes_notes_received', {
+            dealId: deal.id,
+            replyMessageId: payload.replyMessageId,
+        });
+
+        try {
+            await this.dealsNotificationsService.notifyAdvertiserChangesRequested(
+                deal,
+                trimmed,
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Deal change request notification failed for dealId=${deal.id}: ${errorMessage}`,
+            );
+        }
+
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        this.logger.log('[BOT] request_changes_forwarded_to_advertiser', {
+            dealId: deal.id,
+            advertiserTelegramId: advertiser?.telegramId ?? null,
+        });
+
+        return {handled: true};
+    }
+
+    async storeAdminReviewReplyMessageId(
+        dealId: string,
+        replyMessageId: string,
+    ): Promise<void> {
+        if (!dealId || !replyMessageId) {
+            return;
+        }
+
+        await this.dealRepository.update(
+            {
+                id: dealId,
+                escrowStatus: DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING,
+            },
+            {
+                adminReviewReplyMessageId: replyMessageId,
+            },
+        );
+    }
+
+    async approveByAdmin(
+        userId: string,
+        dealId: string,
+        actionContext?: {actionMessageId?: string; actionChatId?: string},
+    ) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -721,7 +911,7 @@ export class DealsService {
         });
 
         const escrowStatus = DealEscrowStatus.AWAITING_PAYMENT;
-        //this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
+        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
 
         const now = new Date();
         const paymentDeadlineAt = this.addMinutes(
@@ -734,6 +924,10 @@ export class DealsService {
             approvedAt: now,
             paymentDeadlineAt,
             adminReviewDeadlineAt: null,
+            adminReviewActionMessageId:
+                actionContext?.actionMessageId ?? deal.adminReviewActionMessageId,
+            adminReviewChatId:
+                actionContext?.actionChatId ?? deal.adminReviewChatId,
             ...this.buildActivityUpdate(now),
         });
 
@@ -888,6 +1082,7 @@ export class DealsService {
         userId: string,
         dealId: string,
         comment?: string,
+        actionContext?: {actionMessageId?: string; actionChatId?: string},
     ) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
@@ -907,45 +1102,63 @@ export class DealsService {
             adminUserId: userId,
         });
 
-        const escrowStatus = DealEscrowStatus.CREATIVE_AWAITING_SUBMIT;
-        this.ensureTransitionAllowed(deal.escrowStatus, escrowStatus);
-
         const now = new Date();
-        const creativeDeadlineAt = this.addMinutes(
-            now,
-            DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
-        );
+        const nextStatus = comment
+            ? DealEscrowStatus.CREATIVE_CHANGES_REQUESTED
+            : DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING;
+        this.ensureTransitionAllowed(deal.escrowStatus, nextStatus);
+
+        const creativeDeadlineAt = comment
+            ? this.addMinutes(
+                  now,
+                  DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+              )
+            : null;
         await this.dealRepository.update(deal.id, {
-            escrowStatus,
-            status: mapEscrowToDealStatus(escrowStatus),
+            escrowStatus: nextStatus,
+            status: mapEscrowToDealStatus(nextStatus),
             adminReviewComment: comment ?? null,
+            adminReviewRequestedAt: comment ? now : null,
+            adminReviewRequestedByUserId: userId,
+            adminReviewActionMessageId:
+                actionContext?.actionMessageId ?? deal.adminReviewActionMessageId,
+            adminReviewChatId:
+                actionContext?.actionChatId ?? deal.adminReviewChatId,
+            adminReviewReplyMessageId: null,
             creativeDeadlineAt,
             adminReviewDeadlineAt: null,
             adminReviewNotifiedAt: null,
             ...this.buildActivityUpdate(now),
         });
 
-        try {
-            await this.dealsNotificationsService.notifyAdvertiser(
-                deal,
-                'Admin requested edits. Please submit updated creative.',
-            );
-        } catch (error) {
-            const errorMessage =
-                error instanceof Error ? error.message : String(error);
-            this.logger.warn(
-                `Deal change request notification failed for dealId=${deal.id}: ${errorMessage}`,
-            );
+        if (comment) {
+            try {
+                await this.dealsNotificationsService.notifyAdvertiserChangesRequested(
+                    deal,
+                    comment,
+                );
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Deal change request notification failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
         }
 
         return {
             id: deal.id,
-            status: mapEscrowToDealStatus(escrowStatus),
-            escrowStatus,
+            status: mapEscrowToDealStatus(nextStatus),
+            escrowStatus: nextStatus,
         };
     }
 
-    async rejectByAdmin(userId: string, dealId: string, reason?: string) {
+    async rejectByAdmin(
+        userId: string,
+        dealId: string,
+        reason?: string,
+        actionContext?: {actionMessageId?: string; actionChatId?: string},
+    ) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -972,6 +1185,10 @@ export class DealsService {
             escrowStatus,
             status: mapEscrowToDealStatus(escrowStatus),
             cancelReason: reason ?? 'ADMIN_REJECTED',
+            adminReviewActionMessageId:
+                actionContext?.actionMessageId ?? deal.adminReviewActionMessageId,
+            adminReviewChatId:
+                actionContext?.actionChatId ?? deal.adminReviewChatId,
             ...this.buildActivityUpdate(now),
         });
 
@@ -1324,6 +1541,13 @@ export class DealsService {
                 `Deal admin rights notification failed for dealId=${deal.id}: ${errorMessage}`,
             );
         }
+    }
+
+    private isAdminReviewActionAvailable(deal: DealEntity): boolean {
+        return (
+            deal.escrowStatus ===
+            DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW
+        );
     }
 
     private buildActivityUpdate(now: Date): {

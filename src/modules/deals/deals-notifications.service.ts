@@ -9,9 +9,11 @@ import {ChannelParticipantsService} from '../channels/channel-participants.servi
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
 import {User} from '../auth/entities/user.entity';
-import {buildMiniAppDealLink} from '../../telegram/bot/utils/miniapp-links';
+import {buildMiniAppUrl} from '../../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {I18nService} from 'nestjs-i18n';
+import {buildBilingualMessage} from '../../common/i18n/bilingual-message';
 
 const NOTIFICATION_CONCURRENCY = 5;
 
@@ -29,13 +31,14 @@ export class DealsNotificationsService {
         private readonly deepLinkService: DealsDeepLinkService,
         @Inject(forwardRef(() => TelegramBotService))
         private readonly telegramBotService: TelegramBotService,
+        private readonly i18n: I18nService,
     ) {}
 
     async notifyCreativeRequired(
         deal: DealEntity,
         advertiserTelegramId: string,
     ): Promise<void> {
-        const link = this.deepLinkService.buildDealLink(deal.id);
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
         const message = [
             '📝 Ad creative required',
             '',
@@ -49,9 +52,17 @@ export class DealsNotificationsService {
             '',
             "After sending the post, return to the Mini App and press 'Submit Creative'.",
         ].join('\n');
-        const keyboard = {
-            inline_keyboard: [[{text: 'Open Mini App', url: link}]],
-        };
+        const keyboard = link
+            ? {
+                  inline_keyboard: [[{text: 'Open Mini App', url: link}]],
+              }
+            : undefined;
+
+        if (!link) {
+            this.logger.warn(
+                `Skipping Mini App button: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         await this.telegramBotService.sendMessage(advertiserTelegramId, message, {
             reply_markup: keyboard,
@@ -97,7 +108,7 @@ export class DealsNotificationsService {
             ? `@${channel.username}`
             : channel.title;
 
-        const link = this.deepLinkService.buildDealLink(deal.id);
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
         const buttons = [
             [
                 {
@@ -115,8 +126,14 @@ export class DealsNotificationsService {
                     callback_data: `reject_creative:${deal.id}`,
                 },
             ],
-            [{text: 'Open Mini App', url: link}],
         ];
+        if (link) {
+            buttons.push([{text: 'Open Mini App', url: link}]);
+        } else {
+            this.logger.warn(
+                `Skipping Mini App button: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         const header = '📩 Creative submitted for review';
         const baseLines = [
@@ -207,6 +224,39 @@ export class DealsNotificationsService {
         await this.telegramBotService.sendMessage(user.telegramId, message);
     }
 
+    async notifyAdvertiserChangesRequested(
+        deal: DealEntity,
+        comment: string,
+    ): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const message = await buildBilingualMessage(
+            this.i18n,
+            'telegram.deals.changes_requested_advertiser',
+            {
+                args: {comment},
+            },
+        );
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
+        const replyMarkup = link
+            ? {inline_keyboard: [[{text: 'Open Mini App', url: link}]]}
+            : undefined;
+        if (!link) {
+            this.logger.warn(
+                `Skipping Mini App button: invalid URL for deal ${deal.id}`,
+            );
+        }
+
+        await this.telegramBotService.sendMessage(user.telegramId, message, {
+            reply_markup: replyMarkup,
+        });
+    }
+
     async notifyAdvertiserPaymentRequired(deal: DealEntity): Promise<void> {
         const user = await this.userRepository.findOne({
             where: {id: deal.advertiserUserId},
@@ -233,13 +283,20 @@ export class DealsNotificationsService {
             messageLines.push(`Payment address: ${deal.escrowPaymentAddress}`);
         }
 
-        const link = buildMiniAppDealLink(deal.id);
-        const keyboard = {
-            inline_keyboard: [
-                [{text: '💳 Pay in app', web_app: {url: link}}],
-                [{text: 'Open Mini App', url: link}],
-            ],
-        };
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
+        const keyboard = link
+            ? {
+                  inline_keyboard: [
+                      [{text: '💳 Pay in app', web_app: {url: link}}],
+                      [{text: 'Open Mini App', url: link}],
+                  ],
+              }
+            : undefined;
+        if (!link) {
+            this.logger.warn(
+                `Skipping Mini App buttons: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         await this.telegramBotService.sendMessage(
             user.telegramId,
@@ -266,7 +323,7 @@ export class DealsNotificationsService {
             return;
         }
 
-        const link = buildMiniAppDealLink(deal.id);
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
         const messageLines = [
             '💰 Partial payment received',
             '',
@@ -276,12 +333,19 @@ export class DealsNotificationsService {
             '',
             'Please complete payment in the Mini App.',
         ];
-        const keyboard = {
-            inline_keyboard: [
-                [{text: '💳 Pay in app', web_app: {url: link}}],
-                [{text: 'Open Mini App', url: link}],
-            ],
-        };
+        const keyboard = link
+            ? {
+                  inline_keyboard: [
+                      [{text: '💳 Pay in app', web_app: {url: link}}],
+                      [{text: 'Open Mini App', url: link}],
+                  ],
+              }
+            : undefined;
+        if (!link) {
+            this.logger.warn(
+                `Skipping Mini App buttons: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         await this.telegramBotService.sendMessage(
             user.telegramId,
@@ -312,16 +376,23 @@ export class DealsNotificationsService {
             return;
         }
 
-        const link = buildMiniAppDealLink(deal.id);
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
         const messageLines = [
             '✅ Payment confirmed',
             '',
             `Deal: ${deal.id.slice(0, 8)}`,
             'Next: continue in the Mini App.',
         ];
-        const keyboard = {
-            inline_keyboard: [[{text: 'Open Mini App', url: link}]],
-        };
+        const keyboard = link
+            ? {
+                  inline_keyboard: [[{text: 'Open Mini App', url: link}]],
+              }
+            : undefined;
+        if (!link) {
+            this.logger.warn(
+                `Skipping Mini App button: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         await Promise.all(
             recipients.map((recipient) =>
@@ -386,11 +457,23 @@ export class DealsNotificationsService {
             return;
         }
 
-        const link = this.deepLinkService.buildDealLink(deal.id);
-        const message = this.formatMessage(deal, channel, payload.header, payload.actionLine);
-        const keyboard = {
-            inline_keyboard: [[{text: 'Open Deal', url: link}]],
-        };
+        const link = buildMiniAppUrl(this.deepLinkService.buildDealLink(deal.id));
+        const message = this.formatMessage(
+            deal,
+            channel,
+            payload.header,
+            payload.actionLine,
+        );
+        const keyboard = link
+            ? {
+                  inline_keyboard: [[{text: 'Open Deal', url: link}]],
+              }
+            : undefined;
+        if (!link) {
+            this.logger.warn(
+                `Skipping Open Deal button: invalid URL for deal ${deal.id}`,
+            );
+        }
 
         this.logger.log(
             `Sending deal notification ${payload.type}: dealId=${deal.id} channelId=${deal.channelId} recipients=${recipients.length}`,

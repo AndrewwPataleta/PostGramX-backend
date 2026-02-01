@@ -24,12 +24,15 @@ const AGREEMENT_ESCROW_STATUSES = [
     DealEscrowStatus.SCHEDULING_PENDING,
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+    DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING,
+    DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
     DealEscrowStatus.AWAITING_PAYMENT,
     DealEscrowStatus.FUNDS_PENDING,
 ];
 
 const CREATIVE_PENDING_STATUSES = [
     DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+    DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
 ];
 
 type CancelReason =

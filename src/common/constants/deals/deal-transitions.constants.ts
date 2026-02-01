@@ -9,9 +9,17 @@ export const DEAL_ESCROW_TRANSITIONS: Record<DealEscrowStatus, DealEscrowStatus[
         DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
     ],
     [DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW]: [
-        DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
+        DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING,
+        DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
+        DealEscrowStatus.AWAITING_PAYMENT,
     ],
     [DealEscrowStatus.CREATIVE_AWAITING_SUBMIT]: [
+        DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
+    ],
+    [DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING]: [
+        DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
+    ],
+    [DealEscrowStatus.CREATIVE_CHANGES_REQUESTED]: [
         DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
     ],
     [DealEscrowStatus.AWAITING_PAYMENT]: [

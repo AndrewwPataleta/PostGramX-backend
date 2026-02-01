@@ -16,5 +16,27 @@
   "invoice_purchase_description": "Покупка {{credits}} кредитов",
   "secret_santa_new_participant": "Новый участник присоединился к вашему розыгрышу Secret Santa.",
   "secret_santa_removed": "Вы были исключены из розыгрыша Secret Santa.",
-  "secret_santa_started": "Розыгрыш Secret Santa завершён. Откройте PostgramX, чтобы узнать результат."
+  "secret_santa_started": "Розыгрыш Secret Santa завершён. Откройте PostgramX, чтобы узнать результат.",
+  "deals": {
+    "action_unavailable": "Это действие больше недоступно.",
+    "review_locked": {
+      "approved": "✅ Одобрено: {{actor}}",
+      "rejected": "❌ Отклонено: {{actor}}",
+      "changes_pending": "✏️ Запрошены правки (ожидаем комментарии автора): {{actor}}"
+    },
+    "request_changes_prompt": "Рекламодатель запросил правки.\nОтветьте (Reply) на ЭТО сообщение и напишите, что нужно исправить (лучше списком).\nМы перешлём ваш ответ рекламодателю.",
+    "changes_requested_advertiser": "Запрошены правки от владельца/админа канала:\n{{comment}}\n\nИсправьте пост и отправьте новый креатив этому боту.\nЗатем вернитесь в Mini App и нажмите ‘Submit Creative’.",
+    "errors": {
+      "unauthorized": "Вы не можете проверять этот креатив.",
+      "deal_not_found": "Сделка не найдена.",
+      "not_ready_approval": "Сделка ещё не готова к одобрению.",
+      "not_ready_changes": "Сделка ещё не готова к запросу правок.",
+      "not_ready_reject": "Сделка ещё не готова к отклонению.",
+      "unable_approve": "Не удалось одобрить креатив.",
+      "unable_request_changes": "Не удалось запросить правки.",
+      "unable_reject": "Не удалось отклонить креатив.",
+      "reply_empty": "Пожалуйста, отправьте текст с описанием правок.",
+      "reply_too_long": "Пожалуйста, сократите ответ до 1000 символов."
+    }
+  }
 }

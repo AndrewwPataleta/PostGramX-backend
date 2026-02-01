@@ -6,7 +6,6 @@ describe('deal state machine', () => {
         const path: DealEscrowStatus[] = [
             DealEscrowStatus.SCHEDULING_PENDING,
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-            DealEscrowStatus.CREATIVE_RECEIVED,
             DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
             DealEscrowStatus.AWAITING_PAYMENT,
             DealEscrowStatus.FUNDS_PENDING,
@@ -28,10 +27,9 @@ describe('deal state machine', () => {
             DealEscrowStatus.DRAFT,
             DealEscrowStatus.SCHEDULING_PENDING,
             DealEscrowStatus.CREATIVE_AWAITING_SUBMIT,
-            DealEscrowStatus.CREATIVE_RECEIVED,
             DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW,
-            DealEscrowStatus.CREATIVE_AWAITING_CONFIRM,
-            DealEscrowStatus.ADMIN_REVIEW,
+            DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING,
+            DealEscrowStatus.CREATIVE_CHANGES_REQUESTED,
             DealEscrowStatus.AWAITING_PAYMENT,
             DealEscrowStatus.FUNDS_PENDING,
         ];

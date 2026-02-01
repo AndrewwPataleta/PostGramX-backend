@@ -30,6 +30,16 @@ const STAGE_MAP: Record<DealEscrowStatus, DealPublicStage> = {
         stageKey: 'deals.stages.admin_review',
         shortLabel: 'Awaiting admin review',
     },
+    [DealEscrowStatus.CREATIVE_CHANGES_NOTES_PENDING]: {
+        stageKey: 'deals.stages.changes_pending',
+        shortLabel: 'Changes requested',
+        actionHint: 'Awaiting publisher notes.',
+    },
+    [DealEscrowStatus.CREATIVE_CHANGES_REQUESTED]: {
+        stageKey: 'deals.stages.changes_requested',
+        shortLabel: 'Changes requested',
+        actionHint: 'Update and resend creative.',
+    },
     [DealEscrowStatus.AWAITING_PAYMENT]: {
         stageKey: 'deals.stages.awaiting_payment',
         shortLabel: 'Awaiting payment',
