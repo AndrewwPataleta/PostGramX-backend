@@ -251,7 +251,12 @@ export class DealsService {
         caption: string | null;
         mediaFileId: string | null;
         rawPayload: Record<string, unknown>;
-    }) {
+    }): Promise<{
+        success: boolean;
+        dealId?: string;
+        messageKey: string;
+        messageArgs?: Record<string, any>;
+    }> {
         const advertiser = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
         });
@@ -259,7 +264,7 @@ export class DealsService {
         if (!advertiser) {
             return {
                 success: false,
-                message: 'Please open the Mini App first to link your account.',
+                messageKey: 'telegram.deal.creative.link_account_required',
             };
         }
 
@@ -277,7 +282,7 @@ export class DealsService {
         if (!deal) {
             return {
                 success: false,
-                message: '⚠️ No active deal found. Please schedule a deal first.',
+                messageKey: 'telegram.deal.creative.no_active_deal',
             };
         }
 
@@ -322,7 +327,8 @@ export class DealsService {
         return {
             success: true,
             dealId: deal.id,
-            message: `Creative saved for Deal #${deal.id.slice(0, 8)}. Return to the Mini App and press Submit Creative.`,
+            messageKey: 'telegram.deal.creative.saved',
+            messageArgs: {dealId: deal.id.slice(0, 8)},
         };
     }
 
@@ -576,7 +582,7 @@ export class DealsService {
         if (updatedDeal) {
             await this.dealsNotificationsService.notifyAdvertiser(
                 updatedDeal,
-                '❌ Creative rejected. Please submit a new creative in the Mini App.',
+                'telegram.deal.creative.rejected_resubmit',
             );
         }
 
@@ -586,7 +592,11 @@ export class DealsService {
     async handleCreativeApprovalFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }) {
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
         const user = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
         });
@@ -599,14 +609,19 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '✅ Creative approved. Payment request sent to advertiser.',
+            messageKey: 'telegram.deal.creative.approved_payment_sent',
+            messageArgs: undefined,
         };
     }
 
     async handleCreativeRequestChangesFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }) {
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
         const user = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
         });
@@ -619,14 +634,19 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '✏️ Changes requested. Advertiser has been notified.',
+            messageKey: 'telegram.deal.creative.changes_requested',
+            messageArgs: undefined,
         };
     }
 
     async handleCreativeRejectFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
-    }) {
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
         const user = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
         });
@@ -639,7 +659,8 @@ export class DealsService {
 
         return {
             handled: true,
-            message: '❌ Creative rejected. Advertiser has been notified.',
+            messageKey: 'telegram.deal.creative.rejected_notified',
+            messageArgs: undefined,
         };
     }
 
@@ -1018,7 +1039,7 @@ export class DealsService {
 
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
-            '❌ Deal canceled: channel admin rights were revoked. Refund initiated.',
+            'telegram.deal.canceled.admin_rights_lost',
         );
     }
 }

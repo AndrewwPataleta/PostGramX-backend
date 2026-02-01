@@ -165,7 +165,7 @@ export class TonPaymentWatcher {
                 );
                 await this.dealsNotificationsService.notifyAdvertiser(
                     deal,
-                    '⚠️ Payment window expired; funds cannot be applied automatically. Contact support.',
+                    'telegram.payment.expired',
                 );
                 return;
             }

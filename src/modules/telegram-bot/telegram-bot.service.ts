@@ -134,13 +134,36 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    async sendDealStatusUpdate(
-        userTelegramId: string,
-        dealId: string,
-        status: string,
+    async editMessageText(
+        chatId: string | number,
+        messageId: string | number,
+        text: string,
+        options?: {
+            reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
+            parse_mode?: 'HTML' | 'Markdown';
+        },
     ): Promise<void> {
-        const message = `Deal ${dealId} status updated: ${status}`;
-        await this.sendMessage(userTelegramId, message);
+        if (!this.config?.token) {
+            this.logger.warn('Telegram bot token not configured; skipping edit.');
+            return;
+        }
+
+        try {
+            const bot = this.getBot();
+            await bot.telegram.editMessageText(
+                String(chatId),
+                Number(messageId),
+                undefined,
+                text,
+                options,
+            );
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+                `Failed to edit Telegram message ${messageId} in ${chatId}: ${errorMessage}`,
+            );
+        }
     }
 
     async sendDealReminderToUser(
@@ -275,7 +298,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         return {
             token: this.configService.get<string>('BOT_TOKEN') || '',
             username: this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
-            miniAppUrl: this.configService.get<string>('TELEGRAM_MINI_APP_URL'),
+            miniAppUrl:
+                this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
+                this.configService.get<string>('TELEGRAM_MINI_APP_URL'),
             mode,
             webhookUrl: this.configService.get<string>('TELEGRAM_WEBHOOK_URL'),
             allowedUpdates,
@@ -295,7 +320,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
         if (!config.miniAppUrl) {
             this.logger.warn(
-                'TELEGRAM_MINI_APP_URL is not set. Mini App buttons will be limited.',
+                'TELEGRAM_MINIAPP_URL is not set. Mini App buttons will be limited.',
             );
         }
 

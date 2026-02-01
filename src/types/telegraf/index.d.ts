@@ -38,6 +38,16 @@ declare module 'telegraf' {
                 parse_mode?: 'HTML' | 'Markdown';
             },
         ): Promise<unknown>;
+        editMessageText(
+            chatId: string,
+            messageId: number,
+            inlineMessageId: string | undefined,
+            text: string,
+            options?: {
+                reply_markup?: {inline_keyboard: unknown[][]};
+                parse_mode?: 'HTML' | 'Markdown';
+            },
+        ): Promise<unknown>;
         sendPhoto(
             chatId: string,
             photo: string,

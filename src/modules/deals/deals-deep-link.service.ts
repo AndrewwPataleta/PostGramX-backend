@@ -8,18 +8,21 @@ export class DealsDeepLinkService {
     constructor(private readonly configService: ConfigService) {}
 
     buildDealLink(dealId: string): string {
-        const miniAppUrl = this.configService.get<string>('MINI_APP_URL');
+        const miniAppUrl =
+            this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
+            this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
+            this.configService.get<string>('MINI_APP_URL');
         if (miniAppUrl) {
             try {
                 const url = new URL(miniAppUrl);
                 if (url.protocol !== 'https:') {
-                    this.logger.warn('MINI_APP_URL must be https; falling back.');
-                    return miniAppUrl;
+                    this.logger.warn('Mini App URL must be https; falling back.');
+                    return 'https://t.me';
                 }
                 url.pathname = `${url.pathname.replace(/\/$/, '')}/deals/${dealId}`;
                 return url.toString();
             } catch (error) {
-                return miniAppUrl;
+                return 'https://t.me';
             }
         }
 

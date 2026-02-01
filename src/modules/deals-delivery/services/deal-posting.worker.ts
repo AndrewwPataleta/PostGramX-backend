@@ -107,7 +107,7 @@ export class DealPostingWorker {
             });
             await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
-                '❌ Deal canceled: bot lost admin rights. Refund initiated.',
+                'telegram.deal.canceled.bot_rights_lost',
             );
             return;
         }
@@ -155,7 +155,7 @@ export class DealPostingWorker {
 
             await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
-                '✅ Post published. We will verify delivery.',
+                'telegram.deal.post.published',
             );
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -206,7 +206,7 @@ export class DealPostingWorker {
 
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
-            '✅ Delivery confirmed. Funds released.',
+            'telegram.deal.post.delivery_confirmed',
         );
     }
 
