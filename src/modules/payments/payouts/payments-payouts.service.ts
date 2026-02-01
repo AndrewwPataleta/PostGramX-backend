@@ -166,7 +166,7 @@ export class PaymentsPayoutsService {
                 );
             }
 
-            const ownerId = channel.ownerUserId ?? channel.createdByUserId;
+            const ownerId = channel.createdByUserId;
             if (ownerId !== userId) {
                 throw new PaymentsPayoutsError(
                     PaymentsPayoutsErrorCode.FORBIDDEN,

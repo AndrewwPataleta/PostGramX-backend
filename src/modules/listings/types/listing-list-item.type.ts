@@ -7,8 +7,6 @@ export type ListingListItem = {
     format: string;
     priceNano: string;
     currency: CurrencyCode;
-    availabilityFrom: Date;
-    availabilityTo: Date;
     pinDurationHours: number | null;
     visibilityDurationHours: number;
     allowEdits: boolean;
@@ -30,8 +28,6 @@ export const mapListingToListItem = (
     format: listing.format,
     priceNano: listing.priceNano,
     currency: listing.currency,
-    availabilityFrom: listing.availabilityFrom,
-    availabilityTo: listing.availabilityTo,
     pinDurationHours: listing.pinDurationHours,
     visibilityDurationHours: listing.visibilityDurationHours,
     allowEdits: listing.allowEdits,

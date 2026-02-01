@@ -50,12 +50,6 @@ export class ListingEntity {
     @Column({type: 'text', default: CurrencyCode.TON})
     currency: CurrencyCode;
 
-    @Column({type: 'timestamptz'})
-    availabilityFrom: Date;
-
-    @Column({type: 'timestamptz'})
-    availabilityTo: Date;
-
     @Column({type: 'integer', nullable: true})
     pinDurationHours: number | null;
 

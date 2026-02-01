@@ -61,7 +61,7 @@ export class ListingsService {
             );
         }
 
-        if (channel.ownerUserId !== userId) {
+        if (channel.createdByUserId !== userId) {
             throw new ListingServiceError(
                 ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
             );
@@ -119,8 +119,7 @@ export class ListingsService {
             format: ListingFormat.POST,
             priceNano,
             currency: CurrencyCode.TON,
-            availabilityFrom,
-            availabilityTo,
+
             pinDurationHours: data.pinDurationHours ?? null,
             visibilityDurationHours: data.visibilityDurationHours,
             allowEdits: data.allowEdits,
@@ -140,8 +139,6 @@ export class ListingsService {
             format: saved.format,
             priceNano: saved.priceNano,
             currency: saved.currency,
-            availabilityFrom: saved.availabilityFrom,
-            availabilityTo: saved.availabilityTo,
             pinDurationHours: saved.pinDurationHours,
             visibilityDurationHours: saved.visibilityDurationHours,
             allowEdits: saved.allowEdits,
