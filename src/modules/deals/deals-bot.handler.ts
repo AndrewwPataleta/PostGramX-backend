@@ -33,6 +33,7 @@ export class DealsBotHandler {
         @Inject(forwardRef(() => DealsService))
         private readonly dealsService: DealsService,
         private readonly dealsDeepLinkService: DealsDeepLinkService,
+        @Inject(forwardRef(() => TelegramMessengerService))
         private readonly telegramMessengerService: TelegramMessengerService,
     ) {}
 
