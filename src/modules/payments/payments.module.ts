@@ -16,11 +16,13 @@ import {TonCenterClient} from "./ton/toncenter.client";
 import {TonPaymentWatcher} from "./ton-payment.watcher";
 import {PaymentsPayoutsService} from './payouts/payments-payouts.service';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             ChannelEntity,
+            ChannelMembershipEntity,
             DealEntity,
             DealEscrowEntity,
             EscrowWalletEntity,
