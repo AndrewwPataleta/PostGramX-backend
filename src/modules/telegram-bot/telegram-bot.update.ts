@@ -14,6 +14,7 @@ export class TelegramBotUpdate {
     constructor(
         private readonly startHandler: StartHandler,
         private readonly helpHandler: HelpHandler,
+        @Inject(forwardRef(() => TelegramMessengerService))
         private readonly telegramMessengerService: TelegramMessengerService,
         @Inject(forwardRef(() => DealsBotHandler))
         private readonly dealsBotHandler: DealsBotHandler,
