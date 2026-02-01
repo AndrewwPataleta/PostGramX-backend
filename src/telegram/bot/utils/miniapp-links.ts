@@ -1,7 +1,17 @@
 export function buildMiniAppDealLink(dealId: string) {
-    const botUsername = process.env.TELEGRAM_BOT_USERNAME;
-    if (!botUsername) {
+    const baseUrl = process.env.MINI_APP_URL;
+    if (!baseUrl) {
         return 'https://t.me';
     }
-    return `https://t.me/${botUsername}?startapp=deal_${dealId}`;
+
+    try {
+        const url = new URL(baseUrl);
+        if (url.protocol !== 'https:') {
+            return baseUrl;
+        }
+        url.pathname = `${url.pathname.replace(/\/$/, '')}/deals/${dealId}`;
+        return url.toString();
+    } catch (error) {
+        return baseUrl;
+    }
 }

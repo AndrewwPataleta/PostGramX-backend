@@ -12,7 +12,7 @@ export class CreateTransactionDto {
     currency?: CurrencyCode;
     description?: string | null;
     dealId?: string | null;
-    escrowWalletId?: string | null;
+    escrowId?: string | null;
     channelId?: string | null;
     counterpartyUserId?: string | null;
     depositAddress?: string | null;

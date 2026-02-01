@@ -6,9 +6,8 @@ import {dtoValidationPipe} from '../../../common/pipes/dto-validation.pipe';
 import {assertUser, handleMappedError} from '../../../core/controller-utils';
 import {DealEscrowStatusDto} from './dto/deal-escrow-status.dto';
 import {InitDealEscrowDto} from './dto/init-deal-escrow.dto';
-import {MockConfirmDealEscrowDto} from './dto/mock-confirm-deal-escrow.dto';
 import {EscrowService} from './escrow.service';
-import {EscrowServiceError, EscrowServiceErrorCode} from './errors/escrow-service.error';
+import {EscrowServiceError} from './errors/escrow-service.error';
 import {
     mapEscrowErrorToMessageKey,
     mapEscrowErrorToStatus,
@@ -34,7 +33,6 @@ export class EscrowController {
             return await this.escrowService.initDealEscrow(
                 user.id,
                 dto.data.dealId,
-                dto.data.amountNano,
             );
         } catch (error) {
             await handleMappedError(error, i18n, {

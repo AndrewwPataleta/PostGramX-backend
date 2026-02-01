@@ -1,0 +1,82 @@
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    Index,
+    JoinColumn,
+    ManyToOne,
+    OneToOne,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from 'typeorm';
+import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
+import {DealEntity} from './deal.entity';
+import {EscrowWalletEntity} from '../../payments/entities/escrow-wallet.entity';
+
+@Entity({name: 'deal_escrows'})
+@Index('IDX_deal_escrows_status', ['status'])
+@Index('IDX_deal_escrows_payment_deadline', ['paymentDeadlineAt'])
+@Index('IDX_deal_escrows_payment_address', ['paymentAddress'])
+@Index('UQ_deal_escrows_deal_id', ['dealId'], {unique: true})
+export class DealEscrowEntity {
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+
+    @Column({type: 'uuid'})
+    dealId: string;
+
+    @Column({
+        type: 'enum',
+        enum: EscrowStatus,
+        enumName: 'deal_escrows_status_enum',
+        default: EscrowStatus.NOT_CREATED,
+    })
+    status: EscrowStatus;
+
+    @Column({
+        type: 'enum',
+        enum: CurrencyCode,
+        enumName: 'deal_escrows_currency_enum',
+        default: CurrencyCode.TON,
+    })
+    currency: CurrencyCode;
+
+    @Column({type: 'bigint'})
+    amountNano: string;
+
+    @Column({type: 'bigint', default: '0'})
+    paidNano: string;
+
+    @Column({type: 'uuid', nullable: true})
+    walletId: string | null;
+
+    @Column({type: 'text', nullable: true})
+    paymentAddress: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    paymentDeadlineAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    confirmedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    releasedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    refundedAt: Date | null;
+
+    @CreateDateColumn({type: 'timestamptz'})
+    createdAt: Date;
+
+    @UpdateDateColumn({type: 'timestamptz'})
+    updatedAt: Date;
+
+    @OneToOne(() => DealEntity, (deal) => deal.escrow, {onDelete: 'CASCADE'})
+    @JoinColumn({name: 'dealId'})
+    deal: DealEntity;
+
+    @ManyToOne(() => EscrowWalletEntity, {nullable: true})
+    @JoinColumn({name: 'walletId'})
+    wallet: EscrowWalletEntity | null;
+}

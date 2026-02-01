@@ -13,7 +13,8 @@ import {ChannelMembershipEntity} from '../modules/channels/entities/channel-memb
 import {ChannelTelegramAdminEntity} from '../modules/channels/entities/channel-telegram-admin.entity';
 import {DealEntity} from '../modules/deals/entities/deal.entity';
 import {DealCreativeEntity} from '../modules/deals/entities/deal-creative.entity';
-import {DealReminderEntity} from '../modules/deals/entities/deal-reminder.entity';
+import {DealEscrowEntity} from '../modules/deals/entities/deal-escrow.entity';
+import {DealPublicationEntity} from '../modules/deals/entities/deal-publication.entity';
 import {ListingEntity} from '../modules/listings/entities/listing.entity';
 import {EscrowWalletEntity} from '../modules/payments/entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from '../modules/payments/entities/escrow-wallet-key.entity';
@@ -33,7 +34,8 @@ export const typeOrmEntities = [
     TonTransferEntity,
     DealEntity,
     DealCreativeEntity,
-    DealReminderEntity,
+    DealEscrowEntity,
+    DealPublicationEntity,
     ListingEntity,
     EscrowWalletEntity,
     EscrowWalletKeyEntity,

@@ -33,6 +33,7 @@ import {User} from '../auth/entities/user.entity';
     exports: [
         ChannelsService,
         MembershipsAutoLinkService,
+        ChannelAdminRecheckService,
         ChannelParticipantsService,
     ],
 })

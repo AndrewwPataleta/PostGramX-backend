@@ -1,31 +1,46 @@
 import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
-import {DealEscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
+import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 
-export function mapEscrowToDealStatus(
-    escrow: DealEscrowStatus,
-): DealStatus {
-    switch (escrow) {
-        case DealEscrowStatus.DRAFT:
-        case DealEscrowStatus.SCHEDULING_PENDING:
-        case DealEscrowStatus.CREATIVE_AWAITING_SUBMIT:
-        case DealEscrowStatus.CREATIVE_AWAITING_ADMIN_REVIEW:
-        case DealEscrowStatus.AWAITING_PAYMENT:
-        case DealEscrowStatus.FUNDS_PENDING:
+export function mapStageToDealStatus(stage: DealStage): DealStatus {
+    switch (stage) {
+        case DealStage.SCHEDULING_PENDING:
+        case DealStage.CREATIVE_AWAITING_SUBMIT:
+        case DealStage.CREATIVE_SUBMITTED:
+        case DealStage.ADMIN_REVIEW_PENDING:
+        case DealStage.PAYMENT_AWAITING:
+        case DealStage.PAYMENT_PARTIALLY_PAID:
             return DealStatus.PENDING;
-        case DealEscrowStatus.FUNDS_CONFIRMED:
-        case DealEscrowStatus.CREATIVE_PENDING:
-        case DealEscrowStatus.CREATIVE_REVIEW:
-        case DealEscrowStatus.APPROVED_SCHEDULED:
-        case DealEscrowStatus.POSTING:
-        case DealEscrowStatus.POSTED_VERIFYING:
+        case DealStage.POST_SCHEDULED:
+        case DealStage.POST_PUBLISHING:
+        case DealStage.POSTED_VERIFYING:
+        case DealStage.DELIVERY_CONFIRMED:
             return DealStatus.ACTIVE;
-        case DealEscrowStatus.COMPLETED:
-            return DealStatus.COMPLETED;
-        case DealEscrowStatus.CANCELED:
-        case DealEscrowStatus.REFUNDED:
-        case DealEscrowStatus.DISPUTED:
+        case DealStage.REFUNDING:
             return DealStatus.CANCELED;
+        case DealStage.FINALIZED:
+            return DealStatus.COMPLETED;
         default:
             return DealStatus.PENDING;
+    }
+}
+
+export function mapEscrowToStage(status: EscrowStatus): DealStage {
+    switch (status) {
+        case EscrowStatus.AWAITING_PAYMENT:
+            return DealStage.PAYMENT_AWAITING;
+        case EscrowStatus.PARTIALLY_PAID:
+            return DealStage.PAYMENT_PARTIALLY_PAID;
+        case EscrowStatus.PAID_CONFIRMED:
+            return DealStage.POST_SCHEDULED;
+        case EscrowStatus.REFUNDED:
+        case EscrowStatus.FAILED:
+        case EscrowStatus.EXPIRED:
+            return DealStage.REFUNDING;
+        case EscrowStatus.RELEASED:
+            return DealStage.DELIVERY_CONFIRMED;
+        case EscrowStatus.NOT_CREATED:
+        default:
+            return DealStage.SCHEDULING_PENDING;
     }
 }
