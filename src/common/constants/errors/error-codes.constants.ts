@@ -3,6 +3,7 @@ export enum DealErrorCode {
     LISTING_NOT_FOUND = 'deal.listing_not_found',
     LISTING_DISABLED = 'deal.listing_disabled',
     UNAUTHORIZED = 'deal.unauthorized',
+    UNAUTHORIZED_DEAL_ACCESS = 'deal.unauthorized_deal_access',
     INVALID_SCHEDULE_TIME = 'deal.invalid_schedule_time',
     INVALID_STATUS = 'deal.invalid_status',
     SELF_DEAL_NOT_ALLOWED = 'deal.self_deal_not_allowed',

@@ -7,6 +7,7 @@ export const mapDealErrorToStatus = (code: DealErrorCode): HttpStatus => {
         case DealErrorCode.LISTING_NOT_FOUND:
             return HttpStatus.NOT_FOUND;
         case DealErrorCode.UNAUTHORIZED:
+        case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
             return HttpStatus.FORBIDDEN;
         case DealErrorCode.INVALID_SCHEDULE_TIME:
         case DealErrorCode.LISTING_DISABLED:
@@ -28,6 +29,7 @@ export const mapDealErrorToMessageKey = (code: DealErrorCode): string => {
         case DealErrorCode.LISTING_DISABLED:
             return 'deals.errors.listingDisabled';
         case DealErrorCode.UNAUTHORIZED:
+        case DealErrorCode.UNAUTHORIZED_DEAL_ACCESS:
             return 'deals.errors.unauthorized';
         case DealErrorCode.INVALID_SCHEDULE_TIME:
             return 'deals.errors.invalidScheduleTime';

@@ -24,6 +24,7 @@ import {
     mapEscrowErrorToMessageKey,
     mapEscrowErrorToStatus,
 } from '../payments/escrow/errors/escrow-error-mapper';
+import {DealDetailDto} from './dto/deal-detail.dto';
 
 @Controller('deals')
 @ApiTags('deals')
@@ -92,6 +93,39 @@ export class DealsController {
 
         try {
             return await this.dealsService.getDeal(user.id, dto.data.dealId);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('detail')
+    @ApiOperation({summary: 'Get deal details for timeline screen'})
+    @ApiBody({
+        type: DealDetailDto,
+        examples: {
+            default: {
+                value: {
+                    platformType: 'telegram',
+                    authType: 'telegram',
+                    token: '<initData>',
+                    data: {id: '<deal uuid>'},
+                },
+            },
+        },
+    })
+    async detail(
+        @Body(dtoValidationPipe) dto: DealDetailDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.getDealDetail(user.id, dto.data.id);
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: DealServiceError,

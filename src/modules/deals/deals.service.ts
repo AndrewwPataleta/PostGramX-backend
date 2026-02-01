@@ -198,6 +198,13 @@ export class DealsService {
 
         // TODO: notify when escrow status moves to verification/approval steps.
 
+        const channelCard = deal.channel as
+            | (ChannelEntity & {
+                  name?: string | null;
+                  avatarUrl?: string | null;
+              })
+            | null;
+
         return {
             id: deal.id,
             status: deal.status,
@@ -1061,6 +1068,112 @@ export class DealsService {
         return this.buildDealItem(deal, userId, transaction ?? null);
     }
 
+    async getDealDetail(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+            relations: {
+                channel: true,
+                listing: true,
+            },
+        });
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        const isAdvertiser = deal.advertiserUserId === userId;
+        const publisherOwnerId =
+            deal.publisherOwnerUserId ??
+            (deal.channelId
+                ? await this.resolveChannelOwnerUserId(deal.channelId)
+                : null);
+        const isPublisherOwner = publisherOwnerId === userId;
+        const isPublisherManager = deal.channelId
+            ? await this.isUserChannelManager(userId, deal.channelId)
+            : false;
+
+        if (!isAdvertiser && !isPublisherOwner && !isPublisherManager) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED_DEAL_ACCESS);
+        }
+
+        const listingSnapshot =
+            deal.listingSnapshot &&
+            Object.keys(deal.listingSnapshot).length > 0
+                ? deal.listingSnapshot
+                : this.buildListingSnapshotFromListing(deal.listing);
+
+        const userRoleInDeal = isAdvertiser
+            ? 'advertiser'
+            : isPublisherOwner
+              ? 'publisher'
+              : 'publisher_manager';
+
+        const channelCard = deal.channel as
+            | (ChannelEntity & {
+                  name?: string | null;
+                  avatarUrl?: string | null;
+              })
+            | null;
+
+        return {
+            id: deal.id,
+            status: deal.status,
+            escrowStatus: deal.escrowStatus,
+            idleExpiresAt: deal.idleExpiresAt ?? null,
+            creativeDeadlineAt: deal.creativeDeadlineAt ?? null,
+            adminReviewDeadlineAt: deal.adminReviewDeadlineAt ?? null,
+            paymentDeadlineAt: deal.paymentDeadlineAt ?? null,
+            scheduledAt: deal.scheduledAt ?? null,
+            publishedMessageId: deal.publishedMessageId ?? null,
+            publishedAt: deal.publishedAt ?? null,
+            deliveryVerifiedAt: deal.deliveryVerifiedAt ?? null,
+            mustRemainUntil: deal.mustRemainUntil ?? null,
+            escrow: {
+                walletId: deal.escrowWalletId ?? null,
+                paymentAddress: deal.escrowPaymentAddress ?? null,
+                amountNano: deal.escrowAmountNano ?? null,
+                currency: deal.escrowCurrency,
+                expiresAt: deal.escrowExpiresAt ?? null,
+                paidNano: (deal as {escrowPaidNano?: string | null})
+                    .escrowPaidNano ?? null,
+                remainingNano: (deal as {escrowRemainingNano?: string | null})
+                    .escrowRemainingNano ?? null,
+            },
+            creative: {
+                submittedAt: deal.creativeSubmittedAt ?? null,
+                messageId: deal.creativeMessageId ?? null,
+                text: deal.creativeText ?? null,
+                hasPayload: Boolean(deal.creativePayload),
+            },
+            adminReview: {
+                comment: deal.adminReviewComment ?? null,
+                notifiedAt: deal.adminReviewNotifiedAt ?? null,
+                approvedAt: deal.approvedAt ?? null,
+            },
+            channel: channelCard
+                ? {
+                      id: channelCard.id,
+                      name: channelCard.title ?? channelCard.name ?? null,
+                      username: channelCard.username ?? null,
+                      avatarUrl: channelCard.avatarUrl ?? null,
+                      subscribers: channelCard.subscribersCount ?? null,
+                  }
+                : deal.channelId
+                  ? await this.fetchChannelCardById(deal.channelId)
+                  : null,
+            listing: {
+                id: deal.listingId,
+                snapshot: listingSnapshot ?? null,
+            },
+            initiatorSide: (deal as {sideInitiator?: DealInitiatorSide | null})
+                .sideInitiator ?? null,
+            userRoleInDeal,
+            lastActivityAt: deal.lastActivityAt,
+            createdAt: deal.createdAt,
+            updatedAt: deal.updatedAt,
+        };
+    }
+
     private async fetchDealsGroup(
         userId: string,
         role: 'all' | 'advertiser' | 'publisher',
@@ -1242,6 +1355,95 @@ export class DealsService {
             contentRulesText: listing.contentRulesText,
             version: listing.version ?? 1,
             snapshotAt: snapshotAt.toISOString(),
+        };
+    }
+
+    private buildListingSnapshotFromListing(
+        listing: ListingEntity | null,
+    ): DealListingSnapshot | null {
+        if (!listing) {
+            return null;
+        }
+
+        return this.buildListingSnapshot(listing, new Date());
+    }
+
+    private async resolveChannelOwnerUserId(
+        channelId: string,
+    ): Promise<string | null> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+            select: {
+                id: true,
+                ownerUserId: true,
+            },
+        });
+
+        if (!channel) {
+            return null;
+        }
+
+        if (channel.ownerUserId) {
+            return channel.ownerUserId;
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            where: {
+                channelId,
+                role: ChannelRole.OWNER,
+                isActive: true,
+            },
+            select: {
+                userId: true,
+            },
+        });
+
+        return membership?.userId ?? null;
+    }
+
+    private async isUserChannelManager(
+        userId: string,
+        channelId: string,
+    ): Promise<boolean> {
+        const count = await this.membershipRepository.count({
+            where: {
+                channelId,
+                userId,
+                isActive: true,
+                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+            },
+        });
+
+        return count > 0;
+    }
+
+    private async fetchChannelCardById(channelId: string): Promise<{
+        id: string;
+        name: string | null;
+        username: string | null;
+        avatarUrl: string | null;
+        subscribers: number | null;
+    } | null> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+            select: {
+                id: true,
+                title: true,
+                username: true,
+                subscribersCount: true,
+            },
+        });
+
+        if (!channel) {
+            return null;
+        }
+
+        return {
+            id: channel.id,
+            name: channel.title ?? null,
+            username: channel.username ?? null,
+            avatarUrl: null,
+            subscribers: channel.subscribersCount ?? null,
         };
     }
 
