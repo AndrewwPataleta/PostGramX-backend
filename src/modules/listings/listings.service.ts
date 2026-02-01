@@ -61,7 +61,7 @@ export class ListingsService {
             );
         }
 
-        if (channel.createdByUserId !== userId) {
+        if (channel.ownerUserId !== userId) {
             throw new ListingServiceError(
                 ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
             );
