@@ -8,7 +8,7 @@ import {RequestResponseLoggerMiddleware} from './common/middleware/request-respo
 import {ConfigModule, ConfigService} from '@nestjs/config';
 import {ScheduleModule} from '@nestjs/schedule';
 import {TypeOrmModule} from '@nestjs/typeorm';
-import {I18nModule, AcceptLanguageResolver} from 'nestjs-i18n';
+import {I18nModule, AcceptLanguageResolver, I18nJsonLoader} from 'nestjs-i18n';
 import {join} from 'path';
 import {getEnvFilePath} from './config/env.helper';
 import {CacheModule, CacheInterceptor} from '@nestjs/cache-manager';
@@ -32,6 +32,7 @@ import {
         CacheModule.register({ttl: 60, isGlobal: true}),
         I18nModule.forRoot({
             fallbackLanguage: 'en',
+            loader: I18nJsonLoader,
             loaderOptions: {
                 path: join(process.cwd(), 'src/i18n'),
                 watch: true,
