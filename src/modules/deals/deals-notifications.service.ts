@@ -9,7 +9,7 @@ import {ChannelParticipantsService} from '../channels/channel-participants.servi
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramBotService} from '../telegram-bot/telegram-bot.service';
 import {User} from '../auth/entities/user.entity';
-import {buildMiniAppDealLink} from '../../telegram/bot/utils/miniapp-links';
+import {buildMiniAppDealLink} from '../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 
