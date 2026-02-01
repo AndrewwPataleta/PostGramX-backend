@@ -198,12 +198,16 @@ export class DealsService {
 
         // TODO: notify when escrow status moves to verification/approval steps.
 
-        const channelCard = deal.channel as
-            | (ChannelEntity & {
-                  name?: string | null;
-                  avatarUrl?: string | null;
-              })
-            | null;
+        const channelCard = deal.channel;
+        const transaction = await this.transactionRepository.findOne({
+            where: {dealId: deal.id, type: TransactionType.ESCROW_HOLD},
+        });
+        const escrowAmountNano =
+            deal.escrowAmountNano ?? transaction?.amountNano ?? null;
+        const escrowPaidNano = transaction?.receivedNano ?? null;
+        const escrowRemainingNano = escrowAmountNano
+            ? subNano(escrowAmountNano, transaction?.receivedNano ?? '0')
+            : null;
 
         return {
             id: deal.id,
@@ -1108,12 +1112,16 @@ export class DealsService {
               ? 'publisher'
               : 'publisher_manager';
 
-        const channelCard = deal.channel as
-            | (ChannelEntity & {
-                  name?: string | null;
-                  avatarUrl?: string | null;
-              })
-            | null;
+        const channelCard = deal.channel;
+        const transaction = await this.transactionRepository.findOne({
+            where: {dealId: deal.id, type: TransactionType.ESCROW_HOLD},
+        });
+        const escrowAmountNano =
+            deal.escrowAmountNano ?? transaction?.amountNano ?? null;
+        const escrowPaidNano = transaction?.receivedNano ?? null;
+        const escrowRemainingNano = escrowAmountNano
+            ? subNano(escrowAmountNano, transaction?.receivedNano ?? '0')
+            : null;
 
         return {
             id: deal.id,
@@ -1131,13 +1139,11 @@ export class DealsService {
             escrow: {
                 walletId: deal.escrowWalletId ?? null,
                 paymentAddress: deal.escrowPaymentAddress ?? null,
-                amountNano: deal.escrowAmountNano ?? null,
+                amountNano: escrowAmountNano,
                 currency: deal.escrowCurrency,
                 expiresAt: deal.escrowExpiresAt ?? null,
-                paidNano: (deal as {escrowPaidNano?: string | null})
-                    .escrowPaidNano ?? null,
-                remainingNano: (deal as {escrowRemainingNano?: string | null})
-                    .escrowRemainingNano ?? null,
+                paidNano: escrowPaidNano,
+                remainingNano: escrowRemainingNano,
             },
             creative: {
                 submittedAt: deal.creativeSubmittedAt ?? null,
@@ -1153,9 +1159,9 @@ export class DealsService {
             channel: channelCard
                 ? {
                       id: channelCard.id,
-                      name: channelCard.title ?? channelCard.name ?? null,
+                      name: channelCard.title ?? null,
                       username: channelCard.username ?? null,
-                      avatarUrl: channelCard.avatarUrl ?? null,
+                      avatarUrl: null,
                       subscribers: channelCard.subscribersCount ?? null,
                   }
                 : deal.channelId
