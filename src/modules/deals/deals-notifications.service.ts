@@ -7,15 +7,13 @@ import {DealEscrowEntity} from './entities/deal-escrow.entity';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
-import {TelegramI18nService} from '../../telegram/i18n/telegram-i18n.service';
-import {
-    TelegramInlineButtonSpec,
-    TelegramMessengerService,
-} from '../../telegram/telegram-messenger.service';
+
 import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {TelegramI18nService} from "../telegram/i18n/telegram-i18n.service";
+import {TelegramInlineButtonSpec, TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
 const NOTIFICATION_CONCURRENCY = 5;
 

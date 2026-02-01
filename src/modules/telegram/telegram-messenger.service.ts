@@ -2,10 +2,11 @@ import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {ConfigService} from '@nestjs/config';
-import {User} from '../modules/auth/entities/user.entity';
-import {TelegramBotService} from '../modules/telegram-bot/telegram-bot.service';
-import {TelegramInlineButton} from '../modules/telegram-bot/telegram-bot.types';
+
 import {TelegramI18nService, TelegramLanguage} from './i18n/telegram-i18n.service';
+import {TelegramBotService} from "../telegram-bot/telegram-bot.service";
+import {User} from "../auth/entities/user.entity";
+import {TelegramInlineButton} from "../telegram-bot/telegram-bot.types";
 
 export interface TelegramInlineButtonSpec {
     textKey: string;

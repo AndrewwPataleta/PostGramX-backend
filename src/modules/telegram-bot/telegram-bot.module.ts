@@ -7,9 +7,10 @@ import {TelegramBotService} from './telegram-bot.service';
 import {TelegramBotUpdate} from './telegram-bot.update';
 import {DealsModule} from '../deals/deals.module';
 import {ChannelsModule} from '../channels/channels.module';
-import {TelegramI18nService} from '../../telegram/i18n/telegram-i18n.service';
-import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
+
 import {User} from '../auth/entities/user.entity';
+import {TelegramI18nService} from "../telegram/i18n/telegram-i18n.service";
+import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
 @Module({
     imports: [

@@ -3,7 +3,8 @@ import {Context} from 'telegraf';
 import {DealsService} from './deals.service';
 import {DealCreativeType} from './types/deal-creative-type.enum';
 import {DealsDeepLinkService} from './deals-deep-link.service';
-import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
+import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
+
 
 const getStartPayload = (context: Context): string | undefined => {
     if (!('startPayload' in context)) {

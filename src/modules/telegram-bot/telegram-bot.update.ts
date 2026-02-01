@@ -4,7 +4,8 @@ import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TELEGRAM_BOT_COMMANDS} from './telegram-bot.constants';
 import {DealsBotHandler} from '../deals/deals-bot.handler';
-import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
+import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
+
 
 @Injectable()
 export class TelegramBotUpdate {

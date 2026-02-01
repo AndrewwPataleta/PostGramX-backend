@@ -1,6 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {I18nService} from 'nestjs-i18n';
-import {User} from '../../modules/auth/entities/user.entity';
+import {User} from "../../auth/entities/user.entity";
+
 
 export type TelegramLanguage = 'en' | 'ru';
 

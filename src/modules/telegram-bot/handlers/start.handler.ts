@@ -1,7 +1,7 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {TELEGRAM_MINI_APP_ROUTES} from '../telegram-bot.constants';
-import {TelegramInlineButtonSpec} from '../../../telegram/telegram-messenger.service';
+import {TelegramInlineButtonSpec} from "../../telegram/telegram-messenger.service";
 
 @Injectable()
 export class StartHandler {

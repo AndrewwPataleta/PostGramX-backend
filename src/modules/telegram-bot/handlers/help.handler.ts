@@ -4,7 +4,8 @@ import {
     TELEGRAM_MINI_APP_ROUTES,
     TELEGRAM_SUPPORT_URL_PLACEHOLDER,
 } from '../telegram-bot.constants';
-import {TelegramInlineButtonSpec} from '../../../telegram/telegram-messenger.service';
+import {TelegramInlineButtonSpec} from "../../telegram/telegram-messenger.service";
+
 
 @Injectable()
 export class HelpHandler {
