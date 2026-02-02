@@ -1,6 +1,6 @@
 import {Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {EntityManager, Repository} from 'typeorm';
+import {EntityManager, QueryFailedError, Repository} from 'typeorm';
 import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from '../entities/escrow-wallet-key.entity';
 import {TonWalletProvider} from './providers/ton-wallet.provider';
@@ -35,25 +35,73 @@ export class WalletsService {
             dealId,
         });
 
-        const wallet = walletRepository.create({
-            address: generated.address,
-            network: CurrencyCode.TON,
+        const existingWallet = await walletRepository.findOne({
+            where: {
+                address: generated.address,
+                network: CurrencyCode.TON,
+            },
         });
-        const savedWallet = await walletRepository.save(wallet);
 
-        if (generated.secret) {
-            const encryptedSecret = this.keyEncryptionService.encryptSecret(
-                generated.secret,
-            );
-            const walletKey = keyRepository.create({
-                walletId: savedWallet.id,
-                encryptedSecret,
-                keyVersion: 1,
-            });
-            await keyRepository.save(walletKey);
+        if (existingWallet) {
+            await this.ensureWalletKey(existingWallet.id, generated.secret, keyRepository);
+            return existingWallet;
         }
 
-        return savedWallet;
+        try {
+            const wallet = walletRepository.create({
+                address: generated.address,
+                network: CurrencyCode.TON,
+            });
+            const savedWallet = await walletRepository.save(wallet);
+            await this.ensureWalletKey(savedWallet.id, generated.secret, keyRepository);
+            return savedWallet;
+        } catch (error) {
+            if (
+                error instanceof QueryFailedError &&
+                error.message.includes('UQ_escrow_wallets_address_network')
+            ) {
+                const conflictedWallet = await walletRepository.findOneOrFail({
+                    where: {
+                        address: generated.address,
+                        network: CurrencyCode.TON,
+                    },
+                });
+                await this.ensureWalletKey(
+                    conflictedWallet.id,
+                    generated.secret,
+                    keyRepository,
+                );
+                return conflictedWallet;
+            }
+
+            throw error;
+        }
+    }
+
+    private async ensureWalletKey(
+        walletId: string,
+        secret: string | undefined,
+        keyRepository: Repository<EscrowWalletKeyEntity>,
+    ): Promise<void> {
+        if (!secret) {
+            return;
+        }
+
+        const existingKey = await keyRepository.findOne({
+            where: {walletId},
+        });
+
+        if (existingKey) {
+            return;
+        }
+
+        const encryptedSecret = this.keyEncryptionService.encryptSecret(secret);
+        const walletKey = keyRepository.create({
+            walletId,
+            encryptedSecret,
+            keyVersion: 1,
+        });
+        await keyRepository.save(walletKey);
     }
 
     async closeWallet(walletId: string, manager?: EntityManager): Promise<void> {
