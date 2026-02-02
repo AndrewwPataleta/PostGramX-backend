@@ -136,8 +136,6 @@ export class DealsNotificationsService {
                         dealId: deal.id.slice(0, 8),
                         scheduledAt,
                         creativeText: textContent,
-                        status: deal.status ?? 'unknown',
-                        stage: deal.stage ?? 'unknown',
                         actionDeadline,
                     };
                     if (creativeType === 'TEXT') {
@@ -172,8 +170,6 @@ export class DealsNotificationsService {
                                 channel: channelLabel,
                                 dealId: deal.id.slice(0, 8),
                                 scheduledAt,
-                                status: deal.status ?? 'unknown',
-                                stage: deal.stage ?? 'unknown',
                                 actionDeadline,
                             },
                             buttons,
@@ -285,8 +281,6 @@ export class DealsNotificationsService {
                         dealId: deal.id.slice(0, 8),
                         scheduledAt,
                         creativeText: textContent,
-                        status: deal.status ?? 'unknown',
-                        stage: deal.stage ?? 'unknown',
                         actionDeadline,
                     };
                     if (creativeType === 'TEXT') {
@@ -321,8 +315,6 @@ export class DealsNotificationsService {
                                 channel: channelLabel,
                                 dealId: deal.id.slice(0, 8),
                                 scheduledAt,
-                                status: deal.status ?? 'unknown',
-                                stage: deal.stage ?? 'unknown',
                                 actionDeadline,
                             },
                             buttons,
@@ -391,8 +383,6 @@ export class DealsNotificationsService {
                     'telegram.common.tbd',
                 ),
             paymentAddress,
-            status: deal.status ?? 'unknown',
-            stage: deal.stage ?? 'unknown',
         };
 
         const link = this.ensureMiniAppLink(deal.id);
@@ -455,8 +445,6 @@ export class DealsNotificationsService {
             received: formatTon(receivedNano),
             remaining: formatTon(remainingNano),
             currency: CurrencyCode.TON,
-            status: deal.status ?? 'unknown',
-            stage: deal.stage ?? 'unknown',
         };
         const buttons: TelegramInlineButtonSpec[][] = link
             ? [
@@ -510,8 +498,6 @@ export class DealsNotificationsService {
                     'telegram.deal.payment_confirmed.message',
                     {
                         dealId: deal.id.slice(0, 8),
-                        status: deal.status ?? 'unknown',
-                        stage: deal.stage ?? 'unknown',
                     },
                     buttons,
                     {
@@ -524,8 +510,6 @@ export class DealsNotificationsService {
                     'telegram.deal.payment_confirmed.message',
                     {
                         dealId: deal.id.slice(0, 8),
-                        status: deal.status ?? 'unknown',
-                        stage: deal.stage ?? 'unknown',
                     },
                     {
                         lang: this.telegramI18nService.resolveLanguageForUser(advertiser),
@@ -551,8 +535,6 @@ export class DealsNotificationsService {
                         'telegram.deal.payment_confirmed.message',
                         {
                             dealId: deal.id.slice(0, 8),
-                            status: deal.status ?? 'unknown',
-                            stage: deal.stage ?? 'unknown',
                         },
                         buttons,
                         {
@@ -567,8 +549,6 @@ export class DealsNotificationsService {
                         'telegram.deal.payment_confirmed.message',
                         {
                             dealId: deal.id.slice(0, 8),
-                            status: deal.status ?? 'unknown',
-                            stage: deal.stage ?? 'unknown',
                         },
                         {
                             lang: this.telegramI18nService.resolveLanguageForUser(
@@ -660,8 +640,6 @@ export class DealsNotificationsService {
                     const args: Record<string, any> = {
                         channel: channelLabel,
                         dealId: deal.id.slice(0, 8),
-                        status: deal.status ?? 'unknown',
-                        stage: deal.stage ?? 'unknown',
                         actionDeadline,
                     };
                     if (payload.reasonKey) {
@@ -723,8 +701,6 @@ export class DealsNotificationsService {
                         'telegram.deal.creative_approved.admin',
                         {
                             dealId: deal.id.slice(0, 8),
-                            status: deal.status ?? 'unknown',
-                            stage: deal.stage ?? 'unknown',
                             actionDeadline,
                         },
                         buttons,
@@ -784,8 +760,6 @@ export class DealsNotificationsService {
                         'telegram.deal.schedule_approved.admin',
                         {
                             dealId: deal.id.slice(0, 8),
-                            status: deal.status ?? 'unknown',
-                            stage: deal.stage ?? 'unknown',
                             paymentDeadline: deadlineLabel,
                         },
                         buttons,
@@ -915,8 +889,6 @@ export class DealsNotificationsService {
             messageKey,
             {
                 dealId: deal.id.slice(0, 8),
-                status: deal.status ?? 'unknown',
-                stage: deal.stage ?? 'unknown',
                 actionDeadline,
                 paymentDeadline: actionDeadline,
             },

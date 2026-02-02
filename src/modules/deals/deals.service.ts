@@ -833,8 +833,6 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         return {
             handled: true,
-            messageKey: 'telegram.deal.creative.approved_payment_sent',
-            messageArgs: undefined,
         };
     }
 
