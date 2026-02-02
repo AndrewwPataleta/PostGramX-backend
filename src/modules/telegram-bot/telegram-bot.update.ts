@@ -132,6 +132,44 @@ export class TelegramBotUpdate {
                     return;
                 }
             }
+
+            if (data?.startsWith('approve_schedule:')) {
+                const dealId = data.replace('approve_schedule:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleScheduleApproveCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
+
+            if (data?.startsWith('request_schedule_changes:')) {
+                const dealId = data
+                    .replace('request_schedule_changes:', '')
+                    .trim();
+                const handled =
+                    await this.dealsBotHandler.handleScheduleRequestChangesCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
+
+            if (data?.startsWith('reject_schedule:')) {
+                const dealId = data.replace('reject_schedule:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleScheduleRejectCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
         });
 
         // bot.on('message', async (context) => {

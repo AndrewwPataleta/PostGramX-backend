@@ -80,10 +80,19 @@
     },
     "buttons": {
       "approve": "Одобрить",
+      "confirm": "Подтвердить",
       "request_changes": "Запросить изменения",
-      "reject": "Отклонить"
+      "reject": "Отклонить",
+      "cancel": "Отменить"
+    },
+    "schedule_submitted": {
+      "message": "Расписание отправлено на проверку\nКанал: {channel}\nСделка: {dealId}\nВремя публикации: {scheduledAt}\n\nКреатив:\n{creativeText}",
+      "unsupported_preview": "Расписание отправлено на проверку\nКанал: {channel}\nСделка: {dealId}\nВремя публикации: {scheduledAt}\n\nПредпросмотр креатива не поддерживается для этого формата."
     },
     "schedule": {
+      "approved": "Расписание подтверждено. Рекламодатель уведомлен.",
+      "canceled_advertiser": "Расписание отменено по сделке {dealId}. Пожалуйста, пересоздайте расписание в мини-приложении.",
+      "canceled_notified": "Расписание отменено. Рекламодатель уведомлен.",
       "request_changes_prompt": "Чтобы запросить изменения расписания, ответьте на это сообщение с обновленными деталями.\n\n#schedule_change_request:{dealId}",
       "changes_requested": "Запрошены изменения расписания. Рекламодатель уведомлен.",
       "changes_requested_advertiser": "Запрошены изменения расписания по сделке {dealId}.\nКомментарий: {comment}"
