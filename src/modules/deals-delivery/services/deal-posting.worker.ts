@@ -105,9 +105,12 @@ export class DealPostingWorker {
                 stage: DealStage.FINALIZED,
                 status: DealStatus.CANCELED,
             });
+            await this.dealsNotificationsService.notifyPostNotPublishedAdmin(
+                deal,
+            );
             await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
-                'telegram.deal.canceled.bot_rights_lost',
+                'telegram.deal.post.not_published_advertiser',
             );
             return;
         }
