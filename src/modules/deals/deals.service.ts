@@ -497,10 +497,9 @@ export class DealsService {
             where: {dealId: deal.id},
         });
 
-        if (updatedDeal && updatedEscrow) {
-            await this.dealsNotificationsService.notifyAdvertiserPaymentRequired(
+        if (updatedDeal) {
+            await this.dealsNotificationsService.notifyCreativeApproved(
                 updatedDeal,
-                updatedEscrow,
             );
         }
 
@@ -577,6 +576,13 @@ export class DealsService {
             await this.dealsNotificationsService.notifyAdvertiserPaymentRequired(
                 updatedDeal,
                 updatedEscrow,
+            );
+        }
+        if (updatedDeal) {
+            await this.dealsNotificationsService.notifyScheduleApproved(
+                updatedDeal,
+                updatedEscrow ?? null,
+                {notifyAdvertiser: false},
             );
         }
 
