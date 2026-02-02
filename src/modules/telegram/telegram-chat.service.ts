@@ -287,7 +287,7 @@ export class TelegramChatService {
             return trimmed;
         }
 
-        const isNumeric = /^-?\\d+$/.test(trimmed);
+        const isNumeric = /^-?\d+$/.test(trimmed);
         return isNumeric ? trimmed : `@${trimmed}`;
     }
 }
