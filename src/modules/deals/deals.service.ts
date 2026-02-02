@@ -214,27 +214,32 @@ export class DealsService {
             ...this.buildActivityUpdate(now),
         });
 
-        // const updatedDeal = await this.dealRepository.findOne({
-        //     where: {id: deal.id},
-        // });
-        // const advertiser = await this.userRepository.findOne({
-        //     where: {id: deal.advertiserUserId},
-        // });
-        //
-        // if (updatedDeal && advertiser?.telegramId) {
-        //     try {
-        //         await this.dealsNotificationsService.notifyCreativeRequired(
-        //             updatedDeal,
-        //             advertiser.telegramId,
-        //         );
-        //     } catch (error) {
-        //         const errorMessage =
-        //             error instanceof Error ? error.message : String(error);
-        //         this.logger.warn(
-        //             `Creative notification failed for dealId=${deal.id}: ${errorMessage}`,
-        //         );
-        //     }
-        // }
+        const [updatedDeal, latestCreative] = await Promise.all([
+            this.dealRepository.findOne({where: {id: deal.id}}),
+            this.creativeRepository.findOne({
+                where: {dealId: deal.id},
+                order: {version: 'DESC'},
+            }),
+        ]);
+
+        if (updatedDeal && latestCreative) {
+            try {
+                await this.dealsNotificationsService.notifyScheduleSubmitted(
+                    updatedDeal,
+                    latestCreative,
+                );
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Schedule notification failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
+        } else if (!latestCreative) {
+            this.logger.warn(
+                `Schedule notification skipped: missing creative for dealId=${deal.id}`,
+            );
+        }
 
         return {
             id: deal.id,
@@ -827,6 +832,31 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         };
     }
 
+    async handleScheduleApprovalFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+
+        if (!user) {
+            return {handled: false};
+        }
+
+        await this.approveScheduleByAdmin(user.id, payload.dealId);
+
+        return {
+            handled: true,
+            messageKey: 'telegram.deal.schedule.approved',
+            messageArgs: undefined,
+        };
+    }
+
     async handleCreativeRequestChangesFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
@@ -852,6 +882,35 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         return {
             handled: true,
             messageKey: 'telegram.deal.creative.request_changes_prompt',
+            messageArgs: {dealId: payload.dealId},
+        };
+    }
+
+    async handleScheduleRequestChangesFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+
+        if (!user) {
+            return {handled: false};
+        }
+
+        await this.ensureChangeRequestAllowed(
+            user.id,
+            payload.dealId,
+            'schedule',
+        );
+
+        return {
+            handled: true,
+            messageKey: 'telegram.deal.schedule.request_changes_prompt',
             messageArgs: {dealId: payload.dealId},
         };
     }
@@ -928,6 +987,43 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         return {
             handled: true,
             messageKey: 'telegram.deal.creative.rejected_notified',
+            messageArgs: undefined,
+        };
+    }
+
+    async handleScheduleRejectFromTelegram(payload: {
+        telegramUserId: string;
+        dealId: string;
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+
+        if (!user) {
+            return {handled: false};
+        }
+
+        await this.cancelDeal(user.id, payload.dealId, 'ADMIN_REJECTED');
+
+        const updatedDeal = await this.dealRepository.findOne({
+            where: {id: payload.dealId},
+        });
+
+        if (updatedDeal) {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                updatedDeal,
+                'telegram.deal.schedule.canceled_advertiser',
+                {dealId: updatedDeal.id.slice(0, 8)},
+            );
+        }
+
+        return {
+            handled: true,
+            messageKey: 'telegram.deal.schedule.canceled_notified',
             messageArgs: undefined,
         };
     }

@@ -80,10 +80,19 @@
     },
     "buttons": {
       "approve": "Approve",
+      "confirm": "Confirm",
       "request_changes": "Request changes",
-      "reject": "Reject"
+      "reject": "Reject",
+      "cancel": "Cancel"
+    },
+    "schedule_submitted": {
+      "message": "Schedule submitted for review\nChannel: {channel}\nDeal: {dealId}\nPublish time: {scheduledAt}\n\nCreative:\n{creativeText}",
+      "unsupported_preview": "Schedule submitted for review\nChannel: {channel}\nDeal: {dealId}\nPublish time: {scheduledAt}\n\nCreative preview is not supported for this format."
     },
     "schedule": {
+      "approved": "Schedule approved. Advertiser has been notified.",
+      "canceled_advertiser": "Schedule canceled for Deal {dealId}. Please review and resubmit in the Mini App.",
+      "canceled_notified": "Schedule canceled. Advertiser has been notified.",
       "request_changes_prompt": "To request schedule changes, reply to this message with the updated scheduling details.\n\n#schedule_change_request:{dealId}",
       "changes_requested": "Schedule changes requested. Advertiser has been notified.",
       "changes_requested_advertiser": "Schedule changes requested for Deal {dealId}.\nNotes: {comment}"

@@ -335,4 +335,80 @@ export class DealsBotHandler {
 
         return true;
     }
+
+    async handleScheduleApproveCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result = await this.dealsService.handleScheduleApprovalFromTelegram({
+            telegramUserId: getTelegramUserId(context),
+            dealId,
+        });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
+
+        return true;
+    }
+
+    async handleScheduleRequestChangesCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result =
+            await this.dealsService.handleScheduleRequestChangesFromTelegram({
+                telegramUserId: getTelegramUserId(context),
+                dealId,
+            });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
+
+        return true;
+    }
+
+    async handleScheduleRejectCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const result = await this.dealsService.handleScheduleRejectFromTelegram({
+            telegramUserId: getTelegramUserId(context),
+            dealId,
+        });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        await context.answerCbQuery();
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
+
+        return true;
+    }
 }

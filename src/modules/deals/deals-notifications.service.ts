@@ -184,6 +184,139 @@ export class DealsNotificationsService {
         );
     }
 
+    async notifyScheduleSubmitted(
+        deal: DealEntity,
+        creative: DealCreativeEntity,
+    ): Promise<void> {
+        if (!deal.channelId) {
+            this.logger.warn(
+                `Skipping schedule notification: missing channelId for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            this.logger.warn(
+                `Skipping schedule notification: channel not found for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const recipients =
+            await this.participantsService.getNotificationRecipients(
+                deal.channelId,
+            );
+        if (recipients.length === 0) {
+            this.logger.log(
+                `No recipients found for schedule notification: dealId=${deal.id} channelId=${deal.channelId}`,
+            );
+            return;
+        }
+
+        const scheduledAtValue = deal.scheduledAt
+            ? this.formatUtcTimestamp(deal.scheduledAt)
+            : null;
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+
+        const buttons: TelegramInlineButtonSpec[][] = [
+            [
+                {
+                    textKey: 'telegram.deal.buttons.confirm',
+                    callbackData: `approve_schedule:${deal.id}`,
+                },
+            ],
+            [
+                {
+                    textKey: 'telegram.deal.buttons.request_changes',
+                    callbackData: `request_schedule_changes:${deal.id}`,
+                },
+            ],
+            [
+                {
+                    textKey: 'telegram.deal.buttons.cancel',
+                    callbackData: `reject_schedule:${deal.id}`,
+                },
+            ],
+        ];
+
+        const payload = (creative.payload ?? {}) as Record<string, unknown>;
+        const creativeText = String(payload.text ?? payload.caption ?? '');
+        const textContent = this.truncateText(creativeText, 500);
+        const creativeType = String(payload.type ?? 'TEXT');
+        const mediaFileId = payload.mediaFileId as string | undefined;
+
+        await this.runWithConcurrency(
+            recipients,
+            NOTIFICATION_CONCURRENCY,
+            async (recipient) => {
+                try {
+                    const lang =
+                        this.telegramI18nService.resolveLanguageForUser(recipient);
+                    const scheduledAt =
+                        scheduledAtValue ??
+                        this.telegramI18nService.t(
+                            lang,
+                            'telegram.common.tbd',
+                        );
+                    const messageArgs = {
+                        channel: channelLabel,
+                        dealId: deal.id.slice(0, 8),
+                        scheduledAt,
+                        creativeText: textContent,
+                    };
+                    if (creativeType === 'TEXT') {
+                        await this.telegramMessengerService.sendInlineKeyboard(
+                            recipient.telegramId as string,
+                            'telegram.deal.schedule_submitted.message',
+                            messageArgs,
+                            buttons,
+                            {lang},
+                        );
+                    } else if (creativeType === 'IMAGE' && mediaFileId) {
+                        await this.telegramMessengerService.sendPhotoWithCaption(
+                            recipient.telegramId as string,
+                            mediaFileId,
+                            'telegram.deal.schedule_submitted.message',
+                            messageArgs,
+                            {lang, buttons},
+                        );
+                    } else if (creativeType === 'VIDEO' && mediaFileId) {
+                        await this.telegramMessengerService.sendVideoWithCaption(
+                            recipient.telegramId as string,
+                            mediaFileId,
+                            'telegram.deal.schedule_submitted.message',
+                            messageArgs,
+                            {lang, buttons},
+                        );
+                    } else {
+                        await this.telegramMessengerService.sendInlineKeyboard(
+                            recipient.telegramId as string,
+                            'telegram.deal.schedule_submitted.unsupported_preview',
+                            {
+                                channel: channelLabel,
+                                dealId: deal.id.slice(0, 8),
+                                scheduledAt,
+                            },
+                            buttons,
+                            {lang},
+                        );
+                    }
+                } catch (error) {
+                    const errorMessage =
+                        error instanceof Error ? error.message : String(error);
+                    this.logger.warn(
+                        `Failed to send schedule notification: dealId=${deal.id} recipient=${recipient.id} error=${errorMessage}`,
+                    );
+                }
+            },
+        );
+    }
+
     async notifyAdvertiser(
         deal: DealEntity,
         messageKey: string,
