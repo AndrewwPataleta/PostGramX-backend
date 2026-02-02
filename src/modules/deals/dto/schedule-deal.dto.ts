@@ -12,7 +12,7 @@ import {
 class ScheduleDealDataDto {
     @ApiProperty()
     @IsUUID()
-    dealId: string;
+    id: string;
 
     @ApiProperty()
     @IsString()

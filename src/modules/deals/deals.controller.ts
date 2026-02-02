@@ -140,7 +140,7 @@ export class DealsController {
         try {
             return await this.dealsService.scheduleDeal(
                 user.id,
-                dto.data.dealId,
+                dto.data.id,
                 dto.data.scheduledAt,
             );
         } catch (error) {
@@ -211,7 +211,7 @@ export class DealsController {
         const user = assertUser(req);
 
         try {
-            return await this.dealsService.approveByAdmin(
+            return await this.dealsService.approveCreativeByAdmin(
                 user.id,
                 dto.data.dealId,
             );

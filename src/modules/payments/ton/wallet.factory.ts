@@ -18,7 +18,7 @@ function toHex(bytes: Uint8Array) {
 @Injectable()
 export class DealWalletFactory {
     async createNewDealWallet(): Promise<CreatedDealWallet> {
-        const mnemonic = await mnemonicNew(24); // :contentReference[oaicite:3]{index=3}
+        const mnemonic = await mnemonicNew(24);
         const keyPair = await mnemonicToPrivateKey(mnemonic);
 
         const wallet = WalletContractV4.create({

@@ -84,10 +84,6 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
         }
 
-        if (listing.createdByUserId === userId) {
-            throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
-        }
-
         const activePendingCount = await this.dealRepository.count({
             where: {
                 listingId,
@@ -149,29 +145,20 @@ export class DealsService {
 
             const saved = await repo.save(created);
 
-            const escrow = escrowRepo.create({
-                dealId: saved.id,
-                status: EscrowStatus.NOT_CREATED,
-                amountNano: listingSnapshot.priceNano,
-                paidNano: '0',
-                currency: listingSnapshot.currency,
-            });
-            await escrowRepo.save(escrow);
+
 
             return saved;
         });
 
-        const updatedDeal = await this.dealRepository.findOne({
-            where: {id: deal.id},
-        });
+
         const advertiser = await this.userRepository.findOne({
             where: {id: deal.advertiserUserId},
         });
 
-        if (updatedDeal && advertiser?.telegramId) {
+        if (advertiser?.telegramId) {
             try {
                 await this.dealsNotificationsService.notifyCreativeRequired(
-                    updatedDeal,
+                    deal,
                     advertiser.telegramId,
                 );
             } catch (error) {
@@ -210,11 +197,11 @@ export class DealsService {
 
         this.ensureTransitionAllowed(
             deal.stage,
-            DealStage.CREATIVE_AWAITING_SUBMIT,
+            DealStage.SCHEDULING_AWAITING_CONFIRM,
         );
 
         const now = new Date();
-        const stage = DealStage.CREATIVE_AWAITING_SUBMIT;
+        const stage = DealStage.SCHEDULING_AWAITING_CONFIRM;
 
         await this.dealRepository.update(deal.id, {
             scheduledAt: parsedScheduledAt,
@@ -446,7 +433,7 @@ export class DealsService {
         };
     }
 
-    async approveByAdmin(userId: string, dealId: string) {
+    async approveCreativeByAdmin(userId: string, dealId: string) {
         const deal = await this.dealRepository.findOne({
             where: {id: dealId},
         });
@@ -485,9 +472,59 @@ export class DealsService {
                 lock: {mode: 'pessimistic_write'},
             });
 
-            if (!escrow) {
-                throw new DealServiceError(DealErrorCode.INVALID_STATUS);
-            }
+            const stage = DealStage.SCHEDULING_AWAITING_SUBMIT;
+            await dealRepo.update(deal.id, {
+                stage,
+                status: mapStageToDealStatus(stage),
+                idleExpiresAt: this.computeIdleExpiry(stage, now),
+                ...this.buildActivityUpdate(now),
+            });
+        });
+
+        const updatedDeal = await this.dealRepository.findOne({
+            where: {id: deal.id},
+        });
+        const updatedEscrow = await this.escrowRepository.findOne({
+            where: {dealId: deal.id},
+        });
+
+        if (updatedDeal && updatedEscrow) {
+            await this.dealsNotificationsService.notifyAdvertiserPaymentRequired(
+                updatedDeal,
+                updatedEscrow,
+            );
+        }
+
+        return {id: deal.id, stage: DealStage.PAYMENT_AWAITING};
+    }
+
+    async approveScheduleByAdmin(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+        });
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        await this.ensurePublisherAdmin(userId, deal);
+
+        this.ensureTransitionAllowed(deal.stage, DealStage.SCHEDULING_AWAITING_SUBMIT);
+
+        const now = new Date();
+
+        await this.dataSource.transaction(async (manager) => {
+            const escrowRepo = manager.getRepository(DealEscrowEntity);
+            const dealRepo = manager.getRepository(DealEntity);
+
+            const escrow = escrowRepo.create({
+                dealId: deal.id,
+                status: EscrowStatus.NOT_CREATED,
+                amountNano: deal.listingSnapshot.priceNano,
+                paidNano: '0',
+                currency: deal.listingSnapshot.currency,
+            });
+            await escrowRepo.save(escrow);
 
             const amountNano =
                 (deal.listingSnapshot as DealListingSnapshot).priceNano ?? '0';
@@ -542,6 +579,7 @@ export class DealsService {
         dealId: string,
         comment?: string,
     ) {
+
         return this.rejectByAdmin(userId, dealId, comment ?? 'CHANGES_REQUESTED');
     }
 
@@ -556,7 +594,7 @@ export class DealsService {
 
         this.ensureTransitionAllowed(
             deal.stage,
-            DealStage.CREATIVE_AWAITING_SUBMIT,
+            DealStage.FINALIZED,
         );
 
         const creative = await this.creativeRepository.findOne({
@@ -626,7 +664,7 @@ export class DealsService {
             return {handled: false};
         }
 
-        await this.approveByAdmin(user.id, payload.dealId);
+        await this.approveCreativeByAdmin(user.id, payload.dealId);
 
         return {
             handled: true,
@@ -1003,10 +1041,14 @@ export class DealsService {
             case DealStage.CREATIVE_AWAITING_CONFIRM:
                 return this.addMinutes(now, DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES);
             case DealStage.CREATIVE_AWAITING_SUBMIT:
-            case DealStage.SCHEDULING_AWAITING_SUBMIT:
                 return this.addMinutes(
                     now,
                     DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
+                );
+            case DealStage.SCHEDULING_AWAITING_SUBMIT:
+                return this.addMinutes(
+                    now,
+                    DEALS_CONFIG.SCHEDULE_SUBMIT_DEADLINE_MINUTES,
                 );
             case DealStage.SCHEDULING_AWAITING_CONFIRM:
                 return this.addHours(now, DEALS_CONFIG.ADMIN_RESPONSE_DEADLINE_HOURS);

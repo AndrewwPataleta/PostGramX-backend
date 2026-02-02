@@ -18,12 +18,21 @@ const STAGE_MAP: Record<DealStage, DealPublicStage> = {
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
+    [DealStage.CREATIVE_AWAITING_FOR_CHANGES]: {
+        stageKey: 'deals.stages.waiting_creative',
+        shortLabel: 'Send creative',
+        actionHint: 'Send the post to the bot.',
+    },
     [DealStage.CREATIVE_AWAITING_CONFIRM]: {
         stageKey: 'deals.stages.waiting_creative_approve',
         shortLabel: 'Create waiting approve',
         actionHint: 'Create waiting approve',
     },
     [DealStage.SCHEDULING_AWAITING_SUBMIT]: {
+        stageKey: 'deals.stages.waiting_schedule',
+        shortLabel: 'Awaiting admin review',
+    },
+    [DealStage.SCHEDULE_AWAITING_FOR_CHANGES]: {
         stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Awaiting admin review',
     },
