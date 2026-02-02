@@ -208,15 +208,27 @@ export class TonPaymentWatcher {
             });
 
             if (isConfirmed) {
-                await this.dealsNotificationsService.notifyPaymentConfirmed(deal);
+                const updatedDeal = await dealRepo.findOne({
+                    where: {id: deal.id},
+                });
+                if (updatedDeal) {
+                    await this.dealsNotificationsService.notifyPaymentConfirmed(
+                        updatedDeal,
+                    );
+                }
                 return;
             }
 
-            await this.dealsNotificationsService.notifyAdvertiserPartialPayment(
-                deal,
-                nextPaid,
-                remaining,
-            );
+            const updatedDeal = await dealRepo.findOne({
+                where: {id: deal.id},
+            });
+            if (updatedDeal) {
+                await this.dealsNotificationsService.notifyAdvertiserPartialPayment(
+                    updatedDeal,
+                    nextPaid,
+                    remaining,
+                );
+            }
         });
     }
 }

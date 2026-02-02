@@ -128,13 +128,19 @@ export class DealsNotificationsService {
                             lang,
                             'telegram.common.tbd',
                         );
+                    const actionDeadline = this.formatDeadlineForUser(
+                        deal.idleExpiresAt,
+                        lang,
+                    );
                     const messageArgs = {
                         channel: channelLabel,
                         dealId: deal.id.slice(0, 8),
                         scheduledAt,
                         creativeText: textContent,
+                        status: deal.status ?? 'unknown',
+                        stage: deal.stage ?? 'unknown',
+                        actionDeadline,
                     };
-                    console.log(messageArgs)
                     if (creativeType === 'TEXT') {
                         await this.telegramMessengerService.sendInlineKeyboard(
                             recipient.telegramId as string,
@@ -167,6 +173,9 @@ export class DealsNotificationsService {
                                 channel: channelLabel,
                                 dealId: deal.id.slice(0, 8),
                                 scheduledAt,
+                                status: deal.status ?? 'unknown',
+                                stage: deal.stage ?? 'unknown',
+                                actionDeadline,
                             },
                             buttons,
                             {lang},
@@ -181,6 +190,11 @@ export class DealsNotificationsService {
                     );
                 }
             },
+        );
+
+        await this.notifyAdvertiserStep(
+            deal,
+            'telegram.deal.creative_submitted.advertiser',
         );
     }
 
@@ -263,11 +277,18 @@ export class DealsNotificationsService {
                             lang,
                             'telegram.common.tbd',
                         );
+                    const actionDeadline = this.formatDeadlineForUser(
+                        deal.idleExpiresAt,
+                        lang,
+                    );
                     const messageArgs = {
                         channel: channelLabel,
                         dealId: deal.id.slice(0, 8),
                         scheduledAt,
                         creativeText: textContent,
+                        status: deal.status ?? 'unknown',
+                        stage: deal.stage ?? 'unknown',
+                        actionDeadline,
                     };
                     if (creativeType === 'TEXT') {
                         await this.telegramMessengerService.sendInlineKeyboard(
@@ -301,6 +322,9 @@ export class DealsNotificationsService {
                                 channel: channelLabel,
                                 dealId: deal.id.slice(0, 8),
                                 scheduledAt,
+                                status: deal.status ?? 'unknown',
+                                stage: deal.stage ?? 'unknown',
+                                actionDeadline,
                             },
                             buttons,
                             {lang},
@@ -314,6 +338,11 @@ export class DealsNotificationsService {
                     );
                 }
             },
+        );
+
+        await this.notifyAdvertiserStep(
+            deal,
+            'telegram.deal.schedule_submitted.advertiser',
         );
     }
 
@@ -356,8 +385,15 @@ export class DealsNotificationsService {
         );
         const messageArgs = {
             dealId: dealShortId,
-            paymentDeadline: paymentDeadline?.toISOString(),
+            paymentDeadline: paymentDeadline
+                ? this.formatUtcTimestamp(paymentDeadline)
+                : this.telegramI18nService.t(
+                    this.telegramI18nService.resolveLanguageForUser(user),
+                    'telegram.common.tbd',
+                ),
             paymentAddress,
+            status: deal.status ?? 'unknown',
+            stage: deal.stage ?? 'unknown',
         };
 
         const link = this.ensureMiniAppLink(deal.id);
@@ -420,6 +456,8 @@ export class DealsNotificationsService {
             received: formatTon(receivedNano),
             remaining: formatTon(remainingNano),
             currency: CurrencyCode.TON,
+            status: deal.status ?? 'unknown',
+            stage: deal.stage ?? 'unknown',
         };
         const buttons: TelegramInlineButtonSpec[][] = link
             ? [
@@ -471,7 +509,11 @@ export class DealsNotificationsService {
                 await this.telegramMessengerService.sendInlineKeyboard(
                     advertiser.telegramId,
                     'telegram.deal.payment_confirmed.message',
-                    {dealId: deal.id.slice(0, 8)},
+                    {
+                        dealId: deal.id.slice(0, 8),
+                        status: deal.status ?? 'unknown',
+                        stage: deal.stage ?? 'unknown',
+                    },
                     buttons,
                     {
                         lang: this.telegramI18nService.resolveLanguageForUser(advertiser),
@@ -481,7 +523,11 @@ export class DealsNotificationsService {
                 await this.telegramMessengerService.sendText(
                     advertiser.telegramId,
                     'telegram.deal.payment_confirmed.message',
-                    {dealId: deal.id.slice(0, 8)},
+                    {
+                        dealId: deal.id.slice(0, 8),
+                        status: deal.status ?? 'unknown',
+                        stage: deal.stage ?? 'unknown',
+                    },
                     {
                         lang: this.telegramI18nService.resolveLanguageForUser(advertiser),
                     },
@@ -504,7 +550,11 @@ export class DealsNotificationsService {
                     await this.telegramMessengerService.sendInlineKeyboard(
                         recipient.telegramId,
                         'telegram.deal.payment_confirmed.message',
-                        {dealId: deal.id.slice(0, 8)},
+                        {
+                            dealId: deal.id.slice(0, 8),
+                            status: deal.status ?? 'unknown',
+                            stage: deal.stage ?? 'unknown',
+                        },
                         buttons,
                         {
                             lang: this.telegramI18nService.resolveLanguageForUser(
@@ -516,7 +566,11 @@ export class DealsNotificationsService {
                     await this.telegramMessengerService.sendText(
                         recipient.telegramId,
                         'telegram.deal.payment_confirmed.message',
-                        {dealId: deal.id.slice(0, 8)},
+                        {
+                            dealId: deal.id.slice(0, 8),
+                            status: deal.status ?? 'unknown',
+                            stage: deal.stage ?? 'unknown',
+                        },
                         {
                             lang: this.telegramI18nService.resolveLanguageForUser(
                                 recipient,
@@ -600,11 +654,16 @@ export class DealsNotificationsService {
                     const channelLabel = channel.username
                         ? `${channel.title} (@${channel.username})`
                         : channel.title;
+                    const actionDeadline = this.formatDeadlineForUser(
+                        deal.idleExpiresAt,
+                        lang,
+                    );
                     const args: Record<string, any> = {
                         channel: channelLabel,
                         dealId: deal.id.slice(0, 8),
                         status: deal.status ?? 'unknown',
                         stage: deal.stage ?? 'unknown',
+                        actionDeadline,
                     };
                     if (payload.reasonKey) {
                         args.reason = this.telegramI18nService.t(
@@ -628,6 +687,128 @@ export class DealsNotificationsService {
                 }
             },
         );
+    }
+
+    async notifyCreativeApproved(deal: DealEntity): Promise<void> {
+        if (deal.channelId) {
+            const link = this.deepLinkService.buildDealLink(deal.id);
+            const buttons: TelegramInlineButtonSpec[][] = [
+                [{textKey: 'telegram.common.open_deal', url: link}],
+            ];
+
+            const recipients =
+                await this.participantsService.getNotificationRecipients(
+                    deal.channelId,
+                );
+            if (recipients.length === 0) {
+                this.logger.log(
+                    `No recipients found for creative approved notification: dealId=${deal.id} channelId=${deal.channelId}`,
+                );
+            }
+
+            await this.runWithConcurrency(
+                recipients,
+                NOTIFICATION_CONCURRENCY,
+                async (recipient) => {
+                    if (!recipient.telegramId) {
+                        return;
+                    }
+                    const lang =
+                        this.telegramI18nService.resolveLanguageForUser(recipient);
+                    const actionDeadline = this.formatDeadlineForUser(
+                        deal.idleExpiresAt,
+                        lang,
+                    );
+                    await this.telegramMessengerService.sendInlineKeyboard(
+                        recipient.telegramId,
+                        'telegram.deal.creative_approved.admin',
+                        {
+                            dealId: deal.id.slice(0, 8),
+                            status: deal.status ?? 'unknown',
+                            stage: deal.stage ?? 'unknown',
+                            actionDeadline,
+                        },
+                        buttons,
+                        {lang},
+                    );
+                },
+            );
+        } else {
+            this.logger.warn(
+                `Skipping creative approved admin notification: missing channelId for deal ${deal.id}`,
+            );
+        }
+
+        await this.notifyAdvertiserStep(
+            deal,
+            'telegram.deal.creative_approved.advertiser',
+        );
+    }
+
+    async notifyScheduleApproved(
+        deal: DealEntity,
+        escrow: DealEscrowEntity | null,
+        options: {notifyAdvertiser?: boolean} = {},
+    ): Promise<void> {
+        if (deal.channelId) {
+            const link = this.deepLinkService.buildDealLink(deal.id);
+            const buttons: TelegramInlineButtonSpec[][] = [
+                [{textKey: 'telegram.common.open_deal', url: link}],
+            ];
+            const paymentDeadline = escrow?.paymentDeadlineAt;
+
+            const recipients =
+                await this.participantsService.getNotificationRecipients(
+                    deal.channelId,
+                );
+            if (recipients.length === 0) {
+                this.logger.log(
+                    `No recipients found for schedule approved notification: dealId=${deal.id} channelId=${deal.channelId}`,
+                );
+            }
+
+            await this.runWithConcurrency(
+                recipients,
+                NOTIFICATION_CONCURRENCY,
+                async (recipient) => {
+                    if (!recipient.telegramId) {
+                        return;
+                    }
+                    const lang =
+                        this.telegramI18nService.resolveLanguageForUser(recipient);
+                    const deadlineLabel = this.formatDeadlineForUser(
+                        paymentDeadline,
+                        lang,
+                    );
+                    await this.telegramMessengerService.sendInlineKeyboard(
+                        recipient.telegramId,
+                        'telegram.deal.schedule_approved.admin',
+                        {
+                            dealId: deal.id.slice(0, 8),
+                            status: deal.status ?? 'unknown',
+                            stage: deal.stage ?? 'unknown',
+                            paymentDeadline: deadlineLabel,
+                        },
+                        buttons,
+                        {lang},
+                    );
+                },
+            );
+        } else {
+            this.logger.warn(
+                `Skipping schedule approved admin notification: missing channelId for deal ${deal.id}`,
+            );
+        }
+
+        if (options.notifyAdvertiser !== false) {
+            const paymentDeadline = escrow?.paymentDeadlineAt;
+            await this.notifyAdvertiserStep(
+                deal,
+                'telegram.deal.schedule_approved.advertiser',
+                paymentDeadline,
+                this.buildPaymentButtons(deal.id),
+            );
+        }
     }
 
     private formatUtcTimestamp(value: Date): string {
@@ -690,6 +871,80 @@ export class DealsNotificationsService {
             return value;
         }
         return `${value.slice(0, Math.max(limit - 3, 0))}...`;
+    }
+
+    private formatDeadlineForUser(
+        value: Date | null | undefined,
+        lang: string,
+    ): string {
+        if (!value) {
+            return this.telegramI18nService.t(lang, 'telegram.common.tbd');
+        }
+        return this.formatUtcTimestamp(value);
+    }
+
+    private async notifyAdvertiserStep(
+        deal: DealEntity,
+        messageKey: string,
+        deadline?: Date | null,
+        buttons?: TelegramInlineButtonSpec[][],
+    ): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const resolvedButtons =
+            buttons ?? [
+                [
+                    {
+                        textKey: 'telegram.common.open_deal',
+                        url: this.deepLinkService.buildDealLink(deal.id),
+                    },
+                ],
+            ];
+        const lang = this.telegramI18nService.resolveLanguageForUser(user);
+        const actionDeadline = this.formatDeadlineForUser(
+            deadline ?? deal.idleExpiresAt,
+            lang,
+        );
+
+        await this.telegramMessengerService.sendInlineKeyboard(
+            user.telegramId,
+            messageKey,
+            {
+                dealId: deal.id.slice(0, 8),
+                status: deal.status ?? 'unknown',
+                stage: deal.stage ?? 'unknown',
+                actionDeadline,
+                paymentDeadline: actionDeadline,
+            },
+            resolvedButtons,
+            {lang},
+        );
+    }
+
+    private buildPaymentButtons(dealId: string): TelegramInlineButtonSpec[][] {
+        const link = this.ensureMiniAppLink(dealId);
+        if (!link) {
+            return [[{textKey: 'telegram.common.open_deal', url: this.deepLinkService.buildDealLink(dealId)}]];
+        }
+        return [
+            [
+                {
+                    textKey: 'telegram.common.pay_in_app',
+                    webAppUrl: link,
+                },
+            ],
+            [
+                {
+                    textKey: 'telegram.common.open_mini_app',
+                    url: link,
+                },
+            ],
+        ];
     }
 
     private async runWithConcurrency<T>(
