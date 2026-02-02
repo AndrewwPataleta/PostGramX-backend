@@ -22,6 +22,7 @@ type DealActionReason = 'verification' | 'approval' | 'payment' | 'publish';
 @Injectable()
 export class DealsNotificationsService {
     private readonly logger = new Logger(DealsNotificationsService.name);
+
     constructor(
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
@@ -32,7 +33,8 @@ export class DealsNotificationsService {
         private readonly telegramI18nService: TelegramI18nService,
         @Inject(forwardRef(() => TelegramMessengerService))
         private readonly telegramMessengerService: TelegramMessengerService,
-    ) {}
+    ) {
+    }
 
     async notifyCreativeRequired(
         deal: DealEntity,
@@ -93,6 +95,8 @@ export class DealsNotificationsService {
                     textKey: 'telegram.deal.buttons.approve',
                     callbackData: `approve_creative:${deal.id}`,
                 },
+            ],
+            [
                 {
                     textKey: 'telegram.deal.buttons.request_changes',
                     callbackData: `request_changes:${deal.id}`,
@@ -131,7 +135,7 @@ export class DealsNotificationsService {
                         scheduledAt,
                         creativeText: textContent,
                     };
-
+                    console.log(messageArgs)
                     if (creativeType === 'TEXT') {
                         await this.telegramMessengerService.sendInlineKeyboard(
                             recipient.telegramId as string,
@@ -170,11 +174,6 @@ export class DealsNotificationsService {
                         );
                     }
 
-                    this.logger.log('Sent creative for admin review', {
-                        dealId: deal.id,
-                        adminUserId: recipient.id,
-                        adminTelegramId: recipient.telegramId,
-                    });
                 } catch (error) {
                     const errorMessage =
                         error instanceof Error ? error.message : String(error);
@@ -232,19 +231,19 @@ export class DealsNotificationsService {
         const link = this.ensureMiniAppLink(deal.id);
         const buttons: TelegramInlineButtonSpec[][] = link
             ? [
-                  [
-                      {
-                          textKey: 'telegram.common.pay_in_app',
-                          webAppUrl: link,
-                      },
-                  ],
-                  [
-                      {
-                          textKey: 'telegram.common.open_mini_app',
-                          url: link,
-                      },
-                  ],
-              ]
+                [
+                    {
+                        textKey: 'telegram.common.pay_in_app',
+                        webAppUrl: link,
+                    },
+                ],
+                [
+                    {
+                        textKey: 'telegram.common.open_mini_app',
+                        url: link,
+                    },
+                ],
+            ]
             : [];
 
         if (buttons.length) {
@@ -292,19 +291,19 @@ export class DealsNotificationsService {
         };
         const buttons: TelegramInlineButtonSpec[][] = link
             ? [
-                  [
-                      {
-                          textKey: 'telegram.common.pay_in_app',
-                          webAppUrl: link,
-                      },
-                  ],
-                  [
-                      {
-                          textKey: 'telegram.common.open_mini_app',
-                          url: link,
-                      },
-                  ],
-              ]
+                [
+                    {
+                        textKey: 'telegram.common.pay_in_app',
+                        webAppUrl: link,
+                    },
+                ],
+                [
+                    {
+                        textKey: 'telegram.common.open_mini_app',
+                        url: link,
+                    },
+                ],
+            ]
             : [];
 
         if (buttons.length) {
@@ -417,7 +416,7 @@ export class DealsNotificationsService {
 
     private async notifyDeal(
         deal: DealEntity,
-        payload: {type: string; messageKey: string; reasonKey?: string},
+        payload: { type: string; messageKey: string; reasonKey?: string },
     ): Promise<void> {
         if (!deal.channelId) {
             this.logger.warn(

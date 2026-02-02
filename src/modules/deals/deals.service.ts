@@ -161,14 +161,26 @@ export class DealsService {
             return saved;
         });
 
-        try {
-            await this.dealsNotificationsService.notifyDealCreated(deal);
-        } catch (error) {
-            const errorMessage =
-                error instanceof Error ? error.message : String(error);
-            this.logger.warn(
-                `Deal notification failed for dealId=${deal.id}: ${errorMessage}`,
-            );
+        const updatedDeal = await this.dealRepository.findOne({
+            where: {id: deal.id},
+        });
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+
+        if (updatedDeal && advertiser?.telegramId) {
+            try {
+                await this.dealsNotificationsService.notifyCreativeRequired(
+                    updatedDeal,
+                    advertiser.telegramId,
+                );
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Creative notification failed for dealId=${deal.id}: ${errorMessage}`,
+                );
+            }
         }
 
         return {
@@ -212,27 +224,27 @@ export class DealsService {
             ...this.buildActivityUpdate(now),
         });
 
-        const updatedDeal = await this.dealRepository.findOne({
-            where: {id: deal.id},
-        });
-        const advertiser = await this.userRepository.findOne({
-            where: {id: deal.advertiserUserId},
-        });
-
-        if (updatedDeal && advertiser?.telegramId) {
-            try {
-                await this.dealsNotificationsService.notifyCreativeRequired(
-                    updatedDeal,
-                    advertiser.telegramId,
-                );
-            } catch (error) {
-                const errorMessage =
-                    error instanceof Error ? error.message : String(error);
-                this.logger.warn(
-                    `Creative notification failed for dealId=${deal.id}: ${errorMessage}`,
-                );
-            }
-        }
+        // const updatedDeal = await this.dealRepository.findOne({
+        //     where: {id: deal.id},
+        // });
+        // const advertiser = await this.userRepository.findOne({
+        //     where: {id: deal.advertiserUserId},
+        // });
+        //
+        // if (updatedDeal && advertiser?.telegramId) {
+        //     try {
+        //         await this.dealsNotificationsService.notifyCreativeRequired(
+        //             updatedDeal,
+        //             advertiser.telegramId,
+        //         );
+        //     } catch (error) {
+        //         const errorMessage =
+        //             error instanceof Error ? error.message : String(error);
+        //         this.logger.warn(
+        //             `Creative notification failed for dealId=${deal.id}: ${errorMessage}`,
+        //         );
+        //     }
+        // }
 
         return {
             id: deal.id,
@@ -320,6 +332,19 @@ export class DealsService {
                 ...this.buildActivityUpdate(new Date()),
             });
         });
+
+
+        const now = new Date();
+
+        await this.dealsNotificationsService.notifyCreativeSubmitted(
+            deal,
+            {
+                ...creative,
+                status: CreativeStatus.SUBMITTED_IN_APP,
+                submittedAt: now,
+                submittedByUserId: deal.advertiserUserId,
+            } as DealCreativeEntity,
+        );
 
         return {
             success: true,
@@ -882,6 +907,7 @@ export class DealsService {
         return {
 
             id: deal.id,
+            advertiserUserId: deal.advertiserUserId,
             status: deal.status,
             stage: deal.stage,
             scheduledAt: deal.scheduledAt,
