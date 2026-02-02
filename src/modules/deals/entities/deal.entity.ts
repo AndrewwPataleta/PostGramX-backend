@@ -63,7 +63,7 @@ export class DealEntity extends BaseEntity {
         type: 'enum',
         enum: DealStage,
         enumName: 'deals_stage_enum',
-        default: DealStage.SCHEDULING_PENDING,
+        default: DealStage.CREATIVE_PENDING,
     })
     stage: DealStage;
 

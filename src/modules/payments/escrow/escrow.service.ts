@@ -9,6 +9,7 @@ import {
 } from './errors/escrow-service.error';
 import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {ChannelMembershipEntity} from '../../channels/entities/channel-membership.entity';
+import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
 
 @Injectable()
 export class EscrowService {
@@ -30,6 +31,16 @@ export class EscrowService {
 
         if (deal.advertiserUserId !== userId) {
             throw new EscrowServiceError(EscrowServiceErrorCode.FORBIDDEN);
+        }
+
+        if (
+            ![
+                DealStage.SCHEDULED,
+                DealStage.PAYMENT_PENDING,
+                DealStage.PAID,
+            ].includes(deal.stage)
+        ) {
+            throw new EscrowServiceError(EscrowServiceErrorCode.INVALID_TRANSITION);
         }
 
         const escrow = await this.escrowRepository.findOne({
@@ -74,7 +85,7 @@ export class EscrowService {
 
         return {
             dealId: deal.id,
-            escrowStatus: escrow?.status ?? EscrowStatus.NOT_CREATED,
+            escrowStatus: escrow?.status ?? EscrowStatus.CREATED,
             depositAddress: escrow?.paymentAddress ?? null,
             amountNano: escrow?.amountNano ?? null,
             expiresAt: escrow?.paymentDeadlineAt ?? null,

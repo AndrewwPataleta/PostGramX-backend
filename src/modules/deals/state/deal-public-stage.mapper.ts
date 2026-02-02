@@ -12,58 +12,64 @@ const DEFAULT_STAGE: DealPublicStage = {
 };
 
 const STAGE_MAP: Record<DealStage, DealPublicStage> = {
-    [DealStage.SCHEDULING_PENDING]: {
-        stageKey: 'deals.stages.waiting_schedule',
-        shortLabel: 'Choose time',
-        actionHint: 'Select a posting date and time.',
-    },
-    [DealStage.CREATIVE_AWAITING_SUBMIT]: {
+    [DealStage.CREATIVE_PENDING]: {
         stageKey: 'deals.stages.waiting_creative',
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
     [DealStage.CREATIVE_SUBMITTED]: {
-        stageKey: 'deals.stages.creative_received',
-        shortLabel: 'Creative received',
-        actionHint: 'Confirm submission in the Mini App.',
+        stageKey: 'deals.stages.creative_submitted',
+        shortLabel: 'Creative submitted',
+        actionHint: 'Wait for review.',
     },
-    [DealStage.ADMIN_REVIEW_PENDING]: {
-        stageKey: 'deals.stages.admin_review',
-        shortLabel: 'Awaiting admin review',
+    [DealStage.CREATIVE_CHANGES_REQUESTED]: {
+        stageKey: 'deals.stages.creative_changes_requested',
+        shortLabel: 'Changes requested',
+        actionHint: 'Send an updated creative.',
     },
-    [DealStage.PAYMENT_AWAITING]: {
+    [DealStage.CREATIVE_APPROVED]: {
+        stageKey: 'deals.stages.creative_approved',
+        shortLabel: 'Creative approved',
+        actionHint: 'Schedule the post.',
+    },
+    [DealStage.SCHEDULING_PENDING]: {
+        stageKey: 'deals.stages.waiting_schedule',
+        shortLabel: 'Choose time',
+        actionHint: 'Select a posting date and time.',
+    },
+    [DealStage.SCHEDULED]: {
+        stageKey: 'deals.stages.scheduled',
+        shortLabel: 'Scheduled',
+        actionHint: 'Complete payment.',
+    },
+    [DealStage.PAYMENT_PENDING]: {
         stageKey: 'deals.stages.awaiting_payment',
         shortLabel: 'Awaiting payment',
         actionHint: 'Complete payment within the window.',
     },
-    [DealStage.PAYMENT_PARTIALLY_PAID]: {
-        stageKey: 'deals.stages.payment_partial',
-        shortLabel: 'Partial payment',
-        actionHint: 'Complete the remaining payment.',
+    [DealStage.PAID]: {
+        stageKey: 'deals.stages.paid',
+        shortLabel: 'Paid',
     },
-    [DealStage.POST_SCHEDULED]: {
-        stageKey: 'deals.stages.scheduled',
-        shortLabel: 'Scheduled',
-    },
-    [DealStage.POST_PUBLISHING]: {
+    [DealStage.PUBLISHING]: {
         stageKey: 'deals.stages.posting',
         shortLabel: 'Posting',
     },
-    [DealStage.POSTED_VERIFYING]: {
-        stageKey: 'deals.stages.posted_verifying',
-        shortLabel: 'Verifying post',
+    [DealStage.PUBLISHED]: {
+        stageKey: 'deals.stages.published',
+        shortLabel: 'Published',
     },
-    [DealStage.DELIVERY_CONFIRMED]: {
-        stageKey: 'deals.stages.released',
-        shortLabel: 'Delivered',
+    [DealStage.VERIFIED]: {
+        stageKey: 'deals.stages.verified',
+        shortLabel: 'Verified',
     },
-    [DealStage.REFUNDING]: {
-        stageKey: 'deals.stages.refunding',
-        shortLabel: 'Refunding',
+    [DealStage.CANCELED]: {
+        stageKey: 'deals.stages.canceled',
+        shortLabel: 'Canceled',
     },
-    [DealStage.FINALIZED]: {
-        stageKey: 'deals.stages.finalized',
-        shortLabel: 'Finalized',
+    [DealStage.FAILED]: {
+        stageKey: 'deals.stages.failed',
+        shortLabel: 'Failed',
     },
 };
 

@@ -2,7 +2,14 @@ import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
 import {DEAL_STAGE_TRANSITIONS} from '../../../common/constants/deals/deal-transitions.constants';
 
 const FINAL_STAGES = new Set<DealStage>([
-    DealStage.FINALIZED,
+    DealStage.VERIFIED,
+    DealStage.CANCELED,
+    DealStage.FAILED,
+]);
+
+const ALWAYS_ALLOWED_TARGETS = new Set<DealStage>([
+    DealStage.CANCELED,
+    DealStage.FAILED,
 ]);
 
 export class DealStateError extends Error {
@@ -20,7 +27,7 @@ export function isTransitionAllowed(from: DealStage, to: DealStage): boolean {
         return true;
     }
 
-    if (to === DealStage.FINALIZED) {
+    if (ALWAYS_ALLOWED_TARGETS.has(to)) {
         return !FINAL_STAGES.has(from);
     }
 

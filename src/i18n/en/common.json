@@ -41,7 +41,8 @@
       "active_pending_limit": "You already have active pending deals for this listing.",
       "deal_not_actionable": "The deal is not in the expected state.",
       "deadline_passed": "The deadline for this deal action has passed.",
-      "creative_not_submitted": "Creative has not been submitted yet."
+      "creative_not_submitted": "Creative has not been submitted yet.",
+      "creative_not_received": "Creative has not been received yet."
     }
   },
   "internalProductCategories": {
@@ -112,20 +113,19 @@
     "stages": {
       "unknown": "Unknown status",
       "draft": "Draft",
-      "waiting_schedule": "Choose time",
       "waiting_creative": "Send creative",
       "creative_submitted": "Creative submitted",
-      "admin_review": "Awaiting admin approval",
-      "changes_requested": "Changes requested",
+      "creative_changes_requested": "Changes requested",
+      "creative_approved": "Creative approved",
+      "waiting_schedule": "Choose time",
+      "scheduled": "Scheduled",
       "awaiting_payment": "Awaiting payment",
-      "PAYMENT_AWAITING": "Payment processing",
-      "funds_confirmed": "Payment confirmed",
+      "paid": "Paid",
       "posting": "Posting",
-      "posted_verifying": "Verifying post",
-      "released": "Released",
+      "published": "Published",
+      "verified": "Verified",
       "canceled": "Canceled",
-      "refunded": "Refunded",
-      "disputed": "Disputed"
+      "failed": "Failed"
     }
   },
   "listings": {

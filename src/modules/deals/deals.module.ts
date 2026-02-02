@@ -7,6 +7,7 @@ import {DealPublicationEntity} from './entities/deal-publication.entity';
 import {ListingEntity} from '../listings/entities/listing.entity';
 import {DealsService} from './deals.service';
 import {DealsController} from './deals.controller';
+import {AdminDealsController} from './admin-deals.controller';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
@@ -38,7 +39,7 @@ import {TelegramModule} from '../telegram/telegram.module';
         WalletsModule,
         forwardRef(() => PaymentsModule),
     ],
-    controllers: [DealsController],
+    controllers: [DealsController, AdminDealsController],
     providers: [
         DealsService,
         DealsNotificationsService,

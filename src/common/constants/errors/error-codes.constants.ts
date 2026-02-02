@@ -9,6 +9,7 @@ export enum DealErrorCode {
     ACTIVE_PENDING_LIMIT_REACHED = 'deal.active_pending_limit_reached',
     DEADLINE_PASSED = 'deal.deadline_passed',
     CREATIVE_NOT_SUBMITTED = 'deal.creative_not_submitted',
+    CREATIVE_NOT_RECEIVED = 'deal.creative_not_received',
     PAYMENT_TIMEOUT = 'deal.payment_timeout',
     CREATIVE_TIMEOUT = 'deal.creative_timeout',
 }
