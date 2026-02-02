@@ -28,6 +28,11 @@ const STAGE_MAP: Record<DealStage, DealPublicStage> = {
         shortLabel: 'Create waiting approve',
         actionHint: 'Create waiting approve',
     },
+    [DealStage.CREATIVE_AWAITING_FOR_CHANGES]: {
+        stageKey: 'deals.stages.changes_requested',
+        shortLabel: 'Changes requested',
+        actionHint: 'Update the creative and resubmit.',
+    },
     [DealStage.SCHEDULING_AWAITING_SUBMIT]: {
         stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Awaiting admin review',
@@ -39,6 +44,11 @@ const STAGE_MAP: Record<DealStage, DealPublicStage> = {
     [DealStage.SCHEDULING_AWAITING_CONFIRM]: {
         stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Awaiting admin review',
+    },
+    [DealStage.SCHEDULE_AWAITING_FOR_CHANGES]: {
+        stageKey: 'deals.stages.changes_requested',
+        shortLabel: 'Changes requested',
+        actionHint: 'Update the schedule and resubmit.',
     },
     [DealStage.PAYMENT_AWAITING]: {
         stageKey: 'deals.stages.awaiting_payment',

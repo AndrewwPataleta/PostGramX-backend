@@ -153,6 +153,13 @@ export class TelegramBotUpdate {
                 return;
             }
             console.log('message '+context.message.text)
+            const handledChangeRequest =
+                await this.dealsBotHandler.handleAdminRequestChangesReply(
+                    context,
+                );
+            if (handledChangeRequest) {
+                return;
+            }
             const handled = await this.dealsBotHandler.handleCreativeMessage(
                 context,
             );

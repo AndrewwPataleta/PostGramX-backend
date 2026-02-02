@@ -36,8 +36,10 @@ export class DealsTimeoutsService {
                 stage: In([
                     DealStage.CREATIVE_AWAITING_CONFIRM,
                     DealStage.CREATIVE_AWAITING_SUBMIT,
+                    DealStage.CREATIVE_AWAITING_FOR_CHANGES,
                     DealStage.SCHEDULING_AWAITING_CONFIRM,
                     DealStage.SCHEDULING_AWAITING_SUBMIT,
+                    DealStage.SCHEDULE_AWAITING_FOR_CHANGES,
                 ]),
             },
         });

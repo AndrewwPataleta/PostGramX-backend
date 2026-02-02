@@ -23,7 +23,12 @@ declare module 'telegraf' {
     export interface Context {
         updateType?: string;
         callbackQuery: CallbackQuery;
-        message: {text?: string; caption?: string; message_id?: number};
+        message: {
+            text?: string;
+            caption?: string;
+            message_id?: number;
+            reply_to_message?: {text?: string; caption?: string};
+        };
         from?: {id?: number};
         reply(text: string, extra?: unknown): Promise<void>;
         answerCbQuery(): Promise<void>;
