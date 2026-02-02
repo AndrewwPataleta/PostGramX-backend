@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, EntityManager, In, Repository} from 'typeorm';
-import {CreateTransactionDto} from './dto/create-transaction.dto';
+import {CreateTransactionPayload} from './dto/create-transaction.dto';
 import {ListTransactionsFilters} from './dto/list-transactions.dto';
 import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
@@ -155,7 +155,7 @@ export class PaymentsService {
         return transaction;
     }
 
-    async createTransaction(data: CreateTransactionDto) {
+    async createTransaction(data: CreateTransactionPayload) {
         const wallet = data.depositAddress
             ? {address: data.depositAddress}
             : await this.walletsService.createEscrowWallet(

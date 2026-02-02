@@ -108,7 +108,7 @@ export class PaymentsController {
         const user = assertUser(req);
 
         return this.paymentsService.createTransaction({
-            ...dto,
+            ...dto.data,
             userId: user.id,
         });
     }
