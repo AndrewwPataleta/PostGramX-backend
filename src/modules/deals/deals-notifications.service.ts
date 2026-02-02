@@ -11,7 +11,7 @@ import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
-import {TelegramI18nService} from "../telegram/i18n/telegram-i18n.service";
+import {TelegramI18nService, TelegramLanguage} from "../telegram/i18n/telegram-i18n.service";
 import {TelegramInlineButtonSpec, TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
 const NOTIFICATION_CONCURRENCY = 5;
@@ -874,7 +874,7 @@ export class DealsNotificationsService {
 
     private formatDeadlineForUser(
         value: Date | null | undefined,
-        lang: string,
+        lang: TelegramLanguage,
     ): string {
         if (!value) {
             return this.telegramI18nService.t(lang, 'telegram.common.tbd');
