@@ -30,7 +30,7 @@ export class DealCreativeEntity {
         type: 'enum',
         enum: CreativeStatus,
         enumName: 'deal_creatives_status_enum',
-        default: CreativeStatus.DRAFT,
+        default: CreativeStatus.SUBMITTED,
     })
     status: CreativeStatus;
 

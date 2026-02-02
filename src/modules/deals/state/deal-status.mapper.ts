@@ -4,21 +4,22 @@ import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.c
 
 export function mapStageToDealStatus(stage: DealStage): DealStatus {
     switch (stage) {
-        case DealStage.SCHEDULING_PENDING:
-        case DealStage.CREATIVE_AWAITING_SUBMIT:
+        case DealStage.CREATIVE_PENDING:
         case DealStage.CREATIVE_SUBMITTED:
-        case DealStage.ADMIN_REVIEW_PENDING:
-        case DealStage.PAYMENT_AWAITING:
-        case DealStage.PAYMENT_PARTIALLY_PAID:
+        case DealStage.CREATIVE_CHANGES_REQUESTED:
+        case DealStage.CREATIVE_APPROVED:
+        case DealStage.SCHEDULING_PENDING:
+        case DealStage.SCHEDULED:
+        case DealStage.PAYMENT_PENDING:
             return DealStatus.PENDING;
-        case DealStage.POST_SCHEDULED:
-        case DealStage.POST_PUBLISHING:
-        case DealStage.POSTED_VERIFYING:
-        case DealStage.DELIVERY_CONFIRMED:
+        case DealStage.PAID:
+        case DealStage.PUBLISHING:
+        case DealStage.PUBLISHED:
             return DealStatus.ACTIVE;
-        case DealStage.REFUNDING:
+        case DealStage.CANCELED:
+        case DealStage.FAILED:
             return DealStatus.CANCELED;
-        case DealStage.FINALIZED:
+        case DealStage.VERIFIED:
             return DealStatus.COMPLETED;
         default:
             return DealStatus.PENDING;
@@ -28,19 +29,19 @@ export function mapStageToDealStatus(stage: DealStage): DealStatus {
 export function mapEscrowToStage(status: EscrowStatus): DealStage {
     switch (status) {
         case EscrowStatus.AWAITING_PAYMENT:
-            return DealStage.PAYMENT_AWAITING;
+            return DealStage.PAYMENT_PENDING;
         case EscrowStatus.PARTIALLY_PAID:
-            return DealStage.PAYMENT_PARTIALLY_PAID;
+            return DealStage.PAYMENT_PENDING;
         case EscrowStatus.PAID_CONFIRMED:
-            return DealStage.POST_SCHEDULED;
+            return DealStage.PAID;
         case EscrowStatus.REFUNDED:
         case EscrowStatus.FAILED:
         case EscrowStatus.EXPIRED:
-            return DealStage.REFUNDING;
+            return DealStage.CANCELED;
         case EscrowStatus.RELEASED:
-            return DealStage.DELIVERY_CONFIRMED;
-        case EscrowStatus.NOT_CREATED:
+            return DealStage.VERIFIED;
+        case EscrowStatus.CREATED:
         default:
-            return DealStage.SCHEDULING_PENDING;
+            return DealStage.CREATIVE_PENDING;
     }
 }

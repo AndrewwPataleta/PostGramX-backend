@@ -205,6 +205,39 @@ export class DealsNotificationsService {
         );
     }
 
+    async notifyCreativeApproved(deal: DealEntity): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const link = this.ensureMiniAppLink(deal.id);
+        const buttons: TelegramInlineButtonSpec[][] = link
+            ? [[{textKey: 'telegram.common.open_mini_app', url: link}]]
+            : [];
+        const messageArgs = {dealId: deal.id.slice(0, 8)};
+
+        if (buttons.length) {
+            await this.telegramMessengerService.sendInlineKeyboard(
+                user.telegramId,
+                'telegram.deal.creative.approved_advertiser',
+                messageArgs,
+                buttons,
+                {lang: this.telegramI18nService.resolveLanguageForUser(user)},
+            );
+            return;
+        }
+
+        await this.telegramMessengerService.sendText(
+            user.telegramId,
+            'telegram.deal.creative.approved_advertiser',
+            messageArgs,
+            {lang: this.telegramI18nService.resolveLanguageForUser(user)},
+        );
+    }
+
     async notifyAdvertiserPaymentRequired(
         deal: DealEntity,
         escrow: DealEscrowEntity,
@@ -401,6 +434,13 @@ export class DealsNotificationsService {
         await this.notifyDeal(deal, {
             type: 'DEAL_CREATED',
             messageKey: 'telegram.deal.notification.created',
+        });
+    }
+
+    async notifyDealPublished(deal: DealEntity): Promise<void> {
+        await this.notifyDeal(deal, {
+            type: 'DEAL_PUBLISHED',
+            messageKey: 'telegram.deal.notification.published',
         });
     }
 

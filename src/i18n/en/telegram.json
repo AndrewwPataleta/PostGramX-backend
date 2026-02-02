@@ -23,19 +23,21 @@
   },
   "deal": {
     "creative_required": {
-      "message": "Ad creative required\n\nYour deal has been scheduled.\nPlease send the ad post content to this bot.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the Mini App and press Submit Creative."
+      "message": "Creative required\n\nPlease send the ad post content to this bot.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the Mini App and press Submit Creative."
     },
     "creative_ready": "Ready to receive creative for deal {{dealId}}.\nPlease send the post content to this bot.",
     "creative": {
       "unsupported_format": "Unsupported format.\nSend: text, photo with caption, or video with caption.",
-      "save_failed": "Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.",
+      "save_failed": "Failed to save creative. Try again or contact support.",
       "missing_caption": "Please add a caption (text) to your media, or send text separately.",
       "processing_failed": "I cannot process your creative right now. Please try again.",
       "link_account_required": "Please open the Mini App first to link your account.",
-      "no_active_deal": "No active deal found. Please schedule a deal first.",
-      "saved": "Creative saved for Deal #{{dealId}}. Return to the Mini App and press Submit Creative.",
-      "approved_payment_sent": "Creative approved. Payment request sent to advertiser.",
+      "no_active_deal": "No active deal found. Please create a deal first.",
+      "received": "Creative received. Return to the Mini App and press Submit Creative.",
+      "approved_schedule_prompt": "Creative approved. Advertiser has been asked to schedule.",
+      "approved_advertiser": "Creative approved. Please schedule time in the Mini App.",
       "changes_requested": "Changes requested. Advertiser has been notified.",
+      "changes_requested_advertiser": "Changes requested. Please submit updated creative.",
       "rejected_notified": "Creative rejected. Advertiser has been notified.",
       "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App."
     },
@@ -44,10 +46,10 @@
       "unsupported_preview": "Creative submitted for review\nChannel: {{channel}}\nDeal: {{dealId}}\nScheduled: {{scheduledAt}}\n\nCreative preview is not supported for this format."
     },
     "payment_required": {
-      "basic": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.",
-      "with_deadline": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}",
-      "with_address": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment address: {{paymentAddress}}",
-      "with_deadline_and_address": "Creative approved\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}\nPayment address: {{paymentAddress}}"
+      "basic": "Payment required\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.",
+      "with_deadline": "Payment required\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}",
+      "with_address": "Payment required\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment address: {{paymentAddress}}",
+      "with_deadline_and_address": "Payment required\n\nDeal: {{dealId}}\nNext: proceed with payment in the Mini App.\nPayment window: until {{paymentDeadline}}\nPayment address: {{paymentAddress}}"
     },
     "partial_payment": {
       "message": "Partial payment received\n\nDeal: {{dealId}}\nReceived: {{received}} {{currency}}\nRemaining: {{remaining}} {{currency}}\n\nPlease complete payment in the Mini App."
@@ -57,7 +59,8 @@
     },
     "notification": {
       "created": "New deal request\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}\nAction: Please review and confirm in the Mini App.",
-      "action_required": "Deal action required\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}\nAction: {{reason}}."
+      "action_required": "Deal action required\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}\nAction: {{reason}}.",
+      "published": "Deal published\nChannel: {{channel}}\nDeal: {{dealId}}\nStatus: {{status}} / {{stage}}"
     },
     "action_reason": {
       "verification": "Verification required",

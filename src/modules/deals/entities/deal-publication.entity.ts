@@ -26,7 +26,7 @@ export class DealPublicationEntity {
         type: 'enum',
         enum: PublicationStatus,
         enumName: 'deal_publications_status_enum',
-        default: PublicationStatus.NOT_POSTED,
+        default: PublicationStatus.WAITING,
     })
     status: PublicationStatus;
 

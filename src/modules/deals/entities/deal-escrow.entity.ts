@@ -30,7 +30,7 @@ export class DealEscrowEntity {
         type: 'enum',
         enum: EscrowStatus,
         enumName: 'deal_escrows_status_enum',
-        default: EscrowStatus.NOT_CREATED,
+        default: EscrowStatus.CREATED,
     })
     status: EscrowStatus;
 

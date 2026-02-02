@@ -34,10 +34,11 @@ export class DealsTimeoutsService {
             where: {
                 idleExpiresAt: LessThan(now),
                 stage: In([
-                    DealStage.SCHEDULING_PENDING,
-                    DealStage.CREATIVE_AWAITING_SUBMIT,
                     DealStage.CREATIVE_SUBMITTED,
-                    DealStage.ADMIN_REVIEW_PENDING,
+                    DealStage.CREATIVE_PENDING,
+                    DealStage.CREATIVE_CHANGES_REQUESTED,
+                    DealStage.CREATIVE_APPROVED,
+                    DealStage.SCHEDULING_PENDING,
                 ]),
             },
         });
@@ -88,7 +89,7 @@ export class DealsTimeoutsService {
     private async cancelDeal(deal: DealEntity, reason: string): Promise<void> {
         await this.dealRepository.update(deal.id, {
             status: DealStatus.CANCELED,
-            stage: DealStage.FINALIZED,
+            stage: DealStage.CANCELED,
             cancelReason: reason,
             lastActivityAt: new Date(),
         });

@@ -204,6 +204,14 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
+        try {
+            await context.editMessageReplyMarkup({inline_keyboard: []});
+        } catch (error) {
+            this.logger.warn('Failed to update admin message keyboard', {
+                dealId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
         if (result.messageKey) {
             await this.telegramMessengerService.sendText(
                 getTelegramUserId(context),
@@ -230,6 +238,14 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
+        try {
+            await context.editMessageReplyMarkup({inline_keyboard: []});
+        } catch (error) {
+            this.logger.warn('Failed to update admin message keyboard', {
+                dealId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
         if (result.messageKey) {
             await this.telegramMessengerService.sendText(
                 getTelegramUserId(context),
@@ -255,6 +271,14 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
+        try {
+            await context.editMessageReplyMarkup({inline_keyboard: []});
+        } catch (error) {
+            this.logger.warn('Failed to update admin message keyboard', {
+                dealId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
         if (result.messageKey) {
             await this.telegramMessengerService.sendText(
                 getTelegramUserId(context),

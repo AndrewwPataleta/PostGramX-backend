@@ -41,7 +41,7 @@ export class DealPostingWorker {
         const now = new Date();
         const deals = await this.dealRepository.find({
             where: {
-                stage: DealStage.POST_SCHEDULED,
+                stage: DealStage.PAID,
                 scheduledAt: LessThanOrEqual(now),
             },
         });
@@ -59,7 +59,7 @@ export class DealPostingWorker {
     async handleVerificationCron(): Promise<void> {
         const now = new Date();
         const deals = await this.dealRepository.find({
-            where: {stage: DealStage.POSTED_VERIFYING},
+            where: {stage: DealStage.PUBLISHED},
         });
 
         this.logger.log(
@@ -74,6 +74,10 @@ export class DealPostingWorker {
     private async publishDeal(dealId: string): Promise<void> {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
         if (!deal) {
+            return;
+        }
+
+        if (!deal.scheduledAt || deal.scheduledAt.getTime() > Date.now()) {
             return;
         }
 
@@ -102,7 +106,7 @@ export class DealPostingWorker {
             });
             await this.paymentsService.refundEscrow(deal.id, 'BOT_NOT_ADMIN');
             await this.dealRepository.update(deal.id, {
-                stage: DealStage.FINALIZED,
+                stage: DealStage.FAILED,
                 status: DealStatus.CANCELED,
             });
             await this.dealsNotificationsService.notifyAdvertiser(
@@ -120,9 +124,16 @@ export class DealPostingWorker {
             return;
         }
 
+        const publication = await this.publicationRepository.findOne({
+            where: {dealId: deal.id},
+        });
+        if (publication && publication.status !== PublicationStatus.WAITING) {
+            return;
+        }
+
         try {
             await this.dealRepository.update(deal.id, {
-                stage: DealStage.POST_PUBLISHING,
+                stage: DealStage.PUBLISHING,
             });
             const result = await this.telegramPosterService.publishCreativeToChannel(
                 deal,
@@ -149,7 +160,7 @@ export class DealPostingWorker {
             });
 
             await this.dealRepository.update(deal.id, {
-                stage: DealStage.POSTED_VERIFYING,
+                stage: DealStage.PUBLISHED,
                 status: DealStatus.ACTIVE,
             });
 
@@ -157,6 +168,7 @@ export class DealPostingWorker {
                 deal,
                 'telegram.deal.post.published',
             );
+            await this.dealsNotificationsService.notifyDealPublished(deal);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Posting failed for deal ${deal.id}: ${message}`);
@@ -166,7 +178,7 @@ export class DealPostingWorker {
             });
             await this.paymentsService.refundEscrow(deal.id, 'POST_FAILED');
             await this.dealRepository.update(deal.id, {
-                stage: DealStage.FINALIZED,
+                stage: DealStage.FAILED,
                 status: DealStatus.CANCELED,
             });
         }
@@ -200,7 +212,7 @@ export class DealPostingWorker {
 
         await this.paymentsService.releaseEscrow(deal.id, 'DELIVERY_CONFIRMED');
         await this.dealRepository.update(deal.id, {
-            stage: DealStage.FINALIZED,
+            stage: DealStage.VERIFIED,
             status: DealStatus.COMPLETED,
         });
 
@@ -225,7 +237,7 @@ export class DealPostingWorker {
 
         const created = this.publicationRepository.create({
             dealId,
-            status: PublicationStatus.NOT_POSTED,
+            status: PublicationStatus.WAITING,
             ...data,
         });
         await this.publicationRepository.save(created);

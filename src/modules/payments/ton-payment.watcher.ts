@@ -126,6 +126,14 @@ export class TonPaymentWatcher {
                 return;
             }
 
+            if (
+                ![DealStage.SCHEDULED, DealStage.PAYMENT_PENDING].includes(
+                    deal.stage,
+                )
+            ) {
+                return;
+            }
+
             const transaction = await txRepo.findOne({
                 where: {escrowId: lockedEscrow.id, type: TransactionType.ESCROW_HOLD},
                 lock: {mode: 'pessimistic_write'},
@@ -187,12 +195,12 @@ export class TonPaymentWatcher {
 
             await dealRepo.update(deal.id, {
                 stage: isConfirmed
-                    ? DealStage.POST_SCHEDULED
-                    : DealStage.PAYMENT_PARTIALLY_PAID,
+                    ? DealStage.PAID
+                    : DealStage.PAYMENT_PENDING,
                 status: mapStageToDealStatus(
                     isConfirmed
-                        ? DealStage.POST_SCHEDULED
-                        : DealStage.PAYMENT_PARTIALLY_PAID,
+                        ? DealStage.PAID
+                        : DealStage.PAYMENT_PENDING,
                 ),
             });
 

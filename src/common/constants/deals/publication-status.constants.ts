@@ -1,5 +1,5 @@
 export enum PublicationStatus {
-    NOT_POSTED = 'NOT_POSTED',
+    WAITING = 'WAITING',
     POSTED = 'POSTED',
     VERIFIED = 'VERIFIED',
     FAILED = 'FAILED',

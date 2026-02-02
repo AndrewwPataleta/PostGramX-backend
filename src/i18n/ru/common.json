@@ -41,7 +41,8 @@
       "active_pending_limit": "У вас уже есть активные сделки в ожидании по этому листингу.",
       "deal_not_actionable": "Сделка находится в неверном состоянии.",
       "deadline_passed": "Срок действия для этого действия по сделке истёк.",
-      "creative_not_submitted": "Креатив ещё не отправлен."
+      "creative_not_submitted": "Креатив ещё не отправлен.",
+      "creative_not_received": "Креатив ещё не получен."
     }
   },
   "internalProductCategories": {
@@ -112,21 +113,19 @@
     "stages": {
       "unknown": "Неизвестный статус",
       "draft": "Черновик",
-      "waiting_schedule": "Выберите время",
       "waiting_creative": "Отправьте креатив",
       "creative_submitted": "Креатив отправлен",
-      "admin_review": "Ожидает одобрения администратора",
-      "changes_requested": "Запрошены правки",
+      "creative_changes_requested": "Запрошены правки",
+      "creative_approved": "Креатив одобрен",
+      "waiting_schedule": "Выберите время",
       "awaiting_payment": "Ожидается оплата",
-      "PAYMENT_AWAITING": "Платёж обрабатывается",
-      "funds_confirmed": "Платёж подтверждён",
       "scheduled": "Запланировано",
+      "paid": "Оплачено",
       "posting": "Публикация",
-      "posted_verifying": "Проверка публикации",
-      "released": "Выплачено",
+      "published": "Опубликовано",
+      "verified": "Подтверждено",
       "canceled": "Отменено",
-      "refunded": "Возвращено",
-      "disputed": "Спор"
+      "failed": "Ошибка"
     }
   },
   "listings": {
