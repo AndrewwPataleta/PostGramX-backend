@@ -108,7 +108,6 @@ export class DealsNotificationsService {
                     callbackData: `reject_creative:${deal.id}`,
                 },
             ],
-            [{textKey: 'telegram.common.open_mini_app', url: link}],
         ];
         const payload = (creative.payload ?? {}) as Record<string, unknown>;
         const creativeText = String(payload.text ?? payload.caption ?? '');

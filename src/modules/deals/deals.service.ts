@@ -340,7 +340,7 @@ export class DealsService {
             deal,
             {
                 ...creative,
-                status: CreativeStatus.SUBMITTED_IN_APP,
+                status: CreativeStatus.RECEIVED_IN_BOT,
                 submittedAt: now,
                 submittedByUserId: deal.advertiserUserId,
             } as DealCreativeEntity,
@@ -383,7 +383,7 @@ export class DealsService {
             const dealRepo = manager.getRepository(DealEntity);
 
             await creativeRepo.update(creative.id, {
-                status: CreativeStatus.SUBMITTED_IN_APP,
+                status: CreativeStatus.RECEIVED_IN_BOT,
                 submittedAt: now,
                 submittedByUserId: userId,
             });
@@ -405,7 +405,7 @@ export class DealsService {
                 updatedDeal,
                 {
                     ...creative,
-                    status: CreativeStatus.SUBMITTED_IN_APP,
+                    status: CreativeStatus.RECEIVED_IN_BOT,
                     submittedAt: now,
                     submittedByUserId: userId,
                 } as DealCreativeEntity,
@@ -457,10 +457,10 @@ export class DealsService {
 
         await this.ensurePublisherAdmin(userId, deal);
 
-        this.ensureTransitionAllowed(deal.stage, DealStage.PAYMENT_AWAITING);
+        this.ensureTransitionAllowed(deal.stage, DealStage.SCHEDULING_AWAITING_SUBMIT);
 
         const creative = await this.creativeRepository.findOne({
-            where: {dealId, status: CreativeStatus.SUBMITTED_IN_APP},
+            where: {dealId, status: CreativeStatus.RECEIVED_IN_BOT},
             order: {version: 'DESC'},
         });
 
@@ -560,7 +560,7 @@ export class DealsService {
         );
 
         const creative = await this.creativeRepository.findOne({
-            where: {dealId, status: CreativeStatus.SUBMITTED_IN_APP},
+            where: {dealId, status: CreativeStatus.RECEIVED_IN_BOT},
             order: {version: 'DESC'},
         });
 

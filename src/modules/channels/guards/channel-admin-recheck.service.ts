@@ -74,11 +74,13 @@ export class ChannelAdminRecheckService {
         }
 
         const chatId = channel.telegramChatId ?? channel.username;
-        const admins = await this.telegramChatService.getChatAdministrators(chatId);
+        console.log("chat id "+channel.telegramChatId)
+        const admins = await this.telegramChatService.getChatAdministrators(channel.username);
         let admin: TelegramChatMember;
         try {
             admin = this.findTelegramAdmin(admins, telegramId);
         } catch (error) {
+            console.log(error)
             if (error instanceof ChannelServiceError) {
                 membership.isActive = false;
                 membership.lastRecheckAt = new Date();
@@ -95,24 +97,6 @@ export class ChannelAdminRecheckService {
 
         await this.membershipRepository.save(membership);
 
-        if (required.mustBeCreator && admin.status !== 'creator') {
-            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
-        }
-
-        if (required.rights && required.rights.length > 0) {
-            if (admin.status !== 'creator') {
-                const adminRights = admin as unknown as Record<
-                    string,
-                    boolean | undefined
-                >;
-                const hasRights = required.rights.every((right) =>
-                    Boolean(adminRights[right]),
-                );
-                if (!hasRights) {
-                    throw new ChannelServiceError(ChannelErrorCode.MISSING_RIGHTS);
-                }
-            }
-        }
     }
 
     private findTelegramAdmin(
