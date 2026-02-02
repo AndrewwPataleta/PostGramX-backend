@@ -7,7 +7,6 @@ import {DealEscrowEntity} from './entities/deal-escrow.entity';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
-
 import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';

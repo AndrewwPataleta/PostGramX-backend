@@ -35,6 +35,7 @@ export class TonPaymentWatcher {
     @Cron('*/15 * * * * *')
     async monitorIncomingPayments() {
         try {
+
             const escrows = await this.escrowRepo.find({
                 where: {
                     status: In([
@@ -48,6 +49,8 @@ export class TonPaymentWatcher {
             if (!escrows.length) {
                 return;
             }
+
+
 
             for (const escrow of escrows) {
                 if (!escrow.paymentAddress) {
@@ -73,7 +76,7 @@ export class TonPaymentWatcher {
                     }
                     const txHash = String(txHashRaw).toLowerCase();
                     const observedAt = new Date(Number((entry as any).utime) * 1000);
-
+                    console.log(inMsg)
                     await this.processTransfer(escrow, {
                         txHash,
                         amountNano,
@@ -103,6 +106,8 @@ export class TonPaymentWatcher {
             raw: Record<string, unknown>;
         },
     ): Promise<void> {
+
+
         await this.dataSource.transaction(async (manager) => {
             const transferRepo = manager.getRepository(TonTransferEntity);
             const txRepo = manager.getRepository(TransactionEntity);

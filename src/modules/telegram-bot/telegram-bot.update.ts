@@ -172,18 +172,18 @@ export class TelegramBotUpdate {
             }
         });
 
-        // bot.on('message', async (context) => {
-        //     if ('text' in context.message) {
-        //         return;
-        //     }
-        //
-        //     const handled = await this.dealsBotHandler.handleCreativeMessage(
-        //         context,
-        //     );
-        //     if (handled) {
-        //         return;
-        //     }
-        // });
+        bot.on('message', async (context) => {
+            if ('text' in context.message) {
+                return;
+            }
+
+            const handled = await this.dealsBotHandler.handleCreativeMessage(
+                context,
+            );
+            if (handled) {
+                return;
+            }
+        });
 
         bot.on('text', async (context) => {
             const messageText = context.message.text?.trim() ?? '';
