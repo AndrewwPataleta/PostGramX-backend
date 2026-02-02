@@ -63,7 +63,8 @@
     },
     "notification": {
       "created": "New deal request\nChannel: {channel}\nDeal: {dealId}\nAction: Please review and confirm in the Mini App.\nDeadline to act: {actionDeadline}",
-      "action_required": "Deal action required\nChannel: {channel}\nDeal: {dealId}\nAction: {reason}.\nDeadline to act: {actionDeadline}"
+      "action_required": "Deal action required\nChannel: {channel}\nDeal: {dealId}\nAction: {reason}.\nDeadline to act: {actionDeadline}",
+      "post_not_published_admin": "Deal completed: post was not published.\nChannel: {channel}\nDeal: {dealId}"
     },
     "action_reason": {
       "verification": "Verification required",
@@ -79,6 +80,7 @@
       "payment_timeout": "Deal canceled: payment deadline passed."
     },
     "post": {
+      "not_published_advertiser": "Post not published: the channel admin removed the bot's admin rights.\nFunds have been returned to your withdrawal wallet. Open the app to withdraw.",
       "published": "Post published. We will verify delivery.",
       "delivery_confirmed": "Delivery confirmed. Funds released."
     },
