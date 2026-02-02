@@ -50,8 +50,6 @@ export class TonPaymentWatcher {
                 return;
             }
 
-
-
             for (const escrow of escrows) {
                 if (!escrow.paymentAddress) {
                     continue;
@@ -156,8 +154,7 @@ export class TonPaymentWatcher {
                 .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
                 .execute();
 
-            const inserted =
-                (insertResult as any).affected && (insertResult as any).affected > 0;
+            const inserted = Boolean(insertResult.identifiers?.length);
             if (!inserted) {
                 return;
             }

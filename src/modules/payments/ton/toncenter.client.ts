@@ -29,11 +29,6 @@ export class TonCenterClient {
         return (data.result ?? data) as T;
     }
 
-    // удобные хелперы:
-    getAddressBalance(address: string) {
-        return this.jsonRpc<string>("getAddressBalance", { address });
-    }
-
     getTransactions(address: string, limit = 10) {
         return this.jsonRpc<any[]>("getTransactions", { address, limit });
     }
