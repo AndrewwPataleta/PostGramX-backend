@@ -518,7 +518,7 @@ export class DealsService {
 
         await this.ensurePublisherAdmin(userId, deal);
 
-        this.ensureTransitionAllowed(deal.stage, DealStage.SCHEDULING_AWAITING_SUBMIT);
+        this.ensureTransitionAllowed(deal.stage, DealStage.PAYMENT_AWAITING);
 
         const now = new Date();
 

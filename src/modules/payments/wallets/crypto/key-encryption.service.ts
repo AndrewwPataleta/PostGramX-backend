@@ -43,13 +43,13 @@ export class KeyEncryptionService {
     }
 
     private getMasterKey(): Buffer {
-        const rawKey = this.configService.get<string>('PAYMENTS_MASTER_KEY');
+        const rawKey = this.configService.get<string>('WALLET_MASTER_KEY');
         if (!rawKey) {
-            throw new Error('PAYMENTS_MASTER_KEY is not configured');
+            throw new Error('WALLET_MASTER_KEY is not configured');
         }
         const key = Buffer.from(rawKey, 'base64');
         if (key.length !== 32) {
-            throw new Error('PAYMENTS_MASTER_KEY must be a 32-byte base64 value');
+            throw new Error('WALLET_MASTER_KEY must be a 32-byte base64 value');
         }
         return key;
     }
