@@ -6,8 +6,10 @@ export function mapStageToDealStatus(stage: DealStage): DealStatus {
     switch (stage) {
         case DealStage.CREATIVE_AWAITING_SUBMIT:
         case DealStage.CREATIVE_AWAITING_CONFIRM:
+        case DealStage.CREATIVE_AWAITING_FOR_CHANGES:
         case DealStage.SCHEDULING_AWAITING_SUBMIT:
         case DealStage.SCHEDULING_AWAITING_CONFIRM:
+        case DealStage.SCHEDULE_AWAITING_FOR_CHANGES:
         case DealStage.PAYMENT_AWAITING:
         case DealStage.PAYMENT_PARTIALLY_PAID:
             return DealStatus.PENDING;
@@ -24,4 +26,3 @@ export function mapStageToDealStatus(stage: DealStage): DealStatus {
             return DealStatus.PENDING;
     }
 }
-

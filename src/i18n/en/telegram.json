@@ -36,8 +36,10 @@
       "saved": "Creative saved for Deal #{dealId}. Return to the Mini App and press Submit Creative.",
       "approved_payment_sent": "Creative approved. Payment request sent to advertiser.",
       "changes_requested": "Changes requested. Advertiser has been notified.",
+      "changes_requested_advertiser": "Changes requested for Deal {dealId}.\nNotes: {comment}",
       "rejected_notified": "Creative rejected. Advertiser has been notified.",
-      "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App."
+      "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App.",
+      "request_changes_prompt": "To request changes, reply to this message with the edit details.\n\n#creative_change_request:{dealId}"
     },
     "creative_submitted": {
       "message": "Creative submitted for review\nChannel: {channel}\nDeal: {dealId}\n\nCreative:\n{creativeText}",
@@ -80,6 +82,14 @@
       "approve": "Approve",
       "request_changes": "Request changes",
       "reject": "Reject"
+    },
+    "schedule": {
+      "request_changes_prompt": "To request schedule changes, reply to this message with the updated scheduling details.\n\n#schedule_change_request:{dealId}",
+      "changes_requested": "Schedule changes requested. Advertiser has been notified.",
+      "changes_requested_advertiser": "Schedule changes requested for Deal {dealId}.\nNotes: {comment}"
+    },
+    "request_changes": {
+      "failed": "Failed to process the change request. Please try again in the Mini App."
     }
   },
   "payment": {

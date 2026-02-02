@@ -25,6 +25,27 @@ const getChatId = (context: Context): string => {
     return String(chatId ?? '');
 };
 
+const CHANGE_REQUEST_MARKERS = {
+    creative: /#creative_change_request:([0-9a-f-]{36})/i,
+    schedule: /#schedule_change_request:([0-9a-f-]{36})/i,
+};
+
+const extractChangeRequest = (
+    text: string,
+): {dealId: string; requestType: 'creative' | 'schedule'} | null => {
+    const creativeMatch = text.match(CHANGE_REQUEST_MARKERS.creative);
+    if (creativeMatch?.[1]) {
+        return {dealId: creativeMatch[1], requestType: 'creative'};
+    }
+
+    const scheduleMatch = text.match(CHANGE_REQUEST_MARKERS.schedule);
+    if (scheduleMatch?.[1]) {
+        return {dealId: scheduleMatch[1], requestType: 'schedule'};
+    }
+
+    return null;
+};
+
 @Injectable()
 export class DealsBotHandler {
     private readonly logger = new Logger(DealsBotHandler.name);
@@ -68,6 +89,7 @@ export class DealsBotHandler {
                   message_id: number;
                   photo?: Array<{file_id: string; file_unique_id: string}>;
                   video?: {file_id: string; file_unique_id: string};
+                  reply_to_message?: {text?: string; caption?: string};
               }
             | undefined;
 
@@ -186,6 +208,54 @@ export class DealsBotHandler {
             replyKey,
             replyArgs,
         );
+
+        return true;
+    }
+
+    async handleAdminRequestChangesReply(context: Context): Promise<boolean> {
+        const message = context.message as
+            | {
+                  text?: string;
+                  reply_to_message?: {text?: string; caption?: string};
+              }
+            | undefined;
+
+        if (!message) {
+            return false;
+        }
+
+        const replyText =
+            message.reply_to_message?.text ??
+            message.reply_to_message?.caption ??
+            '';
+        if (!replyText) {
+            return false;
+        }
+
+        const request = extractChangeRequest(replyText);
+        if (!request) {
+            return false;
+        }
+
+        const comment = message.text?.trim() ?? '';
+        const result = await this.dealsService.handleAdminRequestChangesReply({
+            telegramUserId: getTelegramUserId(context),
+            dealId: request.dealId,
+            comment,
+            requestType: request.requestType,
+        });
+
+        if (!result.handled) {
+            return false;
+        }
+
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                getTelegramUserId(context),
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
 
         return true;
     }

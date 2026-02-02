@@ -25,6 +25,7 @@ import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.cons
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+type ChangeRequestType = 'creative' | 'schedule';
 
 @Injectable()
 export class DealsService {
@@ -95,8 +96,10 @@ export class DealsService {
                 status: DealStatus.PENDING,
                 stage: In([
                     DealStage.CREATIVE_AWAITING_SUBMIT,
+                    DealStage.CREATIVE_AWAITING_FOR_CHANGES,
                     DealStage.PAYMENT_AWAITING,
                     DealStage.PAYMENT_PARTIALLY_PAID,
+                    DealStage.SCHEDULE_AWAITING_FOR_CHANGES,
                 ]),
             },
         });
@@ -283,6 +286,7 @@ export class DealsService {
                 advertiserUserId: advertiser.id,
                 stage: In([
                     DealStage.CREATIVE_AWAITING_SUBMIT,
+                    DealStage.CREATIVE_AWAITING_FOR_CHANGES,
                 ]),
             },
             order: {lastActivityAt: 'DESC'},
@@ -541,8 +545,30 @@ export class DealsService {
         userId: string,
         dealId: string,
         comment?: string,
+        requestType?: ChangeRequestType,
     ) {
-        return this.rejectByAdmin(userId, dealId, comment ?? 'CHANGES_REQUESTED');
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        await this.ensurePublisherAdmin(userId, deal);
+
+        const resolvedType =
+            requestType ?? this.resolveChangeRequestType(deal);
+        const targetStage =
+            resolvedType === 'creative'
+                ? DealStage.CREATIVE_AWAITING_FOR_CHANGES
+                : DealStage.SCHEDULE_AWAITING_FOR_CHANGES;
+
+        this.ensureTransitionAllowed(deal.stage, targetStage);
+
+        if (resolvedType === 'creative') {
+            return this.applyCreativeChangesRequest(deal, comment);
+        }
+
+        return this.applyScheduleChangesRequest(deal, comment);
     }
 
     async rejectByAdmin(userId: string, dealId: string, reason?: string) {
@@ -610,6 +636,134 @@ export class DealsService {
         return {id: deal.id, stage: DealStage.CREATIVE_AWAITING_SUBMIT};
     }
 
+    private async ensureChangeRequestAllowed(
+        userId: string,
+        dealId: string,
+        requestType: ChangeRequestType,
+    ): Promise<void> {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        await this.ensurePublisherAdmin(userId, deal);
+
+        const targetStage =
+            requestType === 'creative'
+                ? DealStage.CREATIVE_AWAITING_FOR_CHANGES
+                : DealStage.SCHEDULE_AWAITING_FOR_CHANGES;
+
+        this.ensureTransitionAllowed(deal.stage, targetStage);
+
+        if (requestType === 'creative') {
+            const creative = await this.creativeRepository.findOne({
+                where: {dealId, status: CreativeStatus.RECEIVED_IN_BOT},
+                order: {version: 'DESC'},
+            });
+
+            if (!creative) {
+                throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
+            }
+        }
+    }
+
+    private resolveChangeRequestType(deal: DealEntity): ChangeRequestType {
+        if (deal.stage === DealStage.CREATIVE_AWAITING_CONFIRM) {
+            return 'creative';
+        }
+
+        if (deal.stage === DealStage.SCHEDULING_AWAITING_CONFIRM) {
+            return 'schedule';
+        }
+
+        throw new DealServiceError(DealErrorCode.INVALID_STATUS);
+    }
+
+    private async applyCreativeChangesRequest(
+        deal: DealEntity,
+        comment?: string,
+    ): Promise<{ id: string; stage: DealStage }> {
+        const creative = await this.creativeRepository.findOne({
+            where: {dealId: deal.id, status: CreativeStatus.RECEIVED_IN_BOT},
+            order: {version: 'DESC'},
+        });
+
+        if (!creative) {
+            throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
+        }
+
+        const now = new Date();
+        const trimmedComment = comment?.trim() ?? '';
+
+        await this.dataSource.transaction(async (manager) => {
+            const creativeRepo = manager.getRepository(DealCreativeEntity);
+            const dealRepo = manager.getRepository(DealEntity);
+
+            await creativeRepo.update(creative.id, {
+                status: CreativeStatus.REJECTED,
+                adminComment: trimmedComment || null,
+                reviewedAt: now,
+            });
+
+            const nextVersion = creative.version + 1;
+            const newCreative = creativeRepo.create({
+                dealId: deal.id,
+                version: nextVersion,
+                status: CreativeStatus.DRAFT,
+            });
+            await creativeRepo.save(newCreative);
+
+            const stage = DealStage.CREATIVE_AWAITING_FOR_CHANGES;
+            await dealRepo.update(deal.id, {
+                stage,
+                status: mapStageToDealStatus(stage),
+                idleExpiresAt: this.computeIdleExpiry(stage, now),
+                ...this.buildActivityUpdate(now),
+            });
+        });
+
+        const commentText = trimmedComment || '-';
+        await this.dealsNotificationsService.notifyAdvertiser(
+            deal,
+            'telegram.deal.creative.changes_requested_advertiser',
+            {
+                dealId: deal.id.slice(0, 8),
+                comment: commentText,
+            },
+        );
+
+        return {id: deal.id, stage: DealStage.CREATIVE_AWAITING_FOR_CHANGES};
+    }
+
+    private async applyScheduleChangesRequest(
+        deal: DealEntity,
+        comment?: string,
+    ): Promise<{ id: string; stage: DealStage }> {
+        const now = new Date();
+        const trimmedComment = comment?.trim() ?? '';
+        const stage = DealStage.SCHEDULE_AWAITING_FOR_CHANGES;
+
+        await this.dealRepository.update(deal.id, {
+            stage,
+            status: mapStageToDealStatus(stage),
+            idleExpiresAt: this.computeIdleExpiry(stage, now),
+            ...this.buildActivityUpdate(now),
+        });
+
+        const commentText = trimmedComment || '-';
+        await this.dealsNotificationsService.notifyAdvertiser(
+            deal,
+            'telegram.deal.schedule.changes_requested_advertiser',
+            {
+                dealId: deal.id.slice(0, 8),
+                comment: commentText,
+            },
+        );
+
+        return {id: deal.id, stage};
+    }
+
     async handleCreativeApprovalFromTelegram(payload: {
         telegramUserId: string;
         dealId: string;
@@ -651,13 +805,68 @@ export class DealsService {
             return {handled: false};
         }
 
-        await this.requestChangesByAdmin(user.id, payload.dealId);
+        await this.ensureChangeRequestAllowed(
+            user.id,
+            payload.dealId,
+            'creative',
+        );
 
         return {
             handled: true,
-            messageKey: 'telegram.deal.creative.changes_requested',
-            messageArgs: undefined,
+            messageKey: 'telegram.deal.creative.request_changes_prompt',
+            messageArgs: {dealId: payload.dealId},
         };
+    }
+
+    async handleAdminRequestChangesReply(payload: {
+        telegramUserId: string;
+        dealId: string;
+        comment?: string;
+        requestType: ChangeRequestType;
+    }): Promise<{
+        handled: boolean;
+        messageKey?: string;
+        messageArgs?: Record<string, any>;
+    }> {
+        const user = await this.userRepository.findOne({
+            where: {telegramId: payload.telegramUserId},
+        });
+
+        if (!user) {
+            return {handled: false};
+        }
+
+        try {
+            await this.requestChangesByAdmin(
+                user.id,
+                payload.dealId,
+                payload.comment,
+                payload.requestType,
+            );
+
+            return {
+                handled: true,
+                messageKey:
+                    payload.requestType === 'creative'
+                        ? 'telegram.deal.creative.changes_requested'
+                        : 'telegram.deal.schedule.changes_requested',
+                messageArgs: undefined,
+            };
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            this.logger.warn('Failed to apply change request reply', {
+                dealId: payload.dealId,
+                requestType: payload.requestType,
+                errorMessage,
+            });
+
+            return {
+                handled: true,
+                messageKey: 'telegram.deal.request_changes.failed',
+                messageArgs: undefined,
+            };
+        }
     }
 
     async handleCreativeRejectFromTelegram(payload: {
@@ -1003,7 +1212,9 @@ export class DealsService {
             case DealStage.CREATIVE_AWAITING_CONFIRM:
                 return this.addMinutes(now, DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES);
             case DealStage.CREATIVE_AWAITING_SUBMIT:
+            case DealStage.CREATIVE_AWAITING_FOR_CHANGES:
             case DealStage.SCHEDULING_AWAITING_SUBMIT:
+            case DealStage.SCHEDULE_AWAITING_FOR_CHANGES:
                 return this.addMinutes(
                     now,
                     DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
