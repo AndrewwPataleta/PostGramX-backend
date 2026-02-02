@@ -27,6 +27,9 @@ export class ChannelEntity extends BaseEntity {
     @Column({type: 'text'})
     title: string;
 
+    @Column({type: 'text', nullable: true,})
+    avatarUrl: string;
+
     @Column({type: 'enum', enum: ChannelStatus, default: ChannelStatus.DRAFT})
     status: ChannelStatus;
 
@@ -38,9 +41,6 @@ export class ChannelEntity extends BaseEntity {
 
     @Column({type: 'timestamptz', nullable: true})
     lastCheckedAt: Date | null;
-
-    @Column({type: 'integer', nullable: true})
-    memberCount: number | null;
 
     @Column({type: 'integer', nullable: true})
     subscribersCount: number | null;

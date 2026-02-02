@@ -120,9 +120,12 @@ export class ChannelsService {
         });
 
         if (!channel) {
+         //   let channelPreview = await this.previewChannel(username)
             channel = this.channelRepository.create({
                 username: normalizedUsername,
                 title: normalizedUsername,
+                // subscribersCount: channelPreview.subscribers,
+                // avatarUrl: channelPreview.avatarUrl,
                 status: ChannelStatus.PENDING_VERIFY,
                 createdByUserId: userId,
             });
@@ -134,7 +137,7 @@ export class ChannelsService {
 
         await this.upsertMembership(channel.id, userId, ChannelRole.OWNER);
 
-        return {channelId: channel.id, status: channel.status};
+        return {id: channel.id, status: channel.status};
     }
 
     async verifyChannel(

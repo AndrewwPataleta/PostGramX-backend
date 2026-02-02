@@ -18,7 +18,7 @@ export type ChannelPreview = {
 };
 
 export type ChannelLinkResult = {
-    channelId: string;
+    id: string;
     status: ChannelStatus;
 };
 

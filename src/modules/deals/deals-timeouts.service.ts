@@ -34,10 +34,10 @@ export class DealsTimeoutsService {
             where: {
                 idleExpiresAt: LessThan(now),
                 stage: In([
-                    DealStage.SCHEDULING_PENDING,
+                    DealStage.CREATIVE_AWAITING_CONFIRM,
                     DealStage.CREATIVE_AWAITING_SUBMIT,
-                    DealStage.CREATIVE_SUBMITTED,
-                    DealStage.ADMIN_REVIEW_PENDING,
+                    DealStage.SCHEDULING_AWAITING_CONFIRM,
+                    DealStage.SCHEDULING_AWAITING_SUBMIT,
                 ]),
             },
         });

@@ -21,6 +21,11 @@ class CreateTransactionDataDto {
     @IsEnum(TransactionType)
     type: TransactionType;
 
+    @ApiPropertyOptional({format: 'uuid', readOnly: true})
+    @IsOptional()
+    @IsUUID()
+    userId?: string;
+
     @ApiProperty({enum: TransactionDirection})
     @IsEnum(TransactionDirection)
     direction: TransactionDirection;

@@ -159,7 +159,7 @@ export class PaymentsService {
         const wallet = data.depositAddress
             ? {address: data.depositAddress}
             : await this.walletsService.createEscrowWallet(
-                  data.dealId ?? data.userId,
+                  data.dealId,
               );
 
         const transaction = this.transactionRepository.create({

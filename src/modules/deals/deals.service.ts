@@ -51,7 +51,8 @@ export class DealsService {
         private readonly dealsNotificationsService: DealsNotificationsService,
         private readonly paymentsService: PaymentsService,
         private readonly channelAdminRecheckService: ChannelAdminRecheckService,
-    ) {}
+    ) {
+    }
 
     async createDeal(
         userId: string,
@@ -93,10 +94,7 @@ export class DealsService {
                 advertiserUserId: userId,
                 status: DealStatus.PENDING,
                 stage: In([
-                    DealStage.SCHEDULING_PENDING,
                     DealStage.CREATIVE_AWAITING_SUBMIT,
-                    DealStage.CREATIVE_SUBMITTED,
-                    DealStage.ADMIN_REVIEW_PENDING,
                     DealStage.PAYMENT_AWAITING,
                     DealStage.PAYMENT_PARTIALLY_PAID,
                 ]),
@@ -131,7 +129,7 @@ export class DealsService {
 
         const now = new Date();
         const listingSnapshot = this.buildListingSnapshot(listing, now);
-        const stage = DealStage.SCHEDULING_PENDING;
+        const stage = DealStage.CREATIVE_AWAITING_SUBMIT;
 
         const deal = await this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(DealEntity);
@@ -273,7 +271,6 @@ export class DealsService {
                 advertiserUserId: advertiser.id,
                 stage: In([
                     DealStage.CREATIVE_AWAITING_SUBMIT,
-                    DealStage.CREATIVE_SUBMITTED,
                 ]),
             },
             order: {lastActivityAt: 'DESC'},
@@ -295,10 +292,10 @@ export class DealsService {
         const creative = latestCreative
             ? latestCreative
             : this.creativeRepository.create({
-                  dealId: deal.id,
-                  version: nextVersion,
-                  status: CreativeStatus.DRAFT,
-              });
+                dealId: deal.id,
+                version: nextVersion,
+                status: CreativeStatus.DRAFT,
+            });
 
         creative.status = CreativeStatus.RECEIVED_IN_BOT;
         creative.botChatId = String(payload.rawPayload.chatId ?? '');
@@ -315,7 +312,7 @@ export class DealsService {
             const creativeRepo = manager.getRepository(DealCreativeEntity);
             const dealRepo = manager.getRepository(DealEntity);
             await creativeRepo.save(creative);
-            const stage = DealStage.CREATIVE_SUBMITTED;
+            const stage = DealStage.CREATIVE_AWAITING_CONFIRM;
             await dealRepo.update(deal.id, {
                 stage,
                 status: mapStageToDealStatus(stage),
@@ -352,10 +349,9 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
         }
 
-        this.ensureTransitionAllowed(deal.stage, DealStage.ADMIN_REVIEW_PENDING);
 
         const now = new Date();
-        const stage = DealStage.ADMIN_REVIEW_PENDING;
+        const stage = DealStage.CREATIVE_AWAITING_CONFIRM;
 
         await this.dataSource.transaction(async (manager) => {
             const creativeRepo = manager.getRepository(DealCreativeEntity);
@@ -415,12 +411,12 @@ export class DealsService {
             stage: deal.stage,
             creative: creative
                 ? {
-                      id: creative.id,
-                      version: creative.version,
-                      status: creative.status,
-                      submittedAt: creative.submittedAt,
-                      reviewedAt: creative.reviewedAt,
-                  }
+                    id: creative.id,
+                    version: creative.version,
+                    status: creative.status,
+                    submittedAt: creative.submittedAt,
+                    reviewedAt: creative.reviewedAt,
+                }
                 : null,
         };
     }
@@ -668,7 +664,7 @@ export class DealsService {
         userId: string,
         dealId: string,
         reason?: string,
-    ): Promise<{id: string; stage: DealStage}> {
+    ): Promise<{ id: string; stage: DealStage }> {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -884,48 +880,47 @@ export class DealsService {
         const channel = deal.channel;
 
         return {
-            deal: {
-                id: deal.id,
-                status: deal.status,
-                stage: deal.stage,
-                scheduledAt: deal.scheduledAt,
-                channel: channel
-                    ? {
-                          id: channel.id,
-                          title: channel.title,
-                          username: channel.username,
-                      }
-                    : null,
-                listingSnapshot: deal.listingSnapshot,
-                escrow: escrow
-                    ? {
-                          status: escrow.status,
-                          amountNano: escrow.amountNano,
-                          paidNano: escrow.paidNano,
-                          paymentAddress: escrow.paymentAddress,
-                          paymentDeadlineAt: escrow.paymentDeadlineAt,
-                      }
-                    : null,
-                creative: creative
-                    ? {
-                          id: creative.id,
-                          version: creative.version,
-                          status: creative.status,
-                          submittedAt: creative.submittedAt,
-                          reviewedAt: creative.reviewedAt,
-                      }
-                    : null,
-                publication: publication
-                    ? {
-                          status: publication.status,
-                          publishedMessageId: publication.publishedMessageId,
-                          publishedAt: publication.publishedAt,
-                          mustRemainUntil: publication.mustRemainUntil,
-                          verifiedAt: publication.verifiedAt,
-                          error: publication.error,
-                      }
-                    : null,
-            },
+
+            id: deal.id,
+            status: deal.status,
+            stage: deal.stage,
+            scheduledAt: deal.scheduledAt,
+            channel: channel
+                ? {
+                    id: channel.id,
+                    title: channel.title,
+                    username: channel.username,
+                }
+                : null,
+            listingSnapshot: deal.listingSnapshot,
+            escrow: escrow
+                ? {
+                    status: escrow.status,
+                    amountNano: escrow.amountNano,
+                    paidNano: escrow.paidNano,
+                    paymentAddress: escrow.paymentAddress,
+                    paymentDeadlineAt: escrow.paymentDeadlineAt,
+                }
+                : null,
+            creative: creative
+                ? {
+                    id: creative.id,
+                    version: creative.version,
+                    status: creative.status,
+                    submittedAt: creative.submittedAt,
+                    reviewedAt: creative.reviewedAt,
+                }
+                : null,
+            publication: publication
+                ? {
+                    status: publication.status,
+                    publishedMessageId: publication.publishedMessageId,
+                    publishedAt: publication.publishedAt,
+                    mustRemainUntil: publication.mustRemainUntil,
+                    verifiedAt: publication.verifiedAt,
+                    error: publication.error,
+                }
+                : null,
         };
     }
 
@@ -979,15 +974,15 @@ export class DealsService {
 
     private computeIdleExpiry(stage: DealStage, now: Date): Date | null {
         switch (stage) {
-            case DealStage.SCHEDULING_PENDING:
+            case DealStage.CREATIVE_AWAITING_CONFIRM:
                 return this.addMinutes(now, DEALS_CONFIG.DEAL_IDLE_EXPIRE_MINUTES);
             case DealStage.CREATIVE_AWAITING_SUBMIT:
-            case DealStage.CREATIVE_SUBMITTED:
+            case DealStage.SCHEDULING_AWAITING_SUBMIT:
                 return this.addMinutes(
                     now,
                     DEALS_CONFIG.CREATIVE_SUBMIT_DEADLINE_MINUTES,
                 );
-            case DealStage.ADMIN_REVIEW_PENDING:
+            case DealStage.SCHEDULING_AWAITING_CONFIRM:
                 return this.addHours(now, DEALS_CONFIG.ADMIN_RESPONSE_DEADLINE_HOURS);
             default:
                 return null;

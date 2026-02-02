@@ -38,14 +38,6 @@ class CreateListingDataDto {
     @IsPositive()
     priceTon: number;
 
-    @ApiProperty({example: '2024-01-01T00:00:00.000Z'})
-    @IsISO8601()
-    availabilityFrom: string;
-
-    @ApiProperty({example: '2024-01-08T00:00:00.000Z'})
-    @IsISO8601()
-    availabilityTo: string;
-
     @ApiProperty({required: false, nullable: true, example: 24})
     @Type(() => Number)
     @IsOptional()

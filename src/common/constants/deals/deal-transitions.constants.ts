@@ -1,20 +1,19 @@
 import {DealStage} from './deal-stage.constants';
 
 export const DEAL_STAGE_TRANSITIONS: Record<DealStage, DealStage[]> = {
-    [DealStage.SCHEDULING_PENDING]: [
-        DealStage.CREATIVE_AWAITING_SUBMIT,
-        DealStage.FINALIZED,
-    ],
     [DealStage.CREATIVE_AWAITING_SUBMIT]: [
-        DealStage.CREATIVE_SUBMITTED,
+        DealStage.CREATIVE_AWAITING_CONFIRM,
         DealStage.FINALIZED,
     ],
-    [DealStage.CREATIVE_SUBMITTED]: [
-        DealStage.ADMIN_REVIEW_PENDING,
-        DealStage.CREATIVE_AWAITING_SUBMIT,
+    [DealStage.CREATIVE_AWAITING_CONFIRM]: [
+        DealStage.SCHEDULING_AWAITING_SUBMIT,
         DealStage.FINALIZED,
     ],
-    [DealStage.ADMIN_REVIEW_PENDING]: [
+    [DealStage.SCHEDULING_AWAITING_SUBMIT]: [
+        DealStage.SCHEDULING_AWAITING_CONFIRM,
+        DealStage.FINALIZED,
+    ],
+    [DealStage.SCHEDULING_AWAITING_CONFIRM]: [
         DealStage.PAYMENT_AWAITING,
         DealStage.CREATIVE_AWAITING_SUBMIT,
         DealStage.FINALIZED,

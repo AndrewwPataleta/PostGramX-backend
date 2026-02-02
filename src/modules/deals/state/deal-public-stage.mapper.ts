@@ -12,23 +12,23 @@ const DEFAULT_STAGE: DealPublicStage = {
 };
 
 const STAGE_MAP: Record<DealStage, DealPublicStage> = {
-    [DealStage.SCHEDULING_PENDING]: {
-        stageKey: 'deals.stages.waiting_schedule',
-        shortLabel: 'Choose time',
-        actionHint: 'Select a posting date and time.',
-    },
+
     [DealStage.CREATIVE_AWAITING_SUBMIT]: {
         stageKey: 'deals.stages.waiting_creative',
         shortLabel: 'Send creative',
         actionHint: 'Send the post to the bot.',
     },
-    [DealStage.CREATIVE_SUBMITTED]: {
-        stageKey: 'deals.stages.creative_received',
-        shortLabel: 'Creative received',
-        actionHint: 'Confirm submission in the Mini App.',
+    [DealStage.CREATIVE_AWAITING_CONFIRM]: {
+        stageKey: 'deals.stages.waiting_creative_approve',
+        shortLabel: 'Create waiting approve',
+        actionHint: 'Create waiting approve',
     },
-    [DealStage.ADMIN_REVIEW_PENDING]: {
-        stageKey: 'deals.stages.admin_review',
+    [DealStage.SCHEDULING_AWAITING_SUBMIT]: {
+        stageKey: 'deals.stages.waiting_schedule',
+        shortLabel: 'Awaiting admin review',
+    },
+    [DealStage.SCHEDULING_AWAITING_CONFIRM]: {
+        stageKey: 'deals.stages.waiting_schedule',
         shortLabel: 'Awaiting admin review',
     },
     [DealStage.PAYMENT_AWAITING]: {

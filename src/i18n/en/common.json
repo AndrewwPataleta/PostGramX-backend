@@ -114,6 +114,7 @@
       "draft": "Draft",
       "waiting_schedule": "Choose time",
       "waiting_creative": "Send creative",
+      "waiting_creative_approve": "Creative waiting approve",
       "creative_submitted": "Creative submitted",
       "admin_review": "Awaiting admin approval",
       "changes_requested": "Changes requested",

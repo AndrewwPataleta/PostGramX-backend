@@ -37,8 +37,6 @@ export class ListingsService {
             channelId: string;
             format: ListingFormat;
             priceTon: number;
-            availabilityFrom: string;
-            availabilityTo: string;
             pinDurationHours?: number | null;
             visibilityDurationHours: number;
             allowEdits: boolean;
@@ -83,19 +81,6 @@ export class ListingsService {
             );
         }
 
-        const availabilityFrom = new Date(data.availabilityFrom);
-        const availabilityTo = new Date(data.availabilityTo);
-
-        if (
-            Number.isNaN(availabilityFrom.getTime()) ||
-            Number.isNaN(availabilityTo.getTime()) ||
-            availabilityTo.getTime() <= availabilityFrom.getTime()
-        ) {
-            throw new ListingServiceError(
-                ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE,
-            );
-        }
-
         const isPinnedPlacement = data.pinDurationHours !== null &&
             data.pinDurationHours !== undefined;
         if (data.allowPinnedPlacement !== isPinnedPlacement) {
@@ -119,7 +104,6 @@ export class ListingsService {
             format: ListingFormat.POST,
             priceNano,
             currency: CurrencyCode.TON,
-
             pinDurationHours: data.pinDurationHours ?? null,
             visibilityDurationHours: data.visibilityDurationHours,
             allowEdits: data.allowEdits,
