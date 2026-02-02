@@ -1,8 +1,6 @@
 import {Injectable} from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
-import {createHash} from 'crypto';
+import {DealWalletFactory} from '../../ton/wallet.factory';
 import {WalletScope} from '../types/wallet-scope.enum';
-import {CurrencyCode} from '../../../../common/constants/currency/currency.constants';
 
 export type WalletGenerationOptions = {
     scope: WalletScope;
@@ -18,30 +16,26 @@ export type GeneratedWallet = {
 
 @Injectable()
 export class TonWalletProvider {
-    constructor(private readonly configService: ConfigService) {}
+    constructor(private readonly dealWalletFactory: DealWalletFactory) {}
 
     async generateAddress(
         options: WalletGenerationOptions,
     ): Promise<GeneratedWallet> {
-        const nodeEnv = this.configService.get<string>('NODE_ENV');
-
-        if (nodeEnv === 'production') {
-            throw new Error(
-                `${CurrencyCode.TON} wallet provider is not configured`,
-            );
-        }
-
-        const seed = [options.scope, options.dealId ?? '', options.userId ?? '']
-            .join(':')
-            .toLowerCase();
-        const hash = createHash('sha256').update(seed).digest('hex');
-        const address = `EQDEV${hash.slice(0, 40)}`;
+        const wallet = await this.dealWalletFactory.createNewDealWallet();
 
         return {
-            address,
+            address: wallet.address,
+            secret: JSON.stringify({
+                scope: options.scope,
+                dealId: options.dealId,
+                userId: options.userId,
+                mnemonic: wallet.mnemonic,
+                publicKeyHex: wallet.publicKeyHex,
+                secretKeyHex: wallet.secretKeyHex,
+                address: wallet.address,
+            }),
             metadata: {
-                dev: true,
-                seedHash: hash.slice(0, 16),
+                publicKeyHex: wallet.publicKeyHex,
             },
         };
     }

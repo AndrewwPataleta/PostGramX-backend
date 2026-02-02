@@ -1,6 +1,7 @@
-import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
-import { WalletContractV4 } from "@ton/ton";
-import { Address } from "@ton/ton";
+import {Injectable} from '@nestjs/common';
+import {mnemonicNew, mnemonicToPrivateKey} from '@ton/crypto';
+import {WalletContractV4} from '@ton/ton';
+import {Address} from '@ton/ton';
 
 export type CreatedDealWallet = {
     mnemonic: string[];      // 24 words (СЕКРЕТ)
@@ -14,6 +15,7 @@ function toHex(bytes: Uint8Array) {
     return Buffer.from(bytes).toString("hex");
 }
 
+@Injectable()
 export class DealWalletFactory {
     async createNewDealWallet(): Promise<CreatedDealWallet> {
         const mnemonic = await mnemonicNew(24); // :contentReference[oaicite:3]{index=3}
