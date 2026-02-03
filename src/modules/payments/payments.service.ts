@@ -370,6 +370,7 @@ export class PaymentsService {
             await transactionRepository.save(
                 transactionRepository.create({
                     userId: deal.advertiserUserId,
+                    channelId: deal.channelId,
                     type: TransactionType.ESCROW_RELEASE,
                     direction: TransactionDirection.OUT,
                     amountNano: escrow.amountNano,
