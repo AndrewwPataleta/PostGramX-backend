@@ -15,6 +15,7 @@ import {PublicationStatus} from '../../../common/constants/deals/publication-sta
 import {TelegramPosterService} from './telegram-poster.service';
 import {PaymentsService} from '../../payments/payments.service';
 import {DealsNotificationsService} from '../../deals/deals-notifications.service';
+import {DEALS_CONFIG} from '../../../config/deals.config';
 
 const POST_VERIFICATION_CRON =
     process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *';
@@ -154,16 +155,37 @@ export class DealPostingWorker {
                 mustRemainUntil,
             });
 
-            await this.dealRepository.update(deal.id, {
-                stage: DealStage.POSTED_VERIFYING,
-                status: DealStatus.ACTIVE,
-            });
+            if (DEALS_CONFIG.AUTO_DEAL_COMPLETE) {
+                await this.dealRepository.update(deal.id, {
+                    stage: DealStage.FINALIZED,
+                    status: DealStatus.COMPLETED,
+                });
+            } else {
+                await this.dealRepository.update(deal.id, {
+                    stage: DealStage.POSTED_VERIFYING,
+                    status: DealStatus.ACTIVE,
+                });
+            }
 
             await this.dealsNotificationsService.notifyAdvertiser(
                 deal,
                 'telegram.deal.post.published',
             );
             await this.dealsNotificationsService.notifyPostPublishedAdmin(deal);
+
+            if (DEALS_CONFIG.AUTO_DEAL_COMPLETE) {
+                const publication = await this.publicationRepository.findOne({
+                    where: {dealId: deal.id},
+                });
+                if (publication) {
+                    await this.finalizeDeal({
+                        deal,
+                        publication,
+                        now: publishedAt,
+                        deleteMessage: false,
+                    });
+                }
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Posting failed for deal ${deal.id}: ${message}`);
@@ -241,6 +263,28 @@ export class DealPostingWorker {
             return;
         }
 
+        await this.finalizeDeal({
+            deal,
+            publication,
+            channel,
+            now,
+            deleteMessage: true,
+        });
+    }
+
+    private async finalizeDeal({
+        deal,
+        publication,
+        channel,
+        now,
+        deleteMessage,
+    }: {
+        deal: DealEntity;
+        publication: DealPublicationEntity;
+        channel?: ChannelEntity;
+        now: Date;
+        deleteMessage: boolean;
+    }): Promise<void> {
         await this.publicationRepository.update(publication.id, {
             lastCheckedAt: now,
         });
@@ -285,7 +329,7 @@ export class DealPostingWorker {
             );
         }
 
-        if (publication.publishedMessageId) {
+        if (deleteMessage && publication.publishedMessageId && channel) {
             try {
                 await this.telegramPosterService.deleteChannelMessage(
                     channel,
