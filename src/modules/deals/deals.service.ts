@@ -256,11 +256,14 @@ export class DealsService {
         caption: string | null;
         mediaFileId: string | null;
         rawPayload: Record<string, unknown>;
+        dealId?: string;
     }): Promise<{
         success: boolean;
         dealId?: string;
         messageKey: string;
         messageArgs?: Record<string, any>;
+        requiresDealSelection?: boolean;
+        dealOptions?: Array<{id: string}>;
     }> {
         const advertiser = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
@@ -273,16 +276,48 @@ export class DealsService {
             };
         }
 
-        const deal = await this.dealRepository.findOne({
+        const awaitingSubmitDeals = await this.dealRepository.find({
             where: {
                 advertiserUserId: advertiser.id,
-                stage: In([
-                    DealStage.CREATIVE_AWAITING_SUBMIT,
-                    DealStage.CREATIVE_AWAITING_FOR_CHANGES,
-                ]),
+                stage: DealStage.CREATIVE_AWAITING_SUBMIT,
             },
             order: {lastActivityAt: 'DESC'},
         });
+
+        if (!payload.dealId && awaitingSubmitDeals.length > 1) {
+            return {
+                success: false,
+                messageKey: 'telegram.deal.creative.select_deal',
+                requiresDealSelection: true,
+                dealOptions: awaitingSubmitDeals.map((item) => ({id: item.id})),
+            };
+        }
+
+        let deal: DealEntity | null = null;
+
+        if (payload.dealId) {
+            deal = await this.dealRepository.findOne({
+                where: {
+                    id: payload.dealId,
+                    advertiserUserId: advertiser.id,
+                    stage: In([
+                        DealStage.CREATIVE_AWAITING_SUBMIT,
+                        DealStage.CREATIVE_AWAITING_FOR_CHANGES,
+                    ]),
+                },
+            });
+        } else {
+            deal = await this.dealRepository.findOne({
+                where: {
+                    advertiserUserId: advertiser.id,
+                    stage: In([
+                        DealStage.CREATIVE_AWAITING_SUBMIT,
+                        DealStage.CREATIVE_AWAITING_FOR_CHANGES,
+                    ]),
+                },
+                order: {lastActivityAt: 'DESC'},
+            });
+        }
 
         if (!deal) {
             return {
