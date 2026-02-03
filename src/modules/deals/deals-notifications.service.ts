@@ -598,6 +598,30 @@ export class DealsNotificationsService {
         });
     }
 
+    async notifyPostPublishedAdvertiser(
+        deal: DealEntity,
+        mustRemainUntil: Date | null,
+    ): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+        const lang = this.telegramI18nService.resolveLanguageForUser(user);
+        await this.telegramMessengerService.sendText(
+            user.telegramId,
+            'telegram.deal.post.published',
+            {
+                mustRemainUntil: this.formatDeadlineForUser(
+                    mustRemainUntil,
+                    lang,
+                ),
+            },
+            {lang},
+        );
+    }
+
     async notifyPostDeletedAdmin(deal: DealEntity): Promise<void> {
         await this.notifyDeal(deal, {
             type: 'POST_DELETED',
