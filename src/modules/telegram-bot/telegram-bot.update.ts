@@ -186,8 +186,9 @@ export class TelegramBotUpdate {
             }
         });
 
-        bot.on('message', async (context) => {
+        bot.on('message', async (context, next) => {
             if ('text' in context.message) {
+                await next();
                 return;
             }
 
