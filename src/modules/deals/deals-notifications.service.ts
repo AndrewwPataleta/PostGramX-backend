@@ -605,6 +605,13 @@ export class DealsNotificationsService {
         });
     }
 
+    async notifyPostDeleteFailedAdmin(deal: DealEntity): Promise<void> {
+        await this.notifyDeal(deal, {
+            type: 'POST_DELETE_FAILED',
+            messageKey: 'telegram.deal.notification.post_delete_failed_admin',
+        });
+    }
+
     async notifyDealCompletedAdmin(
         deal: DealEntity,
         amountNano: string,
@@ -616,6 +623,21 @@ export class DealsNotificationsService {
                 type: 'DEAL_COMPLETED',
                 messageKey: 'telegram.deal.notification.deal_completed_admin',
             },
+            {
+                amount: formatTon(amountNano),
+                currency,
+            },
+        );
+    }
+
+    async notifyDealCompletedAdvertiser(
+        deal: DealEntity,
+        amountNano: string,
+        currency: CurrencyCode,
+    ): Promise<void> {
+        await this.notifyAdvertiser(
+            deal,
+            'telegram.deal.post.completed_advertiser_with_amount',
             {
                 amount: formatTon(amountNano),
                 currency,

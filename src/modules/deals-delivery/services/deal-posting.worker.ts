@@ -264,10 +264,18 @@ export class DealPostingWorker {
             'telegram.deal.post.delivery_confirmed',
         );
 
-        await this.dealsNotificationsService.notifyAdvertiser(
-            deal,
-            'telegram.deal.post.completed_advertiser',
-        );
+        if (escrow?.currency && (escrow.paidNano || escrow.amountNano)) {
+            await this.dealsNotificationsService.notifyDealCompletedAdvertiser(
+                deal,
+                escrow.paidNano ?? escrow.amountNano,
+                escrow.currency,
+            );
+        } else {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'telegram.deal.post.completed_advertiser',
+            );
+        }
 
         if (escrow?.currency && (escrow.paidNano || escrow.amountNano)) {
             await this.dealsNotificationsService.notifyDealCompletedAdmin(
@@ -275,6 +283,24 @@ export class DealPostingWorker {
                 escrow.paidNano ?? escrow.amountNano,
                 escrow.currency,
             );
+        }
+
+        if (publication.publishedMessageId) {
+            try {
+                await this.telegramPosterService.deleteChannelMessage(
+                    channel,
+                    publication.publishedMessageId,
+                );
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                    `Failed to delete published message for deal ${deal.id}: ${message}`,
+                );
+                await this.dealsNotificationsService.notifyPostDeleteFailedAdmin(
+                    deal,
+                );
+            }
         }
     }
 
