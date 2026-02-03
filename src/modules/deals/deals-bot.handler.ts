@@ -370,14 +370,6 @@ export class DealsBotHandler {
             return false;
         }
 
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
-
         return true;
     }
 
@@ -395,13 +387,6 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
@@ -421,13 +406,6 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
@@ -446,13 +424,6 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
@@ -469,15 +440,7 @@ export class DealsBotHandler {
         if (!result.handled) {
             return false;
         }
-
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
@@ -497,13 +460,6 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
@@ -522,13 +478,6 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
-        if (result.messageKey) {
-            await this.telegramMessengerService.sendText(
-                getTelegramUserId(context),
-                result.messageKey,
-                result.messageArgs,
-            );
-        }
 
         return true;
     }
