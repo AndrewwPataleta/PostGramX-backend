@@ -17,6 +17,6 @@ import {TonWalletDeploymentService} from '../ton/ton-wallet-deployment.service';
         TonWalletDeploymentService,
         KeyEncryptionService,
     ],
-    exports: [WalletsService, KeyEncryptionService],
+    exports: [WalletsService, KeyEncryptionService, TonWalletDeploymentService],
 })
 export class WalletsModule {}

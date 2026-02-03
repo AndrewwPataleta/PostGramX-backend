@@ -4,6 +4,8 @@ import {InjectRepository} from '@nestjs/typeorm';
 import {DataSource, In, Repository} from 'typeorm';
 import {DealEntity} from '../deals/entities/deal.entity';
 import {DealEscrowEntity} from '../deals/entities/deal-escrow.entity';
+import {EscrowWalletEntity} from './entities/escrow-wallet.entity';
+import {EscrowWalletKeyEntity} from './entities/escrow-wallet-key.entity';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {DealStage} from '../../common/constants/deals/deal-stage.constants';
 import {mapStageToDealStatus} from '../deals/state/deal-status.mapper';
@@ -15,6 +17,8 @@ import {TransactionType} from '../../common/constants/payments/transaction-type.
 import {TonCenterClient} from './ton/toncenter.client';
 import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {KeyEncryptionService} from './wallets/crypto/key-encryption.service';
+import {TonWalletDeploymentService} from './ton/ton-wallet-deployment.service';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -30,6 +34,12 @@ export class TonPaymentWatcher {
         private readonly escrowRepo: Repository<DealEscrowEntity>,
         @InjectRepository(DealEntity)
         private readonly dealRepo: Repository<DealEntity>,
+        @InjectRepository(EscrowWalletEntity)
+        private readonly escrowWalletRepo: Repository<EscrowWalletEntity>,
+        @InjectRepository(EscrowWalletKeyEntity)
+        private readonly escrowWalletKeyRepo: Repository<EscrowWalletKeyEntity>,
+        private readonly keyEncryptionService: KeyEncryptionService,
+        private readonly tonWalletDeploymentService: TonWalletDeploymentService,
     ) {}
 
     @Cron('*/15 * * * * *')
@@ -186,9 +196,8 @@ export class TonPaymentWatcher {
             raw: Record<string, unknown>;
         },
     ): Promise<void> {
-
-
-        await this.dataSource.transaction(async (manager) => {
+        const shouldDeploy = await this.dataSource.transaction(
+            async (manager) => {
             const transferRepo = manager.getRepository(TonTransferEntity);
             const txRepo = manager.getRepository(TransactionEntity);
             const escrowRepo = manager.getRepository(DealEscrowEntity);
@@ -200,7 +209,7 @@ export class TonPaymentWatcher {
             });
 
             if (!lockedEscrow) {
-                return;
+                return false;
             }
 
             const deal = await dealRepo.findOne({
@@ -208,7 +217,7 @@ export class TonPaymentWatcher {
                 lock: {mode: 'pessimistic_write'},
             });
             if (!deal) {
-                return;
+                return false;
             }
 
             const transaction = await txRepo.findOne({
@@ -217,7 +226,7 @@ export class TonPaymentWatcher {
             });
 
             if (!transaction) {
-                return;
+                return false;
             }
 
             const insertResult = await transferRepo
@@ -238,7 +247,7 @@ export class TonPaymentWatcher {
 
             const inserted = Boolean(insertResult.identifiers?.length);
             if (!inserted) {
-                return;
+                return false;
             }
 
             const deadline = lockedEscrow.paymentDeadlineAt;
@@ -251,7 +260,7 @@ export class TonPaymentWatcher {
                     deal,
                     'telegram.payment.expired',
                 );
-                return;
+                return false;
             }
 
             const currentPaid = lockedEscrow.paidNano ?? '0';
@@ -300,7 +309,7 @@ export class TonPaymentWatcher {
                         updatedDeal,
                     );
                 }
-                return;
+                return true;
             }
 
             const updatedDeal = await dealRepo.findOne({
@@ -313,7 +322,67 @@ export class TonPaymentWatcher {
                     remaining,
                 );
             }
+            return true;
+        },
+        );
+
+        if (!shouldDeploy || !escrow.walletId) {
+            return;
+        }
+
+        const deploymentOptions = await this.getDeploymentOptions(escrow.walletId);
+        if (!deploymentOptions) {
+            return;
+        }
+
+        try {
+            await this.tonWalletDeploymentService.ensureDeployed(deploymentOptions);
+        } catch (error) {
+            this.logger.warn(
+                `Failed to deploy escrow wallet ${deploymentOptions.address}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+        }
+    }
+
+    private async getDeploymentOptions(
+        walletId: string,
+    ): Promise<{publicKeyHex: string; secretKeyHex: string; address: string} | null> {
+        const wallet = await this.escrowWalletRepo.findOne({where: {id: walletId}});
+        if (!wallet) {
+            return null;
+        }
+
+        const walletKey = await this.escrowWalletKeyRepo.findOne({
+            where: {walletId},
         });
+        if (!walletKey) {
+            return null;
+        }
+
+        const decrypted = this.keyEncryptionService.decryptSecret(
+            walletKey.encryptedSecret,
+        );
+        const secret = JSON.parse(decrypted) as {
+            publicKeyHex?: string;
+            secretKeyHex?: string;
+            address?: string;
+        };
+
+        if (!secret.publicKeyHex || !secret.secretKeyHex || !secret.address) {
+            return null;
+        }
+
+        if (secret.address !== wallet.address) {
+            return null;
+        }
+
+        return {
+            publicKeyHex: secret.publicKeyHex,
+            secretKeyHex: secret.secretKeyHex,
+            address: wallet.address,
+        };
     }
 
     private async processWithdrawalTransfer(
