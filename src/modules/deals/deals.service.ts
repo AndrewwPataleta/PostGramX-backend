@@ -259,7 +259,7 @@ export class DealsService {
     }): Promise<{
         success: boolean;
         dealId?: string;
-        messageKey: string;
+        messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
         const advertiser = await this.userRepository.findOne({
@@ -345,8 +345,6 @@ export class DealsService {
         return {
             success: true,
             dealId: deal.id,
-            messageKey: 'telegram.deal.creative.saved',
-            messageArgs: {dealId: deal.id.slice(0, 8)},
         };
     }
 

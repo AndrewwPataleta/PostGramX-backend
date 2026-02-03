@@ -111,7 +111,7 @@ export class DealsBotHandler {
         const hasVideo = Boolean(message.video);
         let type: DealCreativeType | null = null;
         let mediaFileId: string | null = null;
-        let replyKey = 'telegram.deal.creative.save_failed';
+        let replyKey: string | undefined = 'telegram.deal.creative.save_failed';
         let replyArgs: Record<string, any> | undefined;
         let replyMiniAppUrl: string | null = null;
 
@@ -193,21 +193,30 @@ export class DealsBotHandler {
             });
         }
 
-        if (replyMiniAppUrl) {
-            await this.telegramMessengerService.sendInlineKeyboard(
+        if (replyKey) {
+            if (replyMiniAppUrl) {
+                await this.telegramMessengerService.sendInlineKeyboard(
+                    telegramUserId,
+                    replyKey,
+                    replyArgs,
+                    [
+                        [
+                            {
+                                textKey: 'telegram.common.open_mini_app',
+                                url: replyMiniAppUrl,
+                            },
+                        ],
+                    ],
+                );
+                return true;
+            }
+
+            await this.telegramMessengerService.sendText(
                 telegramUserId,
                 replyKey,
                 replyArgs,
-                [[{textKey: 'telegram.common.open_mini_app', url: replyMiniAppUrl}]],
             );
-            return true;
         }
-
-        await this.telegramMessengerService.sendText(
-            telegramUserId,
-            replyKey,
-            replyArgs,
-        );
 
         return true;
     }
