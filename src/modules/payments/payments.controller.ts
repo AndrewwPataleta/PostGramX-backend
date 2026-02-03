@@ -55,9 +55,14 @@ export class PaymentsController {
     async list(
         @Body(dtoValidationPipe) dto: ListTransactionsDto,
         @Req() req: Request,
+        @I18n() i18n: I18nContext,
     ) {
         const user = assertUser(req);
-        return this.paymentsService.listTransactionsForUser(user.id, dto.data);
+        return this.paymentsService.listTransactionsForUser(
+            user.id,
+            dto.data,
+            i18n,
+        );
     }
 
     @Post('transactions/:id')

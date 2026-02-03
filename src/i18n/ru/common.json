@@ -99,6 +99,28 @@
       "invalid_destination": "Некорректный адрес получателя.",
       "withdraw_minimum": "Сумма вывода ниже минимально допустимой.",
       "withdraw_failed": "Не удалось выполнить вывод. Попробуйте позже."
+    },
+    "transactions": {
+      "types": {
+        "deposit": "Пополнение",
+        "withdraw": "Вывод",
+        "escrow_hold": "Заморозка эскроу",
+        "escrow_release": "Выплата эскроу",
+        "escrow_refund": "Возврат эскроу",
+        "fee": "Комиссия"
+      },
+      "reasons": {
+        "bot_not_admin": "Бот не является администратором канала.",
+        "post_failed": "Публикация поста не удалась.",
+        "delivery_confirmed": "Размещение подтверждено.",
+        "admin_rejected": "Администратор отклонил сделку.",
+        "canceled": "Сделка отменена.",
+        "admin_rights_lost": "Права администратора были потеряны."
+      },
+      "descriptions": {
+        "escrow_hold": "Заморозка эскроу",
+        "channel_withdrawal": "Вывод средств канала"
+      }
     }
   },
   "deals": {
