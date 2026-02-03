@@ -30,6 +30,17 @@ const TRANSACTION_TYPE_KEYS: Record<TransactionType, string> = {
     [TransactionType.ESCROW_REFUND]: 'payments.transactions.types.escrow_refund',
     [TransactionType.FEE]: 'payments.transactions.types.fee',
 };
+const TRANSACTION_STATUS_KEYS: Record<TransactionStatus, string> = {
+    [TransactionStatus.PENDING]: 'payments.transactions.statuses.pending',
+    [TransactionStatus.PARTIAL]: 'payments.transactions.statuses.partial',
+    [TransactionStatus.AWAITING_CONFIRMATION]:
+        'payments.transactions.statuses.awaiting_confirmation',
+    [TransactionStatus.CONFIRMED]: 'payments.transactions.statuses.confirmed',
+    [TransactionStatus.COMPLETED]: 'payments.transactions.statuses.completed',
+    [TransactionStatus.REFUNDED]: 'payments.transactions.statuses.refunded',
+    [TransactionStatus.FAILED]: 'payments.transactions.statuses.failed',
+    [TransactionStatus.CANCELED]: 'payments.transactions.statuses.canceled',
+};
 const TRANSACTION_DESCRIPTION_KEYS: Record<string, string> = {
     BOT_NOT_ADMIN: 'payments.transactions.reasons.bot_not_admin',
     POST_FAILED: 'payments.transactions.reasons.post_failed',
@@ -140,6 +151,10 @@ export class PaymentsService {
                 typeLabel: await this.localizeTransactionType(item.type, i18n),
                 direction: item.direction,
                 status: item.status,
+                statusLabel: await this.localizeTransactionStatus(
+                    item.status,
+                    i18n,
+                ),
                 amountNano: item.amountNano,
                 currency: item.currency,
                 description: item.description,
@@ -407,5 +422,21 @@ export class PaymentsService {
         }
 
         return i18n.t(key, {defaultValue: description});
+    }
+
+    private async localizeTransactionStatus(
+        status: TransactionStatus,
+        i18n?: I18nContext,
+    ): Promise<string> {
+        if (!i18n) {
+            return status;
+        }
+
+        const key = TRANSACTION_STATUS_KEYS[status];
+        if (!key) {
+            return status;
+        }
+
+        return i18n.t(key, {defaultValue: status});
     }
 }

@@ -109,6 +109,16 @@
         "escrow_refund": "Escrow refund",
         "fee": "Fee"
       },
+      "statuses": {
+        "pending": "Pending",
+        "partial": "Partially confirmed",
+        "awaiting_confirmation": "Awaiting confirmation",
+        "confirmed": "Confirmed",
+        "completed": "Completed",
+        "refunded": "Refunded",
+        "failed": "Failed",
+        "canceled": "Canceled"
+      },
       "reasons": {
         "bot_not_admin": "Bot is not an administrator of the channel.",
         "post_failed": "Post publishing failed.",
