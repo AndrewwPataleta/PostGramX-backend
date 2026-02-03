@@ -586,9 +586,35 @@ export class DealsNotificationsService {
         });
     }
 
+    async notifyPostDeletedAdmin(deal: DealEntity): Promise<void> {
+        await this.notifyDeal(deal, {
+            type: 'POST_DELETED',
+            messageKey: 'telegram.deal.notification.post_deleted_admin',
+        });
+    }
+
+    async notifyDealCompletedAdmin(
+        deal: DealEntity,
+        amountNano: string,
+        currency: CurrencyCode,
+    ): Promise<void> {
+        await this.notifyDeal(
+            deal,
+            {
+                type: 'DEAL_COMPLETED',
+                messageKey: 'telegram.deal.notification.deal_completed_admin',
+            },
+            {
+                amount: formatTon(amountNano),
+                currency,
+            },
+        );
+    }
+
     private async notifyDeal(
         deal: DealEntity,
         payload: { type: string; messageKey: string; reasonKey?: string },
+        extraArgs?: Record<string, any>,
     ): Promise<void> {
         if (!deal.channelId) {
             this.logger.warn(
@@ -648,6 +674,7 @@ export class DealsNotificationsService {
                         channel: channelLabel,
                         dealId: deal.id.slice(0, 8),
                         actionDeadline,
+                        ...(extraArgs ?? {}),
                     };
                     if (payload.reasonKey) {
                         args.reason = this.telegramI18nService.t(

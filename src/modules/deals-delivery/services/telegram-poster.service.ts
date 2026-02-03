@@ -14,6 +14,10 @@ interface TelegramMessageResponse {
     message_id: number;
 }
 
+interface TelegramMessageInfo {
+    message_id: number;
+}
+
 interface TelegramApiResponse<T> {
     ok: boolean;
     result?: T;
@@ -107,6 +111,31 @@ export class TelegramPosterService {
                     logMeta({dealId: deal.id, creativeType: type}),
                 );
                 throw new Error('Unsupported creative type.');
+        }
+    }
+
+    async checkMessagePresence(
+        channel: ChannelEntity,
+        messageId: string,
+    ): Promise<DeliveryCheckResult> {
+        const chatId = this.resolveChatId(channel);
+        if (!chatId) {
+            return {ok: false, reason: 'CHANNEL_MISSING_CHAT_ID'};
+        }
+
+        try {
+            await this.request<TelegramMessageInfo>('getMessage', {
+                chat_id: chatId,
+                message_id: messageId,
+            });
+            return {ok: true};
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const normalized = message.toLowerCase();
+            if (normalized.includes('message') && normalized.includes('not found')) {
+                return {ok: false, reason: 'MESSAGE_NOT_FOUND', details: message};
+            }
+            return {ok: false, reason: 'CHECK_FAILED', details: message};
         }
     }
 

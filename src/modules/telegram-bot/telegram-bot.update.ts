@@ -4,6 +4,7 @@ import {HelpHandler} from './handlers/help.handler';
 import {StartHandler} from './handlers/start.handler';
 import {TELEGRAM_BOT_COMMANDS} from './telegram-bot.constants';
 import {DealsBotHandler} from '../deals/deals-bot.handler';
+import {DealPostMonitorService} from '../deals/services/deal-post-monitor.service';
 import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
 
@@ -18,6 +19,7 @@ export class TelegramBotUpdate {
         private readonly telegramMessengerService: TelegramMessengerService,
         @Inject(forwardRef(() => DealsBotHandler))
         private readonly dealsBotHandler: DealsBotHandler,
+        private readonly dealPostMonitorService: DealPostMonitorService,
     ) {}
 
     register(bot: Telegraf<Context>): void {
@@ -223,6 +225,19 @@ export class TelegramBotUpdate {
                     'telegram.errors.manage_in_app',
                 );
             }
+        });
+
+        bot.on('edited_channel_post', async (context) => {
+            const post = context.editedChannelPost;
+            if (!post?.message_id || !post.chat?.id) {
+                return;
+            }
+
+            await this.dealPostMonitorService.handleEditedChannelPost({
+                chatId: post.chat.id,
+                username: post.chat.username,
+                messageId: post.message_id,
+            });
         });
     }
 

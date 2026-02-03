@@ -10,6 +10,8 @@ export const TELEGRAM_BOT_DEFAULT_MODE = 'polling';
 export const TELEGRAM_BOT_ALLOWED_UPDATES_DEFAULT = [
     'message',
     'callback_query',
+    'channel_post',
+    'edited_channel_post',
 ] as const;
 
 export const TELEGRAM_MINI_APP_ROUTES = {
