@@ -254,10 +254,27 @@ export class DealPostingWorker {
             status: DealStatus.COMPLETED,
         });
 
+        const escrow = await this.escrowRepository.findOne({
+            where: {dealId: deal.id},
+        });
+
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
             'telegram.deal.post.delivery_confirmed',
         );
+
+        await this.dealsNotificationsService.notifyAdvertiser(
+            deal,
+            'telegram.deal.post.completed_advertiser',
+        );
+
+        if (escrow?.currency && (escrow.paidNano || escrow.amountNano)) {
+            await this.dealsNotificationsService.notifyDealCompletedAdmin(
+                deal,
+                escrow.paidNano ?? escrow.amountNano,
+                escrow.currency,
+            );
+        }
     }
 
     private async upsertPublication(
