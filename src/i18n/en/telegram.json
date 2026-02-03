@@ -38,7 +38,7 @@
       "selection_expired": "I couldn't find the creative to attach. Please send it again.",
       "saved": "Creative saved for Deal #{dealId}. Return to the Mini App and press Submit Creative.",
       "changes_requested": "Changes requested. Advertiser has been notified.",
-      "changes_requested_advertiser": "Changes requested for Deal {dealId}.\nNotes: {comment}",
+      "changes_requested_advertiser": "Changes requested for Deal {dealId}.\nChannel: {channel}\nPrice: {price}\nCreated: {createdAt}\nNotes: {comment}",
       "rejected_notified": "Creative rejected. Advertiser has been notified. Deal closed.",
       "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App.",
       "rejected_closed_advertiser": "Creative rejected. The deal is closed. Reason: creative rejected by the channel admin.",
