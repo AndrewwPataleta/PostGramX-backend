@@ -25,6 +25,9 @@ interface TelegramApiResponse<T> {
     error_code?: number;
 }
 
+const TELEGRAM_MESSAGE_LIMIT = 4096;
+const TELEGRAM_CAPTION_LIMIT = 1024;
+
 @Injectable()
 export class TelegramPosterService {
     private readonly logger = new Logger(TelegramPosterService.name);
@@ -87,7 +90,7 @@ export class TelegramPosterService {
 
         switch (type) {
             case 'TEXT':
-                return this.sendMessage(
+                return this.sendMessageChunks(
                     chatId,
                     this.ensureText(text),
                 );
@@ -95,16 +98,22 @@ export class TelegramPosterService {
                 if (!mediaFileId) {
                     throw new Error('Creative media file is missing.');
                 }
-                return this.sendPhoto(chatId, mediaFileId, {
-                    caption: caption ?? (text || undefined),
-                });
+                return this.sendMediaWithOptionalCaption(
+                    'photo',
+                    chatId,
+                    mediaFileId,
+                    caption ?? (text || undefined),
+                );
             case 'VIDEO':
                 if (!mediaFileId) {
                     throw new Error('Creative media file is missing.');
                 }
-                return this.sendVideo(chatId, mediaFileId, {
-                    caption: caption ?? (text || undefined),
-                });
+                return this.sendMediaWithOptionalCaption(
+                    'video',
+                    chatId,
+                    mediaFileId,
+                    caption ?? (text || undefined),
+                );
             default:
                 this.logger.warn(
                     'delivery.deal.publish.unsupported',
@@ -200,6 +209,60 @@ export class TelegramPosterService {
             throw new Error('Creative text is missing.');
         }
         return text;
+    }
+
+    private splitText(text: string, limit: number): string[] {
+        const chunks: string[] = [];
+        for (let index = 0; index < text.length; index += limit) {
+            chunks.push(text.slice(index, index + limit));
+        }
+        return chunks.length ? chunks : [''];
+    }
+
+    private async sendMessageChunks(
+        chatId: string,
+        text: string,
+    ): Promise<TelegramMessageResponse> {
+        const chunks = this.splitText(text, TELEGRAM_MESSAGE_LIMIT);
+        let firstResponse: TelegramMessageResponse | null = null;
+        for (const chunk of chunks) {
+            const response = await this.sendMessage(chatId, chunk);
+            if (!firstResponse) {
+                firstResponse = response;
+            }
+        }
+        if (!firstResponse) {
+            throw new Error('Failed to send message.');
+        }
+        return firstResponse;
+    }
+
+    private async sendMediaWithOptionalCaption(
+        type: 'photo' | 'video',
+        chatId: string,
+        fileId: string,
+        caption?: string,
+    ): Promise<TelegramMessageResponse> {
+        const normalizedCaption = caption?.trim() ? caption : undefined;
+        if (!normalizedCaption) {
+            return type === 'photo'
+                ? this.sendPhoto(chatId, fileId)
+                : this.sendVideo(chatId, fileId);
+        }
+
+        const captionChunks = this.splitText(
+            normalizedCaption,
+            TELEGRAM_CAPTION_LIMIT,
+        );
+        const [captionChunk, ...remainingChunks] = captionChunks;
+        const response =
+            type === 'photo'
+                ? await this.sendPhoto(chatId, fileId, {caption: captionChunk})
+                : await this.sendVideo(chatId, fileId, {caption: captionChunk});
+        if (remainingChunks.length > 0) {
+            await this.sendMessageChunks(chatId, remainingChunks.join(''));
+        }
+        return response;
     }
 
     private async request<T>(
