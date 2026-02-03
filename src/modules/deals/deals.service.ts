@@ -644,10 +644,12 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         }
 
         const now = new Date();
+        let shouldRefund = false;
 
         await this.dataSource.transaction(async (manager) => {
             const creativeRepo = manager.getRepository(DealCreativeEntity);
             const dealRepo = manager.getRepository(DealEntity);
+            const escrowRepo = manager.getRepository(DealEscrowEntity);
 
             await creativeRepo.update(creative.id, {
                 status: CreativeStatus.REJECTED,
@@ -655,22 +657,31 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                 reviewedAt: now,
             });
 
-            const nextVersion = creative.version + 1;
-            const newCreative = creativeRepo.create({
-                dealId: deal.id,
-                version: nextVersion,
-                status: CreativeStatus.DRAFT,
-            });
-            await creativeRepo.save(newCreative);
-
-            const stage = DealStage.CREATIVE_AWAITING_SUBMIT;
             await dealRepo.update(deal.id, {
-                stage,
-                status: mapStageToDealStatus(stage),
-                idleExpiresAt: this.computeIdleExpiry(stage, now),
+                stage: DealStage.FINALIZED,
+                status: DealStatus.CANCELED,
+                cancelReason: reason ?? 'ADMIN_REJECTED',
                 ...this.buildActivityUpdate(now),
             });
+
+            const escrow = await escrowRepo.findOne({where: {dealId: deal.id}});
+            if (
+                escrow &&
+                [
+                    EscrowStatus.PAID_CONFIRMED,
+                    EscrowStatus.PARTIALLY_PAID,
+                ].includes(escrow.status)
+            ) {
+                shouldRefund = true;
+            }
         });
+
+        if (shouldRefund) {
+            await this.paymentsService.refundEscrow(
+                deal.id,
+                reason ?? 'ADMIN_REJECTED',
+            );
+        }
 
         const updatedDeal = await this.dealRepository.findOne({
             where: {id: deal.id},
@@ -678,11 +689,11 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         if (updatedDeal) {
             await this.dealsNotificationsService.notifyAdvertiser(
                 updatedDeal,
-                'telegram.deal.creative.rejected_resubmit',
+                'telegram.deal.creative.rejected_closed_advertiser',
             );
         }
 
-        return {id: deal.id, stage: DealStage.CREATIVE_AWAITING_SUBMIT};
+        return {id: deal.id, stage: DealStage.FINALIZED};
     }
 
     private async ensureChangeRequestAllowed(

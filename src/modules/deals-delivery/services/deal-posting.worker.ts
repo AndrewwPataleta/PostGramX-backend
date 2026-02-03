@@ -163,6 +163,7 @@ export class DealPostingWorker {
                 deal,
                 'telegram.deal.post.published',
             );
+            await this.dealsNotificationsService.notifyPostPublishedAdmin(deal);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Posting failed for deal ${deal.id}: ${message}`);
