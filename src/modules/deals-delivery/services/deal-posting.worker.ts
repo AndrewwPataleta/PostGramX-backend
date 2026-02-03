@@ -167,9 +167,9 @@ export class DealPostingWorker {
                 });
             }
 
-            await this.dealsNotificationsService.notifyAdvertiser(
+            await this.dealsNotificationsService.notifyPostPublishedAdvertiser(
                 deal,
-                'telegram.deal.post.published',
+                mustRemainUntil,
             );
             await this.dealsNotificationsService.notifyPostPublishedAdmin(deal);
 
