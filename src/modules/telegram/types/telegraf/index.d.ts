@@ -59,6 +59,7 @@ declare module 'telegraf' {
             options?: {
                 caption?: string;
                 reply_markup?: {inline_keyboard: unknown[][]};
+                parse_mode?: 'HTML' | 'Markdown';
             },
         ): Promise<unknown>;
         sendVideo(
@@ -67,6 +68,7 @@ declare module 'telegraf' {
             options?: {
                 caption?: string;
                 reply_markup?: {inline_keyboard: unknown[][]};
+                parse_mode?: 'HTML' | 'Markdown';
             },
         ): Promise<unknown>;
     }

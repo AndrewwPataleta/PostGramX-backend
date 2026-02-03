@@ -45,9 +45,14 @@ export class TelegramMessengerService {
         options?: SendOptions & {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
     ): Promise<void> {
         const lang = await this.resolveLanguage(userIdOrChatId, options?.lang);
-        const text = this.telegramI18nService.t(lang, key, args);
+        const parse_mode = this.resolveParseMode(options);
+        const text = this.telegramI18nService.t(
+            lang,
+            key,
+            this.formatArgs(args, parse_mode),
+        );
         await this.telegramBotService.sendMessage(userIdOrChatId, text, {
-            parse_mode: options?.parse_mode,
+            parse_mode,
             reply_markup: options?.reply_markup,
         });
     }
@@ -60,9 +65,14 @@ export class TelegramMessengerService {
         options?: SendOptions & {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
     ): Promise<void> {
         const lang = await this.resolveLanguage(chatId, options?.lang);
-        const text = this.telegramI18nService.t(lang, key, args);
+        const parse_mode = this.resolveParseMode(options);
+        const text = this.telegramI18nService.t(
+            lang,
+            key,
+            this.formatArgs(args, parse_mode),
+        );
         await this.telegramBotService.editMessageText(chatId, messageId, text, {
-            parse_mode: options?.parse_mode,
+            parse_mode,
             reply_markup: options?.reply_markup,
         });
     }
@@ -75,11 +85,17 @@ export class TelegramMessengerService {
         options?: SendMediaOptions,
     ): Promise<void> {
         const lang = await this.resolveLanguage(userIdOrChatId, options?.lang);
-        const caption = this.telegramI18nService.t(lang, captionKey, args);
+        const parse_mode = this.resolveParseMode(options);
+        const caption = this.telegramI18nService.t(
+            lang,
+            captionKey,
+            this.formatArgs(args, parse_mode),
+        );
         const reply_markup = options?.buttons
             ? {inline_keyboard: this.buildInlineKeyboard(options.buttons, lang)}
             : undefined;
         await this.telegramBotService.sendPhoto(userIdOrChatId, fileId, caption, {
+            parse_mode,
             reply_markup,
         });
     }
@@ -92,11 +108,17 @@ export class TelegramMessengerService {
         options?: SendMediaOptions,
     ): Promise<void> {
         const lang = await this.resolveLanguage(userIdOrChatId, options?.lang);
-        const caption = this.telegramI18nService.t(lang, captionKey, args);
+        const parse_mode = this.resolveParseMode(options);
+        const caption = this.telegramI18nService.t(
+            lang,
+            captionKey,
+            this.formatArgs(args, parse_mode),
+        );
         const reply_markup = options?.buttons
             ? {inline_keyboard: this.buildInlineKeyboard(options.buttons, lang)}
             : undefined;
         await this.telegramBotService.sendVideo(userIdOrChatId, fileId, caption, {
+            parse_mode,
             reply_markup,
         });
     }
@@ -109,10 +131,15 @@ export class TelegramMessengerService {
         options?: SendOptions,
     ): Promise<void> {
         const lang = await this.resolveLanguage(userIdOrChatId, options?.lang);
-        const text = this.telegramI18nService.t(lang, key, args);
+        const parse_mode = this.resolveParseMode(options);
+        const text = this.telegramI18nService.t(
+            lang,
+            key,
+            this.formatArgs(args, parse_mode),
+        );
         const inline_keyboard = this.buildInlineKeyboard(buttons, lang);
         await this.telegramBotService.sendMessage(userIdOrChatId, text, {
-            parse_mode: options?.parse_mode,
+            parse_mode,
             reply_markup: {inline_keyboard},
         });
     }
@@ -173,6 +200,38 @@ export class TelegramMessengerService {
         }
 
         return this.resolveLanguageForTelegramId(userIdOrChatId);
+    }
+
+    private resolveParseMode(
+        options?: SendOptions,
+    ): 'HTML' | 'Markdown' | undefined {
+        return options?.parse_mode ?? 'HTML';
+    }
+
+    private formatArgs(
+        args: Record<string, any> | undefined,
+        parseMode?: 'HTML' | 'Markdown',
+    ): Record<string, any> | undefined {
+        if (!args || parseMode !== 'HTML') {
+            return args;
+        }
+
+        return Object.fromEntries(
+            Object.entries(args).map(([key, value]) => {
+                if (value === null || value === undefined) {
+                    return [key, value];
+                }
+                return [key, this.escapeHtml(String(value))];
+            }),
+        );
+    }
+
+    private escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     private buildInlineKeyboard(
