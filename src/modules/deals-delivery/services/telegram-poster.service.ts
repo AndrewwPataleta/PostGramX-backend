@@ -14,10 +14,6 @@ interface TelegramMessageResponse {
     message_id: number;
 }
 
-interface TelegramMessageInfo {
-    message_id: number;
-}
-
 interface TelegramDeleteMessageResponse {
     ok: boolean;
 }
@@ -120,7 +116,7 @@ export class TelegramPosterService {
 
     async checkMessagePresence(
         channel: ChannelEntity,
-        messageId: string,
+        _messageId: string,
     ): Promise<DeliveryCheckResult> {
         const chatId = this.resolveChatId(channel);
         if (!chatId) {
@@ -128,10 +124,7 @@ export class TelegramPosterService {
         }
 
         try {
-            await this.request<TelegramMessageInfo>('getMessage', {
-                chat_id: chatId,
-                message_id: messageId,
-            });
+            await this.request<unknown>('getChat', {chat_id: chatId});
             return {ok: true};
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
