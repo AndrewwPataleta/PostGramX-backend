@@ -1269,6 +1269,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             status: deal.status,
             stage: deal.stage,
             scheduledAt: deal.scheduledAt,
+            createdAt: deal.createdAt,
+            idleExpiresAt: deal.idleExpiresAt,
             channel: channel
                 ? {
                     id: channel.id,
