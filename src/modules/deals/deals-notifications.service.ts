@@ -824,10 +824,13 @@ export class DealsNotificationsService {
     }
 
     private formatUtcTimestamp(value: Date): string {
-        return value
-            .toISOString()
-            .replace('T', ' ')
-            .replace(/\.\d{3}Z$/, ' UTC');
+        const year = value.getUTCFullYear();
+        const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(value.getUTCDate()).padStart(2, '0');
+        const hours = String(value.getUTCHours()).padStart(2, '0');
+        const minutes = String(value.getUTCMinutes()).padStart(2, '0');
+
+        return `${year}.${month}.${day} ${hours}:${minutes}`;
     }
 
     private resolvePaymentRequiredKey(
