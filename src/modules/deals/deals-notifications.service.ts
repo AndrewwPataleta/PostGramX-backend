@@ -11,6 +11,9 @@ import {User} from '../auth/entities/user.entity';
 import {buildMiniAppDealLink} from '../telegram/bot/utils/miniapp-links';
 import {formatTon} from '../payments/utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {TransactionEntity} from '../payments/entities/transaction.entity';
+import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
 import {TelegramI18nService, TelegramLanguage} from "../telegram/i18n/telegram-i18n.service";
 import {TelegramInlineButtonSpec, TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
@@ -27,6 +30,8 @@ export class DealsNotificationsService {
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        @InjectRepository(TransactionEntity)
+        private readonly transactionRepository: Repository<TransactionEntity>,
         private readonly participantsService: ChannelParticipantsService,
         private readonly deepLinkService: DealsDeepLinkService,
         private readonly telegramI18nService: TelegramI18nService,
@@ -486,6 +491,14 @@ export class DealsNotificationsService {
             where: {id: deal.advertiserUserId},
         });
 
+        const transactionUrl = await this.resolveTransactionUrl(deal.id);
+        const messageKey = transactionUrl
+            ? 'telegram.deal.payment_confirmed.with_tx'
+            : 'telegram.deal.payment_confirmed.message';
+        const messageArgs = {
+            dealId: deal.id.slice(0, 8),
+            txUrl: transactionUrl ?? undefined,
+        };
         const link = this.ensureMiniAppLink(deal.id);
         const buttons: TelegramInlineButtonSpec[][] = link
             ? [[{textKey: 'telegram.common.open_mini_app', url: link}]]
@@ -495,10 +508,8 @@ export class DealsNotificationsService {
             if (buttons.length) {
                 await this.telegramMessengerService.sendInlineKeyboard(
                     advertiser.telegramId,
-                    'telegram.deal.payment_confirmed.message',
-                    {
-                        dealId: deal.id.slice(0, 8),
-                    },
+                    messageKey,
+                    messageArgs,
                     buttons,
                     {
                         lang: this.telegramI18nService.resolveLanguageForUser(advertiser),
@@ -507,10 +518,8 @@ export class DealsNotificationsService {
             } else {
                 await this.telegramMessengerService.sendText(
                     advertiser.telegramId,
-                    'telegram.deal.payment_confirmed.message',
-                    {
-                        dealId: deal.id.slice(0, 8),
-                    },
+                    messageKey,
+                    messageArgs,
                     {
                         lang: this.telegramI18nService.resolveLanguageForUser(advertiser),
                     },
@@ -532,10 +541,8 @@ export class DealsNotificationsService {
                 if (buttons.length) {
                     await this.telegramMessengerService.sendInlineKeyboard(
                         recipient.telegramId,
-                        'telegram.deal.payment_confirmed.message',
-                        {
-                            dealId: deal.id.slice(0, 8),
-                        },
+                        messageKey,
+                        messageArgs,
                         buttons,
                         {
                             lang: this.telegramI18nService.resolveLanguageForUser(
@@ -546,10 +553,8 @@ export class DealsNotificationsService {
                 } else {
                     await this.telegramMessengerService.sendText(
                         recipient.telegramId,
-                        'telegram.deal.payment_confirmed.message',
-                        {
-                            dealId: deal.id.slice(0, 8),
-                        },
+                        messageKey,
+                        messageArgs,
                         {
                             lang: this.telegramI18nService.resolveLanguageForUser(
                                 recipient,
@@ -844,6 +849,35 @@ export class DealsNotificationsService {
             this.logger.warn(`Invalid Mini App URL for deal ${dealId}`);
             return null;
         }
+    }
+
+    private async resolveTransactionUrl(dealId: string): Promise<string | null> {
+        const transaction = await this.transactionRepository.findOne({
+            where: {
+                dealId,
+                type: TransactionType.ESCROW_HOLD,
+                status: TransactionStatus.CONFIRMED,
+            },
+            order: {confirmedAt: 'DESC'},
+        });
+
+        if (!transaction) {
+            return null;
+        }
+
+        if (transaction.externalExplorerUrl) {
+            return transaction.externalExplorerUrl;
+        }
+
+        if (transaction.externalTxHash) {
+            return this.buildTonScanUrl(transaction.externalTxHash);
+        }
+
+        return null;
+    }
+
+    private buildTonScanUrl(txHash: string): string {
+        return `https://tonscan.org/ru/tx/${txHash}`;
     }
 
     private truncateText(value: string, limit: number): string {

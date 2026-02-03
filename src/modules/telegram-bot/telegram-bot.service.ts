@@ -86,7 +86,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         userTelegramId: string | number,
         fileId: string,
         caption?: string,
-        options?: {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
+        options?: {
+            reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
+            parse_mode?: 'HTML' | 'Markdown';
+        },
     ): Promise<void> {
         if (!this.config?.token) {
             this.logger.warn('Telegram bot token not configured; skipping send.');
@@ -97,6 +100,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
             const bot = this.getBot();
             await bot.telegram.sendPhoto(String(userTelegramId), fileId, {
                 caption,
+                parse_mode: options?.parse_mode,
                 reply_markup: options?.reply_markup,
             });
         } catch (error) {
@@ -112,7 +116,10 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         userTelegramId: string | number,
         fileId: string,
         caption?: string,
-        options?: {reply_markup?: {inline_keyboard: TelegramInlineButton[][]}},
+        options?: {
+            reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
+            parse_mode?: 'HTML' | 'Markdown';
+        },
     ): Promise<void> {
         if (!this.config?.token) {
             this.logger.warn('Telegram bot token not configured; skipping send.');
@@ -123,6 +130,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
             const bot = this.getBot();
             await bot.telegram.sendVideo(String(userTelegramId), fileId, {
                 caption,
+                parse_mode: options?.parse_mode,
                 reply_markup: options?.reply_markup,
             });
         } catch (error) {

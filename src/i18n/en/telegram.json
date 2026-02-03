@@ -23,9 +23,9 @@
   },
   "deal": {
     "creative_required": {
-      "message": "Ad creative required\n\nYour deal is moving forward.\nPlease send the ad post content to this bot so the channel admin can review it.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the Mini App and press Submit Creative. You can always check the status in the Mini App."
+      "message": "<b>Ad creative required</b>\n\nYour deal is moving forward.\nPlease send the ad post content to this bot so the channel admin can review it.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the Mini App and press Submit Creative. You can always check the status in the Mini App."
     },
-    "creative_ready": "Ready to receive creative for deal {dealId}.\nPlease send the post content to this bot.",
+    "creative_ready": "<b>Ready to receive creative</b>\nDeal: <code>{dealId}</code>\nPlease send the post content to this bot.",
     "creative": {
       "unsupported_format": "Unsupported format.\nSend: text, photo with caption, or video with caption.",
       "save_failed": "Failed to save creative due to a server error.\nPlease try again in 1 minute. If it persists, re-open the Mini App and re-schedule.",
@@ -41,30 +41,31 @@
       "request_changes_prompt": "To request changes, reply to this message with the edit details.\n\n#creative_change_request:{dealId}"
     },
     "creative_submitted": {
-      "message": "Creative submitted for review \nChannel: {channel}\nDeal: {dealId}\n\nCreative:\n{creativeText}\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}",
-      "unsupported_preview": "Creative submitted for review \nChannel: {channel}\nDeal: {dealId}\n\nCreative preview is not supported for this format.\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}"
+      "message": "<b>Creative submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n\n<b>Creative:</b>\n{creativeText}\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}",
+      "unsupported_preview": "<b>Creative submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n\nCreative preview is not supported for this format.\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}"
     },
-    "creative_submitted.advertiser": "Creative submitted \nDeal: {dealId}\n\nWe sent the creative to the channel admin for review.\nNext step: wait for approval in the Mini App.\nDeadline to act: {actionDeadline}",
+    "creative_submitted.advertiser": "<b>Creative submitted</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nWe sent the creative to the channel admin for review.\nNext step: wait for approval in the Mini App.\nDeadline to act: {actionDeadline}",
     "creative_approved": {
-      "admin": "Creative approved \nDeal: {dealId}\n\nNext step: advertiser sets the publish time in the Mini App.\nDeadline to act: {actionDeadline}",
-      "advertiser": "Your creative is approved \nDeal: {dealId}\n\nNext step: set the publish time in the Mini App.\nDeadline to act: {actionDeadline}"
+      "admin": "<b>Creative approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: advertiser sets the publish time in the Mini App.\nDeadline to act: {actionDeadline}",
+      "advertiser": "<b>Creative approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: set the publish time in the Mini App.\nDeadline to act: {actionDeadline}"
     },
     "payment_required": {
-      "basic": "Schedule approved \n\nDeal: {dealId}\nNext: proceed with payment in the Mini App.\nPayment window: {paymentDeadline}",
-      "with_deadline": "Schedule approved \n\nDeal: {dealId}\nNext: proceed with payment in the Mini App.\nPayment window: until {paymentDeadline}",
-      "with_address": "Schedule approved \n\nDeal: {dealId}\nNext: proceed with payment in the Mini App.\nPayment window: {paymentDeadline}\nPayment address: {paymentAddress}",
-      "with_deadline_and_address": "Schedule approved \n\nDeal: {dealId}\nNext: proceed with payment in the Mini App.\nPayment window: until {paymentDeadline}\nPayment address: {paymentAddress}"
+      "basic": "<b>Schedule approved</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nNext: proceed with payment in the Mini App.\nPayment window: {paymentDeadline}",
+      "with_deadline": "<b>Schedule approved</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nNext: proceed with payment in the Mini App.\nPayment window: until {paymentDeadline}",
+      "with_address": "<b>Schedule approved</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nNext: proceed with payment in the Mini App.\nPayment window: {paymentDeadline}\nPayment address: {paymentAddress}",
+      "with_deadline_and_address": "<b>Schedule approved</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nNext: proceed with payment in the Mini App.\nPayment window: until {paymentDeadline}\nPayment address: {paymentAddress}"
     },
     "partial_payment": {
-      "message": "Partial payment received\n\nDeal: {dealId}\nReceived: {received} {currency}\nRemaining: {remaining} {currency}\n\nPlease complete payment in the Mini App to keep the deal active."
+      "message": "<b>Partial payment received</b>\n\n<b>Deal:</b> <code>{dealId}</code>\n<b>Received:</b> {received} {currency}\n<b>Remaining:</b> {remaining} {currency}\n\nPlease complete payment in the Mini App to keep the deal active."
     },
     "payment_confirmed": {
-      "message": "Payment confirmed \n\nDeal: {dealId}\nNext: wait for the post scheduling/publishing flow in the Mini App."
+      "message": "<b>Payment confirmed</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nNext: wait for the post scheduling/publishing flow in the Mini App.",
+      "with_tx": "<b>Payment confirmed</b>\n\n<b>Deal:</b> <code>{dealId}</code>\nTransaction: <a href=\"{txUrl}\">view on TonScan</a>\nNext: wait for the post scheduling/publishing flow in the Mini App."
     },
     "notification": {
-      "created": "New deal request\nChannel: {channel}\nDeal: {dealId}\nAction: Please review and confirm in the Mini App.\nDeadline to act: {actionDeadline}",
-      "action_required": "Deal action required\nChannel: {channel}\nDeal: {dealId}\nAction: {reason}.\nDeadline to act: {actionDeadline}",
-      "post_not_published_admin": "Deal completed: post was not published.\nChannel: {channel}\nDeal: {dealId}"
+      "created": "<b>New deal request</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\nAction: Please review and confirm in the Mini App.\nDeadline to act: {actionDeadline}",
+      "action_required": "<b>Deal action required</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\nAction: {reason}.\nDeadline to act: {actionDeadline}",
+      "post_not_published_admin": "<b>Deal completed</b>: post was not published.\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>"
     },
     "action_reason": {
       "verification": "Verification required",
@@ -74,15 +75,15 @@
       "generic": "Action required"
     },
     "canceled": {
-      "admin_rights_lost": "Deal canceled: channel admin rights were revoked. Refund initiated.",
-      "bot_rights_lost": "Deal canceled: bot lost admin rights. Refund initiated.",
-      "idle_timeout": "Deal canceled: no activity before the deadline.",
-      "payment_timeout": "Deal canceled: payment deadline passed."
+      "admin_rights_lost": "<b>Deal canceled</b>: channel admin rights were revoked. Refund initiated.",
+      "bot_rights_lost": "<b>Deal canceled</b>: bot lost admin rights. Refund initiated.",
+      "idle_timeout": "<b>Deal canceled</b>: no activity before the deadline.",
+      "payment_timeout": "<b>Deal canceled</b>: payment deadline passed."
     },
     "post": {
-      "not_published_advertiser": "Post not published: the channel admin removed the bot's admin rights.\nFunds have been returned to your withdrawal wallet. Open the app to withdraw.",
-      "published": "Post published. We will verify delivery.",
-      "delivery_confirmed": "Delivery confirmed. Funds released."
+      "not_published_advertiser": "<b>Post not published</b>: the channel admin removed the bot's admin rights.\nFunds have been returned to your withdrawal wallet. Open the app to withdraw.",
+      "published": "<b>Post published</b>. We will verify delivery.",
+      "delivery_confirmed": "<b>Delivery confirmed</b>. Funds released."
     },
     "buttons": {
       "approve": "Approve",
@@ -92,8 +93,8 @@
       "cancel": "Cancel"
     },
     "schedule_submitted": {
-      "message": "Schedule submitted for review \nChannel: {channel}\nDeal: {dealId}\nPublish time: {scheduledAt}\n\nCreative:\n{creativeText}\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}",
-      "unsupported_preview": "Schedule submitted for review \nChannel: {channel}\nDeal: {dealId}\nPublish time: {scheduledAt}\n\nCreative preview is not supported for this format.\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}"
+      "message": "<b>Schedule submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n<b>Publish time:</b> {scheduledAt}\n\n<b>Creative:</b>\n{creativeText}\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}",
+      "unsupported_preview": "<b>Schedule submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n<b>Publish time:</b> {scheduledAt}\n\nCreative preview is not supported for this format.\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}"
     },
     "schedule": {
       "approved": "Schedule approved. Advertiser has been notified.",
@@ -103,16 +104,16 @@
       "changes_requested": "Schedule changes requested. Advertiser has been notified.",
       "changes_requested_advertiser": "Schedule changes requested for Deal {dealId}.\nNotes: {comment}"
     },
-    "schedule_submitted.advertiser": "Schedule sent for review \nDeal: {dealId}\n\nWe sent the schedule to the channel admin.\nNext step: wait for approval in the Mini App.\nDeadline to act: {actionDeadline}",
+    "schedule_submitted.advertiser": "<b>Schedule sent for review</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nWe sent the schedule to the channel admin.\nNext step: wait for approval in the Mini App.\nDeadline to act: {actionDeadline}",
     "schedule_approved": {
-      "admin": "Schedule approved \nDeal: {dealId}\n\nNext step: advertiser completes payment in the Mini App.\nPayment deadline: {paymentDeadline}",
-      "advertiser": "Schedule approved \nDeal: {dealId}\n\nNext step: complete payment in the Mini App.\nPayment deadline: {paymentDeadline}"
+      "admin": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: advertiser completes payment in the Mini App.\nPayment deadline: {paymentDeadline}",
+      "advertiser": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: complete payment in the Mini App.\nPayment deadline: {paymentDeadline}"
     },
     "request_changes": {
       "failed": "Failed to process the change request. Please try again in the Mini App."
     }
   },
   "payment": {
-    "expired": "Payment window expired; funds cannot be applied automatically. Contact support."
+    "expired": "<b>Payment window expired</b>; funds cannot be applied automatically. Contact support."
   }
 }
