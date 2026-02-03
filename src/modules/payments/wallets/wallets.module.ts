@@ -6,6 +6,7 @@ import {TonWalletProvider} from './providers/ton-wallet.provider';
 import {WalletsService} from './wallets.service';
 import {KeyEncryptionService} from './crypto/key-encryption.service';
 import {DealWalletFactory} from '../ton/wallet.factory';
+import {TonWalletDeploymentService} from '../ton/ton-wallet-deployment.service';
 
 @Module({
     imports: [TypeOrmModule.forFeature([EscrowWalletEntity, EscrowWalletKeyEntity])],
@@ -13,8 +14,9 @@ import {DealWalletFactory} from '../ton/wallet.factory';
         WalletsService,
         TonWalletProvider,
         DealWalletFactory,
+        TonWalletDeploymentService,
         KeyEncryptionService,
     ],
-    exports: [WalletsService, KeyEncryptionService],
+    exports: [WalletsService, KeyEncryptionService, TonWalletDeploymentService],
 })
 export class WalletsModule {}
