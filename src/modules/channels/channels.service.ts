@@ -119,8 +119,12 @@ export class ChannelsService {
             where: {username: normalizedUsername},
         });
 
+        if (channel && channel.createdByUserId !== userId) {
+            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
+        }
+
         if (!channel) {
-         //   let channelPreview = await this.previewChannel(username)
+            //   let channelPreview = await this.previewChannel(username)
             channel = this.channelRepository.create({
                 username: normalizedUsername,
                 title: normalizedUsername,
