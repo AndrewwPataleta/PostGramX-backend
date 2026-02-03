@@ -18,6 +18,10 @@ interface TelegramMessageInfo {
     message_id: number;
 }
 
+interface TelegramDeleteMessageResponse {
+    ok: boolean;
+}
+
 interface TelegramApiResponse<T> {
     ok: boolean;
     result?: T;
@@ -137,6 +141,21 @@ export class TelegramPosterService {
             }
             return {ok: false, reason: 'CHECK_FAILED', details: message};
         }
+    }
+
+    async deleteChannelMessage(
+        channel: ChannelEntity,
+        messageId: string,
+    ): Promise<void> {
+        const chatId = this.resolveChatId(channel);
+        if (!chatId) {
+            throw new Error('Channel chat id is missing.');
+        }
+
+        await this.request<TelegramDeleteMessageResponse>('deleteMessage', {
+            chat_id: chatId,
+            message_id: messageId,
+        });
     }
 
     private resolveChatId(channel: ChannelEntity): string | null {
