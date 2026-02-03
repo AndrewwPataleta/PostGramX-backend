@@ -228,7 +228,9 @@ export class TelegramBotUpdate {
         });
 
         bot.on('edited_channel_post', async (context) => {
-            const post = context.editedChannelPost;
+            const update = (context as Context & {update?: {edited_channel_post?: {message_id?: number; chat?: {id?: number; username?: string}}}}).update;
+            const post = update?.edited_channel_post;
+
             if (!post?.message_id || !post.chat?.id) {
                 return;
             }

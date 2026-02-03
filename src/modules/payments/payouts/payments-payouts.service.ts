@@ -29,11 +29,7 @@ export class PaymentsPayoutsService {
     ) {
         const query = this.channelRepository
             .createQueryBuilder('channel')
-            .where('channel.ownerUserId = :userId', {userId})
-            .orWhere(
-                'channel.ownerUserId IS NULL AND channel.createdByUserId = :userId',
-                {userId},
-            );
+            .where('channel.createdByUserId = :userId', {userId})
 
         if (filters.q) {
             query.andWhere(
