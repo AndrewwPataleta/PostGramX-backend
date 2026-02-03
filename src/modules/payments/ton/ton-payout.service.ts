@@ -69,6 +69,8 @@ export class TonPayoutService {
             throw new Error('Escrow wallet address mismatch');
         }
 
+        await this.assertWalletReady(wallet.address, options.amountNano);
+
         const publicKey = Buffer.from(secret.publicKeyHex, 'hex');
         const secretKey = Buffer.from(secret.secretKeyHex, 'hex');
 
@@ -87,5 +89,21 @@ export class TonPayoutService {
                 }),
             ],
         });
+    }
+
+    private async assertWalletReady(
+        address: string,
+        amountNano: bigint,
+    ): Promise<void> {
+        const parsed = Address.parse(address);
+        const state = await this.client.getContractState(parsed);
+        if (state.state !== 'active') {
+            throw new Error('Escrow wallet is not deployed');
+        }
+
+        const balance = BigInt(state.balance ?? 0);
+        if (balance < amountNano) {
+            throw new Error('Escrow wallet balance is insufficient');
+        }
     }
 }

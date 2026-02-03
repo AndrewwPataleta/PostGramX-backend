@@ -1,6 +1,7 @@
-import {Injectable} from '@nestjs/common';
+import {Injectable, Logger} from '@nestjs/common';
 import {DealWalletFactory} from '../../ton/wallet.factory';
 import {WalletScope} from '../types/wallet-scope.enum';
+import {TonWalletDeploymentService} from '../../ton/ton-wallet-deployment.service';
 
 export type WalletGenerationOptions = {
     scope: WalletScope;
@@ -16,12 +17,30 @@ export type GeneratedWallet = {
 
 @Injectable()
 export class TonWalletProvider {
-    constructor(private readonly dealWalletFactory: DealWalletFactory) {}
+    private readonly logger = new Logger(TonWalletProvider.name);
+
+    constructor(
+        private readonly dealWalletFactory: DealWalletFactory,
+        private readonly tonWalletDeploymentService: TonWalletDeploymentService,
+    ) {}
 
     async generateAddress(
         options: WalletGenerationOptions,
     ): Promise<GeneratedWallet> {
         const wallet = await this.dealWalletFactory.createNewDealWallet();
+        try {
+            await this.tonWalletDeploymentService.ensureDeployed({
+                publicKeyHex: wallet.publicKeyHex,
+                secretKeyHex: wallet.secretKeyHex,
+                address: wallet.address,
+            });
+        } catch (error) {
+            this.logger.warn(
+                `Failed to deploy TON wallet ${wallet.address}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+        }
 
         return {
             address: wallet.address,
