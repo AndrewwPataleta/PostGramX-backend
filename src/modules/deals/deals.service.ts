@@ -22,6 +22,8 @@ import {CreativeStatus} from '../../common/constants/deals/creative-status.const
 import {PaymentsService} from '../payments/payments.service';
 import {ChannelAdminRecheckService} from '../channels/guards/channel-admin-recheck.service';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
+import {formatTon} from '../payments/utils/bigint';
+import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -282,12 +284,34 @@ export class DealsService {
                 stage: DealStage.CREATIVE_AWAITING_SUBMIT,
             },
             order: {lastActivityAt: 'DESC'},
+            relations: {channel: true},
         });
 
         if (!payload.dealId && awaitingSubmitDeals.length > 1) {
+            const dealsList = awaitingSubmitDeals
+                .map((item, index) => {
+                    const shortId = item.id.slice(0, 8);
+                    const channelLabel = item.channel
+                        ? item.channel.username
+                            ? `${item.channel.title} (@${item.channel.username})`
+                            : item.channel.title
+                        : '';
+                    const snapshot = item.listingSnapshot as DealListingSnapshot;
+                    const price = formatTon(snapshot?.priceNano ?? '0');
+                    const currency = snapshot?.currency ?? DEFAULT_CURRENCY;
+                    return [
+                        `${index + 1} - №${shortId}`,
+                        channelLabel,
+                        `${price} ${currency}`,
+                    ]
+                        .filter(Boolean)
+                        .join(' ');
+                })
+                .join('\n');
             return {
                 success: false,
                 messageKey: 'telegram.deal.creative.select_deal',
+                messageArgs: {dealsList},
                 requiresDealSelection: true,
                 dealOptions: awaitingSubmitDeals.map((item) => ({id: item.id})),
             };
