@@ -16,6 +16,9 @@ import {TelegramPosterService} from './telegram-poster.service';
 import {PaymentsService} from '../../payments/payments.service';
 import {DealsNotificationsService} from '../../deals/deals-notifications.service';
 
+const POST_VERIFICATION_CRON =
+    process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *';
+
 @Injectable()
 export class DealPostingWorker {
     private readonly logger = new Logger(DealPostingWorker.name);
@@ -55,7 +58,7 @@ export class DealPostingWorker {
         }
     }
 
-    @Cron('*/60 * * * * *')
+    @Cron(POST_VERIFICATION_CRON)
     async handleVerificationCron(): Promise<void> {
         const now = new Date();
         const deals = await this.dealRepository.find({
@@ -188,14 +191,58 @@ export class DealPostingWorker {
             return;
         }
 
-        await this.publicationRepository.update(publication.id, {
-            lastCheckedAt: now,
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
         });
-
-        if (now < publication.mustRemainUntil) {
+        if (!channel) {
             return;
         }
 
+        if (publication.publishedMessageId) {
+            const exists = await this.telegramPosterService.checkMessagePresence(
+                channel,
+                publication.publishedMessageId,
+            );
+            if (!exists.ok && exists.reason === 'MESSAGE_NOT_FOUND') {
+                await this.publicationRepository.update(publication.id, {
+                    status: PublicationStatus.DELETED_OR_EDITED,
+                    lastCheckedAt: now,
+                });
+                await this.paymentsService.refundEscrow(
+                    deal.id,
+                    'POST_DELETED',
+                );
+                await this.dealRepository.update(deal.id, {
+                    stage: DealStage.FINALIZED,
+                    status: DealStatus.CANCELED,
+                });
+                await this.dealsNotificationsService.notifyPostDeletedAdmin(
+                    deal,
+                );
+                await this.dealsNotificationsService.notifyAdvertiser(
+                    deal,
+                    'telegram.deal.post.deleted_advertiser',
+                );
+                return;
+            }
+            if (!exists.ok) {
+                this.logger.warn(
+                    `Delivery check failed for deal ${deal.id}: ${exists.reason}`,
+                );
+                return;
+            }
+        }
+
+        if (now < publication.mustRemainUntil) {
+            await this.publicationRepository.update(publication.id, {
+                lastCheckedAt: now,
+            });
+            return;
+        }
+
+        await this.publicationRepository.update(publication.id, {
+            lastCheckedAt: now,
+        });
         await this.publicationRepository.update(publication.id, {
             status: PublicationStatus.VERIFIED,
             verifiedAt: now,

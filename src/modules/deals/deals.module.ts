@@ -11,6 +11,7 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
 import {DealsDeepLinkService} from './deals-deep-link.service';
+import {DealPostMonitorService} from './services/deal-post-monitor.service';
 import {ChannelsModule} from '../channels/channels.module';
 import {DealsTimeoutsService} from './deals-timeouts.service';
 import {WalletsModule} from '../payments/wallets/wallets.module';
@@ -44,8 +45,14 @@ import {TelegramModule} from '../telegram/telegram.module';
         DealsNotificationsService,
         DealsDeepLinkService,
         DealsTimeoutsService,
+        DealPostMonitorService,
         DealsBotHandler,
     ],
-    exports: [DealsService, DealsBotHandler, DealsNotificationsService],
+    exports: [
+        DealsService,
+        DealsBotHandler,
+        DealsNotificationsService,
+        DealPostMonitorService,
+    ],
 })
 export class DealsModule {}
