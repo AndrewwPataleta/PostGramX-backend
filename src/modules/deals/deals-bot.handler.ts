@@ -5,6 +5,16 @@ import {DealCreativeType} from './types/deal-creative-type.enum';
 import {DealsDeepLinkService} from './deals-deep-link.service';
 import {TelegramMessengerService} from "../telegram/telegram-messenger.service";
 
+type PendingCreativePayload = {
+    traceId: string;
+    telegramUserId: string;
+    type: DealCreativeType;
+    text: string | null;
+    caption: string | null;
+    mediaFileId: string | null;
+    rawPayload: Record<string, unknown>;
+    createdAt: number;
+};
 
 const getStartPayload = (context: Context): string | undefined => {
     if (!('startPayload' in context)) {
@@ -49,6 +59,8 @@ const extractChangeRequest = (
 @Injectable()
 export class DealsBotHandler {
     private readonly logger = new Logger(DealsBotHandler.name);
+    private readonly pendingCreativeMessages = new Map<string, PendingCreativePayload>();
+    private readonly pendingCreativeTtlMs = 15 * 60 * 1000;
 
     constructor(
         @Inject(forwardRef(() => DealsService))
@@ -90,6 +102,12 @@ export class DealsBotHandler {
                   photo?: Array<{file_id: string; file_unique_id: string}>;
                   video?: {file_id: string; file_unique_id: string};
                   reply_to_message?: {text?: string; caption?: string};
+                  forward_from?: {id?: number};
+                  forward_from_chat?: {id?: number};
+                  forward_from_message_id?: number;
+                  forward_sender_name?: string;
+                  forward_signature?: string;
+                  forward_date?: number;
               }
             | undefined;
 
@@ -156,7 +174,7 @@ export class DealsBotHandler {
                     type,
                 });
             } else {
-                const result = await this.dealsService.handleCreativeMessage({
+                const creativePayload = {
                     traceId,
                     telegramUserId,
                     type,
@@ -170,11 +188,40 @@ export class DealsBotHandler {
                         caption,
                         photoFileIds: message.photo?.map((item) => item.file_id),
                         videoFileId: message.video?.file_id,
+                        forwardFromId: message.forward_from?.id,
+                        forwardFromChatId: message.forward_from_chat?.id,
+                        forwardFromMessageId: message.forward_from_message_id,
+                        forwardSenderName: message.forward_sender_name,
+                        forwardSignature: message.forward_signature,
+                        forwardDate: message.forward_date,
                     },
-                });
+                };
+                const result = await this.dealsService.handleCreativeMessage(
+                    creativePayload,
+                );
 
                 replyKey = result.messageKey;
                 replyArgs = result.messageArgs;
+
+                if (result.requiresDealSelection && result.dealOptions?.length) {
+                    this.pendingCreativeMessages.set(telegramUserId, {
+                        ...creativePayload,
+                        createdAt: Date.now(),
+                    });
+                    await this.telegramMessengerService.sendInlineKeyboard(
+                        telegramUserId,
+                        replyKey,
+                        replyArgs,
+                        result.dealOptions.map((deal) => [
+                            {
+                                textKey: 'telegram.deal.creative.select_deal_button',
+                                textArgs: {dealId: deal.id.slice(0, 8)},
+                                callbackData: `select_creative:${deal.id}`,
+                            },
+                        ]),
+                    );
+                    return true;
+                }
 
                 if (result.success && result.dealId) {
                     replyMiniAppUrl = this.dealsDeepLinkService.buildDealLink(
@@ -207,6 +254,71 @@ export class DealsBotHandler {
             telegramUserId,
             replyKey,
             replyArgs,
+        );
+
+        return true;
+    }
+
+    async handleCreativeDealSelectionCallback(
+        context: Context,
+        dealId: string,
+    ): Promise<boolean> {
+        const telegramUserId = getTelegramUserId(context);
+        const pending = this.pendingCreativeMessages.get(telegramUserId);
+        if (!pending) {
+            await context.answerCbQuery();
+            await this.telegramMessengerService.sendText(
+                telegramUserId,
+                'telegram.deal.creative.selection_expired',
+            );
+            return true;
+        }
+
+        if (Date.now() - pending.createdAt > this.pendingCreativeTtlMs) {
+            this.pendingCreativeMessages.delete(telegramUserId);
+            await context.answerCbQuery();
+            await this.telegramMessengerService.sendText(
+                telegramUserId,
+                'telegram.deal.creative.selection_expired',
+            );
+            return true;
+        }
+
+        this.pendingCreativeMessages.delete(telegramUserId);
+        const result = await this.dealsService.handleCreativeMessage({
+            traceId: pending.traceId,
+            telegramUserId,
+            type: pending.type,
+            text: pending.text,
+            caption: pending.caption,
+            mediaFileId: pending.mediaFileId,
+            rawPayload: pending.rawPayload,
+            dealId,
+        });
+
+        await context.answerCbQuery();
+
+        let replyMiniAppUrl: string | null = null;
+        if (result.success && result.dealId) {
+            replyMiniAppUrl = this.dealsDeepLinkService.buildDealLink(
+                result.dealId,
+            );
+        }
+
+        if (replyMiniAppUrl) {
+            await this.telegramMessengerService.sendInlineKeyboard(
+                telegramUserId,
+                result.messageKey,
+                result.messageArgs,
+                [[{textKey: 'telegram.common.open_mini_app', url: replyMiniAppUrl}]],
+            );
+            return true;
+        }
+
+        await this.telegramMessengerService.sendText(
+            telegramUserId,
+            result.messageKey,
+            result.messageArgs,
         );
 
         return true;

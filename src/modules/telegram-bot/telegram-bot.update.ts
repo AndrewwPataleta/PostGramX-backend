@@ -111,6 +111,18 @@ export class TelegramBotUpdate {
                 }
             }
 
+            if (data?.startsWith('select_creative:')) {
+                const dealId = data.replace('select_creative:', '').trim();
+                const handled =
+                    await this.dealsBotHandler.handleCreativeDealSelectionCallback(
+                        context,
+                        dealId,
+                    );
+                if (handled) {
+                    return;
+                }
+            }
+
             if (data?.startsWith('request_changes:')) {
                 const dealId = data.replace('request_changes:', '').trim();
                 const handled =
