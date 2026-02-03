@@ -15,6 +15,6 @@ import {DealWalletFactory} from '../ton/wallet.factory';
         DealWalletFactory,
         KeyEncryptionService,
     ],
-    exports: [WalletsService],
+    exports: [WalletsService, KeyEncryptionService],
 })
 export class WalletsModule {}
