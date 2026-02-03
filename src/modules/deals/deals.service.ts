@@ -300,7 +300,7 @@ export class DealsService {
                     const price = formatTon(snapshot?.priceNano ?? '0');
                     const currency = snapshot?.currency ?? DEFAULT_CURRENCY;
                     return [
-                        `${index + 1} - №${shortId}`,
+                        `${index + 1} - ${shortId}`,
                         channelLabel,
                         `${price} ${currency}`,
                     ]

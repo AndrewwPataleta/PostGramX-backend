@@ -42,7 +42,7 @@
       "rejected_notified": "Creative rejected. Advertiser has been notified. Deal closed.",
       "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App.",
       "rejected_closed_advertiser": "Creative rejected. The deal is closed. Reason: creative rejected by the channel admin.",
-      "request_changes_prompt": "To request changes, reply to this message with the edit details.\n\n#creative_change_request:{dealId}"
+      "request_changes_prompt": "To request changes, reply to this message with the edit details.\n"
     },
     "creative_submitted": {
       "message": "<b>Creative submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n\n<b>Creative:</b>\n{creativeText}\n\nNext step: review and approve in the Mini App.\nDeadline to act: {actionDeadline}",
@@ -112,7 +112,7 @@
       "approved": "Schedule approved. Advertiser has been notified.",
       "canceled_advertiser": "Schedule canceled for Deal {dealId}. Please review and resubmit in the Mini App.",
       "canceled_notified": "Schedule canceled. Advertiser has been notified.",
-      "request_changes_prompt": "To request schedule changes, reply to this message with the updated scheduling details.\n\n#schedule_change_request:{dealId}",
+      "request_changes_prompt": "To request schedule changes, reply to this message with the updated scheduling details.\n",
       "changes_requested": "Schedule changes requested. Advertiser has been notified.",
       "changes_requested_advertiser": "Schedule changes requested for Deal {dealId}.\nNotes: {comment}"
     },
