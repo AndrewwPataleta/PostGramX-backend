@@ -99,6 +99,28 @@
       "invalid_destination": "Destination address is invalid.",
       "withdraw_minimum": "Withdrawal amount is below the minimum allowed.",
       "withdraw_failed": "Withdrawal failed. Please try again later."
+    },
+    "transactions": {
+      "types": {
+        "deposit": "Deposit",
+        "withdraw": "Withdrawal",
+        "escrow_hold": "Escrow hold",
+        "escrow_release": "Escrow release",
+        "escrow_refund": "Escrow refund",
+        "fee": "Fee"
+      },
+      "reasons": {
+        "bot_not_admin": "Bot is not an administrator of the channel.",
+        "post_failed": "Post publishing failed.",
+        "delivery_confirmed": "Delivery confirmed.",
+        "admin_rejected": "Admin rejected the deal.",
+        "canceled": "Deal canceled.",
+        "admin_rights_lost": "Admin rights were lost."
+      },
+      "descriptions": {
+        "escrow_hold": "Escrow hold",
+        "channel_withdrawal": "Channel withdrawal"
+      }
     }
   },
   "deals": {

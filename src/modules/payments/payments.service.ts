@@ -18,9 +18,28 @@ import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {WalletsService} from './wallets/wallets.service';
 import {DealEscrowEntity} from '../deals/entities/deal-escrow.entity';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
+import {I18nContext} from 'nestjs-i18n';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+const TRANSACTION_TYPE_KEYS: Record<TransactionType, string> = {
+    [TransactionType.DEPOSIT]: 'payments.transactions.types.deposit',
+    [TransactionType.WITHDRAW]: 'payments.transactions.types.withdraw',
+    [TransactionType.ESCROW_HOLD]: 'payments.transactions.types.escrow_hold',
+    [TransactionType.ESCROW_RELEASE]: 'payments.transactions.types.escrow_release',
+    [TransactionType.ESCROW_REFUND]: 'payments.transactions.types.escrow_refund',
+    [TransactionType.FEE]: 'payments.transactions.types.fee',
+};
+const TRANSACTION_DESCRIPTION_KEYS: Record<string, string> = {
+    BOT_NOT_ADMIN: 'payments.transactions.reasons.bot_not_admin',
+    POST_FAILED: 'payments.transactions.reasons.post_failed',
+    DELIVERY_CONFIRMED: 'payments.transactions.reasons.delivery_confirmed',
+    ADMIN_REJECTED: 'payments.transactions.reasons.admin_rejected',
+    CANCELED: 'payments.transactions.reasons.canceled',
+    ADMIN_RIGHTS_LOST: 'payments.transactions.reasons.admin_rights_lost',
+    'Escrow hold': 'payments.transactions.descriptions.escrow_hold',
+    'Channel withdrawal': 'payments.transactions.descriptions.channel_withdrawal',
+};
 
 @Injectable()
 export class PaymentsService {
@@ -40,6 +59,7 @@ export class PaymentsService {
     async listTransactionsForUser(
         userId: string,
         filters: ListTransactionsFilters,
+        i18n?: I18nContext,
     ) {
         const page = filters.page ?? DEFAULT_PAGE;
         const limit = filters.limit ?? DEFAULT_LIMIT;
@@ -113,15 +133,20 @@ export class PaymentsService {
         const [items, total] = await queryBuilder.getManyAndCount();
         const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
-        return {
-            items: items.map((item) => ({
+        const localizedItems = await Promise.all(
+            items.map(async (item) => ({
                 id: item.id,
                 type: item.type,
+                typeLabel: await this.localizeTransactionType(item.type, i18n),
                 direction: item.direction,
                 status: item.status,
                 amountNano: item.amountNano,
                 currency: item.currency,
                 description: item.description,
+                descriptionLabel: await this.localizeTransactionDescription(
+                    item.description,
+                    i18n,
+                ),
                 dealId: item.dealId,
                 escrowId: item.escrowId,
                 channelId: item.channelId,
@@ -130,6 +155,10 @@ export class PaymentsService {
                 confirmedAt: item.confirmedAt,
                 completedAt: item.completedAt,
             })),
+        );
+
+        return {
+            items: localizedItems,
             page,
             limit,
             total,
@@ -342,5 +371,41 @@ export class PaymentsService {
                 releasedAt: now,
             });
         });
+    }
+
+    private async localizeTransactionType(
+        type: TransactionType,
+        i18n?: I18nContext,
+    ): Promise<string> {
+        if (!i18n) {
+            return type;
+        }
+
+        const key = TRANSACTION_TYPE_KEYS[type];
+        if (!key) {
+            return type;
+        }
+
+        return i18n.t(key, {defaultValue: type});
+    }
+
+    private async localizeTransactionDescription(
+        description: string | null,
+        i18n?: I18nContext,
+    ): Promise<string | null> {
+        if (!description) {
+            return description;
+        }
+
+        if (!i18n) {
+            return description;
+        }
+
+        const key = TRANSACTION_DESCRIPTION_KEYS[description];
+        if (!key) {
+            return description;
+        }
+
+        return i18n.t(key, {defaultValue: description});
     }
 }
