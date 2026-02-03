@@ -33,7 +33,7 @@
       "processing_failed": "I cannot process your creative right now. Please try again.",
       "link_account_required": "Please open the Mini App first to link your account.",
       "no_active_deal": "No active deal found. Please schedule a deal first.",
-      "select_deal": "<b>Choose a deal for this creative</b>\nSelect the deal you want to attach this creative to.",
+      "select_deal": "<b>Choose a deal for this creative</b>\nSelect the deal you want to attach this creative to.\n\n{dealsList}",
       "select_deal_button": "Deal {dealId}",
       "selection_expired": "I couldn't find the creative to attach. Please send it again.",
       "saved": "Creative saved for Deal #{dealId}. Return to the Mini App and press Submit Creative.",
