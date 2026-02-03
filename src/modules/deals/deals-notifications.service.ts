@@ -115,7 +115,7 @@ export class DealsNotificationsService {
         ];
         const payload = (creative.payload ?? {}) as Record<string, unknown>;
         const creativeText = String(payload.text ?? payload.caption ?? '');
-        const textContent = this.truncateText(creativeText, 500);
+        const textContent = creativeText;
         const creativeType = String(payload.type ?? 'TEXT');
         const mediaFileId = payload.mediaFileId as string | undefined;
 
@@ -260,7 +260,7 @@ export class DealsNotificationsService {
 
         const payload = (creative.payload ?? {}) as Record<string, unknown>;
         const creativeText = String(payload.text ?? payload.caption ?? '');
-        const textContent = this.truncateText(creativeText, 500);
+        const textContent = creativeText;
         const creativeType = String(payload.type ?? 'TEXT');
         const mediaFileId = payload.mediaFileId as string | undefined;
 
@@ -974,13 +974,6 @@ export class DealsNotificationsService {
 
     private buildTonScanUrl(txHash: string): string {
         return `https://tonscan.org/ru/tx/${txHash}`;
-    }
-
-    private truncateText(value: string, limit: number): string {
-        if (value.length <= limit) {
-            return value;
-        }
-        return `${value.slice(0, Math.max(limit - 3, 0))}...`;
     }
 
     private formatDeadlineForUser(

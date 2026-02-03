@@ -8,6 +8,9 @@ import {TelegramBotService} from "../telegram-bot/telegram-bot.service";
 import {User} from "../auth/entities/user.entity";
 import {TelegramInlineButton} from "../telegram-bot/telegram-bot.types";
 
+const TELEGRAM_MESSAGE_LIMIT = 4096;
+const TELEGRAM_CAPTION_LIMIT = 1024;
+
 export interface TelegramInlineButtonSpec {
     textKey: string;
     textArgs?: Record<string, any>;
@@ -51,7 +54,7 @@ export class TelegramMessengerService {
             key,
             this.formatArgs(args, parse_mode),
         );
-        await this.telegramBotService.sendMessage(userIdOrChatId, text, {
+        await this.sendMessageChunks(userIdOrChatId, text, {
             parse_mode,
             reply_markup: options?.reply_markup,
         });
@@ -94,10 +97,17 @@ export class TelegramMessengerService {
         const reply_markup = options?.buttons
             ? {inline_keyboard: this.buildInlineKeyboard(options.buttons, lang)}
             : undefined;
-        await this.telegramBotService.sendPhoto(userIdOrChatId, fileId, caption, {
+        const captionChunks = this.splitText(caption, TELEGRAM_CAPTION_LIMIT);
+        const [captionChunk, ...remainingChunks] = captionChunks;
+        await this.telegramBotService.sendPhoto(userIdOrChatId, fileId, captionChunk, {
             parse_mode,
             reply_markup,
         });
+        if (remainingChunks.length > 0) {
+            await this.sendMessageChunks(userIdOrChatId, remainingChunks.join(''), {
+                parse_mode,
+            });
+        }
     }
 
     async sendVideoWithCaption(
@@ -117,10 +127,17 @@ export class TelegramMessengerService {
         const reply_markup = options?.buttons
             ? {inline_keyboard: this.buildInlineKeyboard(options.buttons, lang)}
             : undefined;
-        await this.telegramBotService.sendVideo(userIdOrChatId, fileId, caption, {
+        const captionChunks = this.splitText(caption, TELEGRAM_CAPTION_LIMIT);
+        const [captionChunk, ...remainingChunks] = captionChunks;
+        await this.telegramBotService.sendVideo(userIdOrChatId, fileId, captionChunk, {
             parse_mode,
             reply_markup,
         });
+        if (remainingChunks.length > 0) {
+            await this.sendMessageChunks(userIdOrChatId, remainingChunks.join(''), {
+                parse_mode,
+            });
+        }
     }
 
     async sendInlineKeyboard(
@@ -138,7 +155,7 @@ export class TelegramMessengerService {
             this.formatArgs(args, parse_mode),
         );
         const inline_keyboard = this.buildInlineKeyboard(buttons, lang);
-        await this.telegramBotService.sendMessage(userIdOrChatId, text, {
+        await this.sendMessageChunks(userIdOrChatId, text, {
             parse_mode,
             reply_markup: {inline_keyboard},
         });
@@ -232,6 +249,31 @@ export class TelegramMessengerService {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    private splitText(text: string, limit: number): string[] {
+        const chunks: string[] = [];
+        for (let index = 0; index < text.length; index += limit) {
+            chunks.push(text.slice(index, index + limit));
+        }
+        return chunks.length ? chunks : [''];
+    }
+
+    private async sendMessageChunks(
+        userIdOrChatId: string | number,
+        text: string,
+        options?: {
+            reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
+            parse_mode?: 'HTML' | 'Markdown';
+        },
+    ): Promise<void> {
+        const chunks = this.splitText(text, TELEGRAM_MESSAGE_LIMIT);
+        for (const [index, chunk] of chunks.entries()) {
+            await this.telegramBotService.sendMessage(userIdOrChatId, chunk, {
+                parse_mode: options?.parse_mode,
+                reply_markup: index === 0 ? options?.reply_markup : undefined,
+            });
+        }
     }
 
     private buildInlineKeyboard(
