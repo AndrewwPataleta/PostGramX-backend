@@ -591,6 +591,13 @@ export class DealsNotificationsService {
         });
     }
 
+    async notifyPostPublishedAdmin(deal: DealEntity): Promise<void> {
+        await this.notifyDeal(deal, {
+            type: 'POST_PUBLISHED',
+            messageKey: 'telegram.deal.notification.post_published_admin',
+        });
+    }
+
     async notifyPostDeletedAdmin(deal: DealEntity): Promise<void> {
         await this.notifyDeal(deal, {
             type: 'POST_DELETED',

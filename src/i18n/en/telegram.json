@@ -36,8 +36,9 @@
       "saved": "Creative saved for Deal #{dealId}. Return to the Mini App and press Submit Creative.",
       "changes_requested": "Changes requested. Advertiser has been notified.",
       "changes_requested_advertiser": "Changes requested for Deal {dealId}.\nNotes: {comment}",
-      "rejected_notified": "Creative rejected. Advertiser has been notified.",
+      "rejected_notified": "Creative rejected. Advertiser has been notified. Deal closed.",
       "rejected_resubmit": "Creative rejected. Please submit a new creative in the Mini App.",
+      "rejected_closed_advertiser": "Creative rejected. The deal is closed. Reason: creative rejected by the channel admin.",
       "request_changes_prompt": "To request changes, reply to this message with the edit details.\n\n#creative_change_request:{dealId}"
     },
     "creative_submitted": {
@@ -66,6 +67,7 @@
       "created": "<b>New deal request</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\nAction: Please review and confirm in the Mini App.\nDeadline to act: {actionDeadline}",
       "action_required": "<b>Deal action required</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\nAction: {reason}.\nDeadline to act: {actionDeadline}",
       "post_not_published_admin": "<b>Deal completed</b>: post was not published.\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>",
+      "post_published_admin": "<b>Post published</b>.\nAttention: if the post is deleted before the deadline or edited, the advertiser will receive a refund.",
       "deal_completed_admin": "Deal completed successfully.\nChannel: {channel}\nDeal: {dealId}\nChannel balance topped up: {amount} {currency}.\nYou can withdraw in the app.",
       "post_deleted_admin": "Deal canceled: post was deleted.\nChannel: {channel}\nDeal: {dealId}\nRefund initiated."
     },
