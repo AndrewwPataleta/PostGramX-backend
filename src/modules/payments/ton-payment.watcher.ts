@@ -93,6 +93,88 @@ export class TonPaymentWatcher {
         }
     }
 
+    @Cron('*/15 * * * * *')
+    async monitorWithdrawals() {
+        try {
+            const withdrawals = await this.txRepo.find({
+                where: {
+                    type: TransactionType.WITHDRAW,
+                    status: In([TransactionStatus.AWAITING_CONFIRMATION]),
+                },
+                take: 20,
+            });
+
+            for (const withdrawal of withdrawals) {
+                const metadata = withdrawal.metadata as
+                    | {destinationAddress?: string; sourceAddress?: string}
+                    | null;
+                const destinationAddress = metadata?.destinationAddress;
+                const sourceAddress = metadata?.sourceAddress;
+
+                if (!destinationAddress || !sourceAddress) {
+                    continue;
+                }
+
+                const transactions = await this.ton.getTransactions(
+                    sourceAddress,
+                    10,
+                );
+
+                for (const entry of transactions) {
+                    const outMsgs = (entry as any).out_msgs;
+                    if (!Array.isArray(outMsgs) || outMsgs.length === 0) {
+                        continue;
+                    }
+
+                    const txHashRaw =
+                        (entry as any).transaction_id?.hash ?? (entry as any).hash;
+                    if (!txHashRaw) {
+                        continue;
+                    }
+
+                    const observedAt = new Date(
+                        Number((entry as any).utime) * 1000,
+                    );
+                    const txHash = String(txHashRaw).toLowerCase();
+
+                    for (const outMsg of outMsgs) {
+                        const outValue = outMsg?.value;
+                        const outDestination = outMsg?.destination;
+                        if (!outValue || !outDestination) {
+                            continue;
+                        }
+
+                        if (
+                            String(outDestination).toLowerCase() !==
+                            destinationAddress.toLowerCase()
+                        ) {
+                            continue;
+                        }
+
+                        if (String(outValue) !== withdrawal.amountNano) {
+                            continue;
+                        }
+
+                        await this.processWithdrawalTransfer(withdrawal, {
+                            txHash,
+                            amountNano: String(outValue),
+                            fromAddress: sourceAddress,
+                            toAddress: destinationAddress,
+                            observedAt,
+                            raw: entry as any,
+                        });
+                        break;
+                    }
+                }
+            }
+        } catch (err) {
+            this.logger.error(
+                'Withdrawal watcher error',
+                err instanceof Error ? err.stack : String(err),
+            );
+        }
+    }
+
     private async processTransfer(
         escrow: DealEscrowEntity,
         transfer: {
@@ -231,6 +313,63 @@ export class TonPaymentWatcher {
                     remaining,
                 );
             }
+        });
+    }
+
+    private async processWithdrawalTransfer(
+        withdrawal: TransactionEntity,
+        transfer: {
+            txHash: string;
+            amountNano: string;
+            fromAddress: string;
+            toAddress: string;
+            observedAt: Date;
+            raw: Record<string, unknown>;
+        },
+    ): Promise<void> {
+        await this.dataSource.transaction(async (manager) => {
+            const transferRepo = manager.getRepository(TonTransferEntity);
+            const txRepo = manager.getRepository(TransactionEntity);
+
+            const lockedTx = await txRepo.findOne({
+                where: {id: withdrawal.id},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!lockedTx) {
+                return;
+            }
+
+            if (lockedTx.status !== TransactionStatus.AWAITING_CONFIRMATION) {
+                return;
+            }
+
+            const insertResult = await transferRepo
+                .createQueryBuilder()
+                .insert()
+                .values({
+                    transactionId: lockedTx.id,
+                    network: CurrencyCode.TON,
+                    toAddress: transfer.toAddress,
+                    fromAddress: transfer.fromAddress,
+                    amountNano: transfer.amountNano,
+                    txHash: transfer.txHash,
+                    observedAt: transfer.observedAt,
+                    raw: transfer.raw,
+                })
+                .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
+                .execute();
+
+            const inserted = Boolean(insertResult.identifiers?.length);
+            if (!inserted) {
+                return;
+            }
+
+            await txRepo.update(lockedTx.id, {
+                status: TransactionStatus.COMPLETED,
+                externalTxHash: transfer.txHash,
+                completedAt: new Date(),
+            });
         });
     }
 }

@@ -10,6 +10,11 @@ import {TransactionStatus} from "../../../common/constants/payments/transaction-
 import {TransactionType} from "../../../common/constants/payments/transaction-type.constants";
 import {TransactionDirection} from "../../../common/constants/payments/transaction-direction.constants";
 import {CurrencyCode} from "../../../common/constants/currency/currency.constants";
+import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
+import {DealEntity} from '../../deals/entities/deal.entity';
+import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {TonPayoutService} from '../ton/ton-payout.service';
+import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 
 const MIN_WITHDRAW_NANO = BigInt('100000000');
 
@@ -21,6 +26,7 @@ export class PaymentsPayoutsService {
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
+        private readonly tonPayoutService: TonPayoutService,
     ) {}
 
     async listChannelPayouts(
@@ -127,6 +133,12 @@ export class PaymentsPayoutsService {
         amountNano: string,
         destinationAddress?: string,
     ) {
+        if (!destinationAddress) {
+            throw new PaymentsPayoutsError(
+                PaymentsPayoutsErrorCode.INVALID_DESTINATION,
+            );
+        }
+
         let amount: bigint;
         try {
             amount = BigInt(amountNano);
@@ -148,64 +160,182 @@ export class PaymentsPayoutsService {
             );
         }
 
-        return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
-            const channel = await manager
-                .getRepository(ChannelEntity)
-                .createQueryBuilder('channel')
-                .setLock('pessimistic_write')
-                .where('channel.id = :channelId', {channelId})
-                .getOne();
-
-            if (!channel) {
-                throw new PaymentsPayoutsError(
-                    PaymentsPayoutsErrorCode.CHANNEL_NOT_FOUND,
-                );
-            }
-
-            const ownerId = channel.createdByUserId;
-            if (ownerId !== userId) {
-                throw new PaymentsPayoutsError(
-                    PaymentsPayoutsErrorCode.FORBIDDEN,
-                );
-            }
-
-            const available = await this.computeAvailableForChannel(
-                manager.getRepository(TransactionEntity),
-                channelId,
+        try {
+            this.tonPayoutService.validateDestinationAddress(destinationAddress);
+        } catch (error) {
+            throw new PaymentsPayoutsError(
+                PaymentsPayoutsErrorCode.INVALID_DESTINATION,
             );
+        }
 
-            if (amount > available) {
-                throw new PaymentsPayoutsError(
-                    PaymentsPayoutsErrorCode.INSUFFICIENT_FUNDS,
+        const payout = await this.dataSource.transaction(
+            'SERIALIZABLE',
+            async (manager) => {
+                const channel = await manager
+                    .getRepository(ChannelEntity)
+                    .createQueryBuilder('channel')
+                    .setLock('pessimistic_write')
+                    .where('channel.id = :channelId', {channelId})
+                    .getOne();
+
+                if (!channel) {
+                    throw new PaymentsPayoutsError(
+                        PaymentsPayoutsErrorCode.CHANNEL_NOT_FOUND,
+                    );
+                }
+
+                const ownerId = channel.createdByUserId;
+                if (ownerId !== userId) {
+                    throw new PaymentsPayoutsError(
+                        PaymentsPayoutsErrorCode.FORBIDDEN,
+                    );
+                }
+
+                const available = await this.computeAvailableForChannel(
+                    manager.getRepository(TransactionEntity),
+                    channelId,
                 );
-            }
 
-            const transaction = manager.getRepository(TransactionEntity).create({
-                userId,
-                channelId,
-                type: TransactionType.WITHDRAW,
-                direction: TransactionDirection.OUT,
-                status: TransactionStatus.PENDING,
-                amountNano: amount.toString(),
-                currency:  CurrencyCode.TON,
-                description: 'Channel withdrawal',
-                metadata: destinationAddress
-                    ? {destinationAddress}
-                    : null,
+                if (amount > available) {
+                    throw new PaymentsPayoutsError(
+                        PaymentsPayoutsErrorCode.INSUFFICIENT_FUNDS,
+                    );
+                }
+
+                const escrow = await this.findEscrowForWithdrawal(
+                    manager.getRepository(DealEscrowEntity),
+                    manager.getRepository(TransactionEntity),
+                    channelId,
+                    amount,
+                );
+
+                if (!escrow) {
+                    throw new PaymentsPayoutsError(
+                        PaymentsPayoutsErrorCode.INSUFFICIENT_FUNDS,
+                    );
+                }
+
+                const wallet = await manager
+                    .getRepository(EscrowWalletEntity)
+                    .findOne({where: {id: escrow.walletId}});
+
+                if (!wallet) {
+                    throw new PaymentsPayoutsError(
+                        PaymentsPayoutsErrorCode.WITHDRAW_FAILED,
+                    );
+                }
+
+                const transaction = manager
+                    .getRepository(TransactionEntity)
+                    .create({
+                        userId,
+                        channelId,
+                        escrowId: escrow.id,
+                        type: TransactionType.WITHDRAW,
+                        direction: TransactionDirection.OUT,
+                        status: TransactionStatus.PENDING,
+                        amountNano: amount.toString(),
+                        currency: CurrencyCode.TON,
+                        description: 'Channel withdrawal',
+                        metadata: {
+                            destinationAddress,
+                            sourceWalletId: escrow.walletId,
+                            sourceAddress: wallet.address,
+                        },
+                    });
+
+                const saved = await manager
+                    .getRepository(TransactionEntity)
+                    .save(transaction);
+
+                return {
+                    id: saved.id,
+                    status: saved.status,
+                    amountNano: saved.amountNano,
+                    currency: saved.currency,
+                    channelId: saved.channelId,
+                    sourceWalletId: escrow.walletId!,
+                };
+            },
+        );
+
+        try {
+            await this.tonPayoutService.sendFromEscrowWallet({
+                walletId: payout.sourceWalletId,
+                toAddress: destinationAddress,
+                amountNano: amount,
             });
 
-            const saved = await manager
-                .getRepository(TransactionEntity)
-                .save(transaction);
+            await this.transactionRepository.update(payout.id, {
+                status: TransactionStatus.AWAITING_CONFIRMATION,
+            });
+        } catch (error) {
+            await this.transactionRepository.update(payout.id, {
+                status: TransactionStatus.FAILED,
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
 
-            return {
-                id: saved.id,
-                status: saved.status,
-                amountNano: saved.amountNano,
-                currency: saved.currency,
-                channelId: saved.channelId,
-            };
-        });
+            throw new PaymentsPayoutsError(
+                PaymentsPayoutsErrorCode.WITHDRAW_FAILED,
+            );
+        }
+
+        return {
+            id: payout.id,
+            status: TransactionStatus.AWAITING_CONFIRMATION,
+            amountNano: payout.amountNano,
+            currency: payout.currency,
+            channelId: payout.channelId,
+        };
+
+    }
+
+    private async findEscrowForWithdrawal(
+        escrowRepository: Repository<DealEscrowEntity>,
+        transactionRepository: Repository<TransactionEntity>,
+        channelId: string,
+        amount: bigint,
+    ): Promise<DealEscrowEntity | null> {
+        const escrows = await escrowRepository
+            .createQueryBuilder('escrow')
+            .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
+            .where('deal.channelId = :channelId', {channelId})
+            .andWhere('escrow.status = :status', {
+                status: EscrowStatus.RELEASED,
+            })
+            .andWhere('escrow.walletId IS NOT NULL')
+            .orderBy('escrow.releasedAt', 'DESC')
+            .getMany();
+
+        for (const escrow of escrows) {
+            const withdrawnRow = await transactionRepository
+                .createQueryBuilder('transaction')
+                .select('COALESCE(SUM(transaction.amountNano), 0)', 'amount')
+                .where('transaction.escrowId = :escrowId', {
+                    escrowId: escrow.id,
+                })
+                .andWhere('transaction.type = :type', {
+                    type: TransactionType.WITHDRAW,
+                })
+                .andWhere('transaction.status IN (:...statuses)', {
+                    statuses: [
+                        TransactionStatus.COMPLETED,
+                        TransactionStatus.PENDING,
+                        TransactionStatus.AWAITING_CONFIRMATION,
+                    ],
+                })
+                .getRawOne<{amount: string}>();
+
+            const released = BigInt(escrow.amountNano ?? '0');
+            const withdrawn = BigInt(withdrawnRow?.amount ?? '0');
+            const remaining = released - withdrawn;
+
+            if (remaining >= amount) {
+                return escrow;
+            }
+        }
+
+        return null;
     }
 
     private async computeAvailableForChannel(

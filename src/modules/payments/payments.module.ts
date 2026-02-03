@@ -14,6 +14,7 @@ import {PaymentsController} from './payments.controller';
 import {PaymentsService} from './payments.service';
 import {TonCenterClient} from "./ton/toncenter.client";
 import {TonPaymentWatcher} from "./ton-payment.watcher";
+import {TonPayoutService} from './ton/ton-payout.service';
 import {PaymentsPayoutsService} from './payouts/payments-payouts.service';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
@@ -48,6 +49,7 @@ import {ChannelMembershipEntity} from '../channels/entities/channel-membership.e
             },
         },
         TonPaymentWatcher,
+        TonPayoutService,
     ],
     exports: [PaymentsService, EscrowService, PaymentsPayoutsService],
 })

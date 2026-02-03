@@ -96,7 +96,9 @@
       "channel_not_found": "Channel not found.",
       "insufficient_funds": "Insufficient funds for withdrawal.",
       "invalid_amount": "Withdrawal amount is invalid.",
-      "withdraw_minimum": "Withdrawal amount is below the minimum allowed."
+      "invalid_destination": "Destination address is invalid.",
+      "withdraw_minimum": "Withdrawal amount is below the minimum allowed.",
+      "withdraw_failed": "Withdrawal failed. Please try again later."
     }
   },
   "deals": {

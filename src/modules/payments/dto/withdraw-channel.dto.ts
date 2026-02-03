@@ -1,10 +1,9 @@
-import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
+import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
 import {
     IsDefined,
     IsIn,
     IsNotEmpty,
-    IsOptional,
     IsString,
     IsUUID,
     Matches,
@@ -30,11 +29,11 @@ class WithdrawChannelDataDto {
     @Matches(/^\d+$/)
     amountNano: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
+    @ApiProperty({description: 'Destination TON address'})
     @IsString()
     @MaxLength(256)
-    destinationAddress?: string;
+    @IsNotEmpty()
+    destinationAddress: string;
 }
 
 export class WithdrawChannelDto {
