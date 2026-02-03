@@ -156,6 +156,7 @@
       "PAYMENT_AWAITING": "Payment processing",
       "funds_confirmed": "Payment confirmed",
       "posting": "Posting",
+      "finalized": "Finished",
       "posted_verifying": "Verifying post",
       "released": "Released",
       "canceled": "Canceled",

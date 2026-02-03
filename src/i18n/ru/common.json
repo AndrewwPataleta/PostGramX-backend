@@ -155,6 +155,7 @@
       "PAYMENT_AWAITING": "Платёж обрабатывается",
       "funds_confirmed": "Платёж подтверждён",
       "scheduled": "Запланировано",
+      "finalized": "Завершено",
       "posting": "Публикация",
       "posted_verifying": "Проверка публикации",
       "released": "Выплачено",
