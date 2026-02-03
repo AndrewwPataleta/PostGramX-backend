@@ -629,17 +629,10 @@ export class DealsService {
             where: {dealId: deal.id},
         });
 
-        if (updatedDeal && updatedEscrow) {
-            await this.dealsNotificationsService.notifyAdvertiserPaymentRequired(
-                updatedDeal,
-                updatedEscrow,
-            );
-        }
         if (updatedDeal) {
             await this.dealsNotificationsService.notifyScheduleApproved(
                 updatedDeal,
                 updatedEscrow ?? null,
-                {notifyAdvertiser: false},
             );
         }
 

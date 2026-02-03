@@ -842,12 +842,25 @@ export class DealsNotificationsService {
         }
 
         if (options.notifyAdvertiser !== false) {
-            const paymentDeadline = escrow?.paymentDeadlineAt;
+            const paymentDeadline = escrow?.paymentDeadlineAt ?? null;
+            const amountNano = escrow?.amountNano ?? null;
+            const currency = escrow?.currency ?? null;
             await this.notifyAdvertiserStep(
                 deal,
                 'telegram.deal.schedule_approved.advertiser',
                 paymentDeadline,
                 this.buildPaymentButtons(deal.id),
+                (lang) => ({
+                    amount: amountNano
+                        ? formatTon(amountNano)
+                        : this.telegramI18nService.t(
+                            lang,
+                            'telegram.common.tbd',
+                        ),
+                    currency:
+                        currency ??
+                        this.telegramI18nService.t(lang, 'telegram.common.tbd'),
+                }),
             );
         }
     }
@@ -961,6 +974,9 @@ export class DealsNotificationsService {
         messageKey: string,
         deadline?: Date | null,
         buttons?: TelegramInlineButtonSpec[][],
+        extraArgs?:
+            | Record<string, any>
+            | ((lang: TelegramLanguage) => Record<string, any>),
     ): Promise<void> {
         const user = await this.userRepository.findOne({
             where: {id: deal.advertiserUserId},
@@ -984,6 +1000,9 @@ export class DealsNotificationsService {
             lang,
         );
 
+        const resolvedExtraArgs =
+            typeof extraArgs === 'function' ? extraArgs(lang) : extraArgs;
+
         await this.telegramMessengerService.sendInlineKeyboard(
             user.telegramId,
             messageKey,
@@ -991,6 +1010,7 @@ export class DealsNotificationsService {
                 dealId: deal.id.slice(0, 8),
                 actionDeadline,
                 paymentDeadline: actionDeadline,
+                ...resolvedExtraArgs,
             },
             resolvedButtons,
             {lang},
