@@ -66,6 +66,10 @@ export const DEALS_CONFIG = {
         process.env.AUTO_ADMIN_APPROVE,
         false,
     ),
+    AUTO_DEAL_COMPLETE: parseBoolean(
+        process.env.VITE_AUTO_DEAL_COMPLETE,
+        false,
+    ),
     MOCK_CREATIVE_APPROVE:
         process.env.DEALS_MOCK_CREATIVE_APPROVE === 'true',
 };
