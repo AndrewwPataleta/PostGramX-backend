@@ -336,7 +336,16 @@ export class TonPaymentWatcher {
         }
 
         try {
-            await this.tonWalletDeploymentService.ensureDeployed(deploymentOptions);
+            const deployed =
+                await this.tonWalletDeploymentService.ensureDeployed(
+                    deploymentOptions,
+                );
+            if (deployed) {
+                await this.reconcileDeploymentBalance(
+                    escrow.id,
+                    deploymentOptions.address,
+                );
+            }
         } catch (error) {
             this.logger.warn(
                 `Failed to deploy escrow wallet ${deploymentOptions.address}: ${
@@ -344,6 +353,94 @@ export class TonPaymentWatcher {
                 }`,
             );
         }
+    }
+
+    private async reconcileDeploymentBalance(
+        escrowId: string,
+        address: string,
+    ): Promise<void> {
+        let balanceNano: bigint;
+        try {
+            balanceNano = await this.tonWalletDeploymentService.getBalance(
+                address,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `Failed to fetch escrow wallet balance ${address}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            return;
+        }
+
+        await this.dataSource.transaction(async (manager) => {
+            const escrowRepo = manager.getRepository(DealEscrowEntity);
+            const dealRepo = manager.getRepository(DealEntity);
+            const txRepo = manager.getRepository(TransactionEntity);
+
+            const lockedEscrow = await escrowRepo.findOne({
+                where: {id: escrowId},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (
+                !lockedEscrow ||
+                ![
+                    EscrowStatus.AWAITING_PAYMENT,
+                    EscrowStatus.PARTIALLY_PAID,
+                    EscrowStatus.PAID_CONFIRMED,
+                ].includes(lockedEscrow.status)
+            ) {
+                return;
+            }
+
+            const transaction = await txRepo.findOne({
+                where: {
+                    escrowId: lockedEscrow.id,
+                    type: TransactionType.ESCROW_HOLD,
+                },
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!transaction) {
+                return;
+            }
+
+            const currentPaid = lockedEscrow.paidNano ?? '0';
+            if (balanceNano >= BigInt(currentPaid)) {
+                return;
+            }
+
+            const balanceStr = balanceNano.toString();
+            const expected = lockedEscrow.amountNano;
+            const isConfirmed = gteNano(balanceStr, expected);
+
+            await escrowRepo.update(lockedEscrow.id, {
+                paidNano: balanceStr,
+                status: isConfirmed
+                    ? EscrowStatus.PAID_CONFIRMED
+                    : EscrowStatus.PARTIALLY_PAID,
+                confirmedAt: isConfirmed
+                    ? lockedEscrow.confirmedAt ?? new Date()
+                    : null,
+            });
+
+            await txRepo.update(transaction.id, {
+                receivedNano: balanceStr,
+                status: isConfirmed
+                    ? TransactionStatus.CONFIRMED
+                    : TransactionStatus.PARTIAL,
+            });
+
+            if (!isConfirmed) {
+                await dealRepo.update(lockedEscrow.dealId, {
+                    stage: DealStage.PAYMENT_PARTIALLY_PAID,
+                    status: mapStageToDealStatus(
+                        DealStage.PAYMENT_PARTIALLY_PAID,
+                    ),
+                });
+            }
+        });
     }
 
     private async getDeploymentOptions(
