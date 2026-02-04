@@ -28,19 +28,6 @@ export class TonWalletProvider {
         options: WalletGenerationOptions,
     ): Promise<GeneratedWallet> {
         const wallet = await this.dealWalletFactory.createNewDealWallet();
-        try {
-            await this.tonWalletDeploymentService.ensureDeployed({
-                publicKeyHex: wallet.publicKeyHex,
-                secretKeyHex: wallet.secretKeyHex,
-                address: wallet.address,
-            });
-        } catch (error) {
-            this.logger.warn(
-                `Failed to deploy TON wallet ${wallet.address}: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            );
-        }
 
         return {
             address: wallet.address,

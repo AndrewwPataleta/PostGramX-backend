@@ -1,6 +1,6 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {Address, internal, TonClient, WalletContractV4} from '@ton/ton';
+import {Address, internal, SendMode, TonClient, WalletContractV4} from '@ton/ton';
 
 type DeploymentOptions = {
     publicKeyHex: string;
@@ -43,13 +43,8 @@ export class TonWalletDeploymentService {
         await contract.sendTransfer({
             seqno: 0,
             secretKey,
-            messages: [
-                internal({
-                    to: parsed,
-                    value: 1n,
-                    bounce: false,
-                }),
-            ],
+            messages: [],
+            sendMode: SendMode.PAY_GAS_SEPARATELY
         });
 
         return true;
