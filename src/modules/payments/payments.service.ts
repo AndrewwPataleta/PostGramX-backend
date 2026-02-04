@@ -27,6 +27,7 @@ const TRANSACTION_TYPE_KEYS: Record<TransactionType, string> = {
     [TransactionType.REFUND]: 'payments.transactions.types.refund',
     [TransactionType.SWEEP]: 'payments.transactions.types.sweep',
     [TransactionType.FEE]: 'payments.transactions.types.fee',
+    [TransactionType.NETWORK_FEE]: 'payments.transactions.types.network_fee',
 };
 const TRANSACTION_STATUS_KEYS: Record<TransactionStatus, string> = {
     [TransactionStatus.PENDING]: 'payments.transactions.statuses.pending',
@@ -51,6 +52,8 @@ const TRANSACTION_DESCRIPTION_KEYS: Record<string, string> = {
     'Deposit received': 'payments.transactions.descriptions.deposit_received',
     'Payout sent': 'payments.transactions.descriptions.payout_sent',
     'Refund sent': 'payments.transactions.descriptions.refund_sent',
+    'Service fee charged': 'payments.transactions.descriptions.service_fee',
+    'Network fee charged': 'payments.transactions.descriptions.network_fee',
 };
 
 @Injectable()
@@ -157,6 +160,9 @@ export class PaymentsService {
                     i18n,
                 ),
                 amountNano: item.amountNano,
+                serviceFeeNano: item.serviceFeeNano,
+                networkFeeNano: item.networkFeeNano,
+                totalDebitNano: item.totalDebitNano,
                 currency: item.currency,
                 description: item.description,
                 descriptionLabel: await this.localizeTransactionDescription(

@@ -21,6 +21,7 @@ import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 @Index('IDX_transactions_escrow_id', ['escrowId'])
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
+@Index('IDX_transactions_source_request_id', ['sourceRequestId'])
 @Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
 @Index('UQ_transactions_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TransactionEntity extends BaseEntity {
@@ -43,6 +44,18 @@ export class TransactionEntity extends BaseEntity {
     amountNano: string;
 
     @Column({type: 'bigint', default: '0'})
+    serviceFeeNano: string;
+
+    @Column({type: 'bigint', default: '0'})
+    networkFeeNano: string;
+
+    @Column({type: 'bigint', default: '0'})
+    totalDebitNano: string;
+
+    @Column({type: 'int', default: 1})
+    feePolicyVersion: number;
+
+    @Column({type: 'bigint', default: '0'})
     receivedNano: string;
 
     @Column({default: CurrencyCode.TON})
@@ -59,6 +72,9 @@ export class TransactionEntity extends BaseEntity {
 
     @Column({type: 'uuid', nullable: true})
     channelId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
+    sourceRequestId: string | null;
 
     @Column({type: 'uuid', nullable: true})
     counterpartyUserId: string | null;

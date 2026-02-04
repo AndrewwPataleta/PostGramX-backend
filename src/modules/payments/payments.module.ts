@@ -20,6 +20,7 @@ import {TonPaymentWatcher} from "./ton-payment.watcher";
 import {TonPayoutService} from './ton/ton-payout.service';
 import {ChannelEntity} from '../channels/entities/channel.entity';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
+import {DealPublicationEntity} from '../deals/entities/deal-publication.entity';
 import {SettlementService} from './settlement/settlement.service';
 import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {UserWalletService} from './wallets/user-wallet.service';
@@ -30,6 +31,12 @@ import {BalanceService} from './balance/balance.service';
 import {LedgerService} from './ledger/ledger.service';
 import {PayoutsController} from './payouts/payouts.controller';
 import {PayoutsService} from './payouts/payouts.service';
+import {FeesModule} from './fees/fees.module';
+import {AdminAlertsService} from './processing/admin-alerts.service';
+import {LiquidityService} from './processing/liquidity.service';
+import {TonSweepService} from './processing/ton-sweep.service';
+import {PayoutProcessorService} from './processing/payout-processor.service';
+import {PaymentsProcessingConfigService} from './processing/payments-processing-config.service';
 
 @Module({
     imports: [
@@ -38,6 +45,7 @@ import {PayoutsService} from './payouts/payouts.service';
             ChannelMembershipEntity,
             DealEntity,
             DealEscrowEntity,
+            DealPublicationEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
             TonTransferEntity,
@@ -50,6 +58,7 @@ import {PayoutsService} from './payouts/payouts.service';
         forwardRef(() => DealsModule),
         WalletsModule,
         forwardRef(() => TelegramModule),
+        FeesModule,
     ],
     controllers: [
         PaymentsController,
@@ -62,6 +71,11 @@ import {PayoutsService} from './payouts/payouts.service';
         EscrowService,
         BalanceService,
         LedgerService,
+        PaymentsProcessingConfigService,
+        AdminAlertsService,
+        LiquidityService,
+        TonSweepService,
+        PayoutProcessorService,
         {
             provide: TonCenterClient,
             useFactory: () => {

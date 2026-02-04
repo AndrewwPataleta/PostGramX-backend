@@ -38,11 +38,11 @@ export class LedgerService {
                 'creditsNano',
             )
             .addSelect(
-                `COALESCE(SUM(CASE WHEN transaction.direction = :dirOut AND transaction.status = :completed AND transaction.type = :payoutType THEN transaction.amountNano ELSE 0 END), 0)::numeric`,
+                `COALESCE(SUM(CASE WHEN transaction.direction = :dirOut AND transaction.status = :completed AND transaction.type = :payoutType THEN COALESCE(transaction.totalDebitNano, transaction.amountNano) ELSE 0 END), 0)::numeric`,
                 'debitsNano',
             )
             .addSelect(
-                `COALESCE(SUM(CASE WHEN transaction.direction = :dirOut AND transaction.type = :payoutType AND transaction.status IN (:...reservedStatuses) THEN transaction.amountNano ELSE 0 END), 0)::numeric`,
+                `COALESCE(SUM(CASE WHEN transaction.direction = :dirOut AND transaction.type = :payoutType AND transaction.status IN (:...reservedStatuses) THEN COALESCE(transaction.totalDebitNano, transaction.amountNano) ELSE 0 END), 0)::numeric`,
                 'reservedNano',
             )
             .where('transaction.userId = :userId', {userId})
@@ -110,6 +110,36 @@ export class LedgerService {
             .getRawOne<{reservedNano: string | null}>();
 
         return row?.reservedNano ?? '0';
+    }
+
+    async updateFeeTransactionsStatus(
+        payoutId: string,
+        status: TransactionStatus,
+        manager?: EntityManager,
+    ): Promise<void> {
+        const repo = manager
+            ? manager.getRepository(TransactionEntity)
+            : this.transactionRepository;
+        const update: Partial<TransactionEntity> = {status};
+        const now = new Date();
+        if (status === TransactionStatus.COMPLETED) {
+            update.completedAt = now;
+        }
+        if (status === TransactionStatus.CANCELED) {
+            update.completedAt = now;
+        }
+
+        await repo
+            .createQueryBuilder()
+            .update(TransactionEntity)
+            .set(update)
+            .where('type IN (:...types)', {
+                types: [TransactionType.FEE, TransactionType.NETWORK_FEE],
+            })
+            .andWhere("metadata ->> 'payoutId' = :payoutId", {
+                payoutId,
+            })
+            .execute();
     }
 
     async withUserLock<T>(
