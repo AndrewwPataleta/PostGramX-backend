@@ -49,7 +49,7 @@ import {PaymentsProcessingConfigService} from './processing/payments-processing-
         ]),
         forwardRef(() => DealsModule),
         WalletsModule,
-        TelegramModule,
+        forwardRef(() => TelegramModule),
     ],
     controllers: [PaymentsController, EscrowController],
     providers: [
