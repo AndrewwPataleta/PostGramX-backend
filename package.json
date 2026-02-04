@@ -1,4 +1,4 @@
-  {
+{
   "name": "PostgramX-backend",
   "version": "0.0.1",
   "description": "",
@@ -16,7 +16,8 @@
     "start:production": "NODE_ENV=production node dist/main",
     "start:local": "NODE_ENV=local nest start --watch",
     "start:stage": "NODE_ENV=stage nest start --watch",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "deploy:hot-wallet": "ts-node src/scripts/deploy-hot-wallet.ts"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",
