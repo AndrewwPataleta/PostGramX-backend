@@ -24,6 +24,7 @@ import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-st
 import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
 import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {LedgerService} from './ledger/ledger.service';
+import {ensureTransitionAllowed} from './payouts/payout-state';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -364,7 +365,7 @@ export class TonPaymentWatcher {
                 tonTransfer = await transferRepo
                     .createQueryBuilder('t')
                     .where('t.type = :type', {
-                        type: TonTransferType.WITHDRAW_TO_USER,
+                        type: TonTransferType.PAYOUT,
                     })
                     .andWhere('t.status = :status', {
                         status: TonTransferStatus.PENDING,
@@ -398,10 +399,38 @@ export class TonPaymentWatcher {
                 errorMessage: null,
             });
 
-            await txRepo.update(tonTransfer.transactionId, {
-                status: TransactionStatus.CONFIRMED,
-                confirmedAt: new Date(),
-            });
+            if (tonTransfer.transactionId) {
+                const transaction = await txRepo.findOne({
+                    where: {id: tonTransfer.transactionId},
+                });
+                if (transaction) {
+                    try {
+                        ensureTransitionAllowed(
+                            transaction.status,
+                            TransactionStatus.CONFIRMED,
+                        );
+                    } catch (error) {
+                        this.logger.warn(
+                            `Skip invalid payout transition`,
+                            JSON.stringify({
+                                transactionId: transaction.id,
+                                from: transaction.status,
+                                to: TransactionStatus.CONFIRMED,
+                                error:
+                                    error instanceof Error
+                                        ? error.message
+                                        : String(error),
+                            }),
+                        );
+                        return;
+                    }
+                    await txRepo.update(tonTransfer.transactionId, {
+                        status: TransactionStatus.CONFIRMED,
+                        confirmedAt: new Date(),
+                        externalTxHash: tonTransfer.txHash ?? transfer.txHash,
+                    });
+                }
+            }
 
             this.logger.log(
                 `[TON-WATCHER] ${JSON.stringify({
@@ -426,7 +455,7 @@ export class TonPaymentWatcher {
             .getRepository(TonTransferEntity)
             .createQueryBuilder('transfer')
             .where('transfer.type = :type', {
-                type: TonTransferType.WITHDRAW_TO_USER,
+                type: TonTransferType.PAYOUT,
             })
             .andWhere('transfer.status IN (:...statuses)', {
                 statuses: [
@@ -452,15 +481,42 @@ export class TonPaymentWatcher {
                             errorMessage: null,
                         });
 
-                        await txRepo.update(transfer.transactionId, {
-                            status: TransactionStatus.COMPLETED,
-                            completedAt: new Date(),
-                        });
-                        await this.ledgerService.updateFeeTransactionsStatus(
-                            transfer.transactionId,
-                            TransactionStatus.COMPLETED,
-                            manager,
-                        );
+                        if (transfer.transactionId) {
+                            const transaction = await txRepo.findOne({
+                                where: {id: transfer.transactionId},
+                            });
+                            if (transaction) {
+                                try {
+                                    ensureTransitionAllowed(
+                                        transaction.status,
+                                        TransactionStatus.COMPLETED,
+                                    );
+                                } catch (error) {
+                                    this.logger.warn(
+                                        `Skip invalid payout transition`,
+                                        JSON.stringify({
+                                            transactionId: transaction.id,
+                                            from: transaction.status,
+                                            to: TransactionStatus.COMPLETED,
+                                            error:
+                                                error instanceof Error
+                                                    ? error.message
+                                                    : String(error),
+                                        }),
+                                    );
+                                    return;
+                                }
+                                await txRepo.update(transfer.transactionId, {
+                                    status: TransactionStatus.COMPLETED,
+                                    completedAt: new Date(),
+                                });
+                                await this.ledgerService.updateFeeTransactionsStatus(
+                                    transfer.transactionId,
+                                    TransactionStatus.COMPLETED,
+                                    manager,
+                                );
+                            }
+                        }
                     });
 
                     this.logger.log(
@@ -485,16 +541,43 @@ export class TonPaymentWatcher {
                         errorMessage: 'Transfer timeout',
                     });
 
-                    await txRepo.update(transfer.transactionId, {
-                        status: TransactionStatus.FAILED,
-                        errorCode: 'TRANSFER_TIMEOUT',
-                        errorMessage: 'Transfer timeout',
-                    });
-                    await this.ledgerService.updateFeeTransactionsStatus(
-                        transfer.transactionId,
-                        TransactionStatus.CANCELED,
-                        manager,
-                    );
+                    if (transfer.transactionId) {
+                        const transaction = await txRepo.findOne({
+                            where: {id: transfer.transactionId},
+                        });
+                        if (transaction) {
+                            try {
+                                ensureTransitionAllowed(
+                                    transaction.status,
+                                    TransactionStatus.FAILED,
+                                );
+                            } catch (error) {
+                                this.logger.warn(
+                                    `Skip invalid payout transition`,
+                                    JSON.stringify({
+                                        transactionId: transaction.id,
+                                        from: transaction.status,
+                                        to: TransactionStatus.FAILED,
+                                        error:
+                                            error instanceof Error
+                                                ? error.message
+                                                : String(error),
+                                    }),
+                                );
+                                return;
+                            }
+                            await txRepo.update(transfer.transactionId, {
+                                status: TransactionStatus.FAILED,
+                                errorCode: 'TRANSFER_TIMEOUT',
+                                errorMessage: 'Transfer timeout',
+                            });
+                            await this.ledgerService.updateFeeTransactionsStatus(
+                                transfer.transactionId,
+                                TransactionStatus.CANCELED,
+                                manager,
+                            );
+                        }
+                    }
                 });
 
                 this.logger.warn(

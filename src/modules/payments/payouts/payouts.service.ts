@@ -6,12 +6,8 @@ import {CurrencyCode} from '../../../common/constants/currency/currency.constant
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
-import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
-import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
 import {TransactionEntity} from '../entities/transaction.entity';
-import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {UserWalletService} from '../wallets/user-wallet.service';
-import {TonHotWalletService} from '../ton/ton-hot-wallet.service';
 import {LedgerService} from '../ledger/ledger.service';
 import {FeesService} from '../fees/fees.service';
 import {PayoutRequestMode} from './dto/payout-request.dto';
@@ -27,17 +23,14 @@ type PayoutRequestPayload = {
 
 @Injectable()
 export class PayoutsService {
-    private readonly logger = new Logger(PayoutsService.name);
+        private readonly logger = new Logger(PayoutsService.name);
 
     constructor(
         private readonly ledgerService: LedgerService,
         private readonly userWalletService: UserWalletService,
-        private readonly tonHotWalletService: TonHotWalletService,
         private readonly feesService: FeesService,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
-        @InjectRepository(TonTransferEntity)
-        private readonly transferRepository: Repository<TonTransferEntity>,
     ) {}
 
     async requestPayout(payload: PayoutRequestPayload) {
@@ -171,6 +164,7 @@ export class PayoutsService {
 
                 this.logger.log(
                     `[PAYOUT-REQUEST] ${JSON.stringify({
+                        payoutId: saved.id,
                         userId: payload.userId,
                         amountNano,
                         withdrawableNano,
@@ -186,134 +180,11 @@ export class PayoutsService {
             return this.toResponse(transaction);
         }
 
-        const hotBalanceNano = await this.tonHotWalletService.getBalance();
-        const reservedNano = await this.ledgerService.getReservedPayoutsTotal(
-            currency,
-        );
-        const canSpendNano = hotBalanceNano - BigInt(reservedNano);
-
-        this.logger.log(
-            `[HOT-WALLET] ${JSON.stringify({
-                hotBalanceNano: hotBalanceNano.toString(),
-                reserveNano: reservedNano,
-                canSpendNano: canSpendNano.toString(),
-            })}`,
-        );
-
-        if (canSpendNano < BigInt(transaction.amountNano)) {
-            await this.transactionRepository.update(transaction.id, {
-                status: TransactionStatus.BLOCKED_LIQUIDITY,
-                errorCode: PayoutErrorCode.INSUFFICIENT_LIQUIDITY,
-                errorMessage: 'Insufficient hot wallet liquidity',
-            });
-            await this.ledgerService.updateFeeTransactionsStatus(
-                transaction.id,
-                TransactionStatus.CANCELED,
-            );
-            throw new PayoutServiceError(PayoutErrorCode.INSUFFICIENT_LIQUIDITY);
-        }
-
-        const isDryRun = process.env.PAYOUT_DRY_RUN === 'true';
-        const hotWalletAddress = await this.tonHotWalletService.getAddress();
-        const transfer = await this.createTransfer(
-            transaction,
-            hotWalletAddress,
-            isDryRun,
-        );
-
-        if (!isDryRun) {
-            try {
-                await this.tonHotWalletService.sendTon({
-                    toAddress: destinationAddress,
-                    amountNano: BigInt(transaction.amountNano),
-                });
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                await this.transferRepository.update(transfer.id, {
-                    status: TonTransferStatus.FAILED,
-                    errorMessage: message,
-                });
-                await this.transactionRepository.update(transaction.id, {
-                    status: TransactionStatus.FAILED,
-                    errorCode: PayoutErrorCode.INTERNAL_ERROR,
-                    errorMessage: message,
-                });
-                await this.ledgerService.updateFeeTransactionsStatus(
-                    transaction.id,
-                    TransactionStatus.CANCELED,
-                );
-                throw new PayoutServiceError(PayoutErrorCode.INTERNAL_ERROR);
-            }
-        }
-
-        this.logger.log(
-            `[WITHDRAW-TRANSFER] ${JSON.stringify({
-                transactionId: transaction.id,
-                tonTransferId: transfer.id,
-                toAddress: transfer.toAddress,
-                amountNano: transfer.amountNano,
-                txHash: transfer.txHash,
-            })}`,
-        );
-
         const updated = await this.transactionRepository.findOne({
             where: {id: transaction.id},
         });
 
         return this.toResponse(updated ?? transaction);
-    }
-
-    private async createTransfer(
-        transaction: TransactionEntity,
-        fromAddress: string,
-        isDryRun: boolean,
-    ): Promise<TonTransferEntity> {
-        const idempotencyKey = `withdraw_transfer:${transaction.id}`;
-        const existing = await this.transferRepository.findOne({
-            where: {idempotencyKey},
-        });
-        if (existing) {
-            return existing;
-        }
-
-        const status = isDryRun
-            ? TonTransferStatus.SIMULATED
-            : TonTransferStatus.PENDING;
-
-        const transfer = this.transferRepository.create({
-            transactionId: transaction.id,
-            network: transaction.currency,
-            type: TonTransferType.WITHDRAW_TO_USER,
-            status,
-            toAddress: transaction.destinationAddress ?? '',
-            fromAddress,
-            amountNano: transaction.amountNano,
-            txHash: null,
-            observedAt: isDryRun ? new Date() : null,
-            raw: {},
-            idempotencyKey,
-            errorMessage: null,
-        });
-
-        const saved = await this.transferRepository.save(transfer);
-
-        if (isDryRun) {
-            await this.transactionRepository.update(transaction.id, {
-                status: TransactionStatus.COMPLETED,
-                confirmedAt: new Date(),
-                completedAt: new Date(),
-            });
-            await this.ledgerService.updateFeeTransactionsStatus(
-                transaction.id,
-                TransactionStatus.COMPLETED,
-            );
-        } else {
-            await this.transactionRepository.update(transaction.id, {
-                status: TransactionStatus.AWAITING_CONFIRMATION,
-            });
-        }
-
-        return saved;
     }
 
     private isValidAmount(value: string): boolean {
@@ -328,7 +199,7 @@ export class PayoutsService {
         destinationAddress: string;
         amountNano: string;
     }): string {
-        const raw = `${options.userId}:${options.destinationAddress}:${options.amountNano}:withdraw`;
+        const raw = `${options.userId}:${options.destinationAddress}:${options.amountNano}:payout`;
         return createHash('sha256').update(raw).digest('hex');
     }
 

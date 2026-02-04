@@ -3,7 +3,6 @@ import {PayoutRequestMode} from './dto/payout-request.dto';
 import {PayoutErrorCode} from './errors/payout-service.error';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {TransactionEntity} from '../entities/transaction.entity';
-import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
@@ -57,7 +56,6 @@ describe('PayoutsService', () => {
     const userId = 'user-1';
     const destinationAddress = 'EQC-test';
     let transactionRepo: InMemoryRepository<TransactionEntity>;
-    let transferRepo: InMemoryRepository<TonTransferEntity>;
     let ledgerService: any;
     let userWalletService: any;
     let tonHotWalletService: any;
@@ -66,7 +64,6 @@ describe('PayoutsService', () => {
 
     beforeEach(() => {
         transactionRepo = new InMemoryRepository<TransactionEntity>();
-        transferRepo = new InMemoryRepository<TonTransferEntity>();
 
         userWalletService = {
             getWallet: jest.fn().mockResolvedValue({tonAddress: destinationAddress}),
@@ -162,10 +159,8 @@ describe('PayoutsService', () => {
         new PayoutsService(
             ledgerService,
             userWalletService,
-            tonHotWalletService,
             feesService,
             transactionRepo as any,
-            transferRepo as any,
         );
 
     it('rejects payout when balance is insufficient', async () => {
@@ -225,8 +220,6 @@ describe('PayoutsService', () => {
                 ),
             ),
         ).toHaveLength(2);
-        expect(transferRepo.data).toHaveLength(1);
-        expect(tonHotWalletService.sendTon).toHaveBeenCalledTimes(1);
     });
 
     it('prevents overdraw on concurrent requests', async () => {
@@ -304,27 +297,17 @@ describe('PayoutsService', () => {
         expect(BigInt(result.totalDebitNano)).toBeLessThanOrEqual(withdrawable);
     });
 
-    it('cancels fee transactions when payout fails', async () => {
-        tonHotWalletService.sendTon.mockRejectedValueOnce(new Error('send fail'));
+    it('stores payout request without broadcasting', async () => {
         const service = createService();
 
-        await expect(
-            service.requestPayout({
-                userId,
-                amountNano: '10',
-                currency: CurrencyCode.TON,
-                mode: PayoutRequestMode.AMOUNT,
-            }),
-        ).rejects.toEqual(
-            expect.objectContaining({code: PayoutErrorCode.INTERNAL_ERROR}),
-        );
-
-        const feeTransactions = transactionRepo.data.filter((tx) =>
-            [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(tx.type),
-        );
-        expect(feeTransactions.length).toBeGreaterThan(0);
-        feeTransactions.forEach((tx) => {
-            expect(tx.status).toEqual(TransactionStatus.CANCELED);
+        const result = await service.requestPayout({
+            userId,
+            amountNano: '10',
+            currency: CurrencyCode.TON,
+            mode: PayoutRequestMode.AMOUNT,
         });
+
+        expect(result.status).toEqual(TransactionStatus.PENDING);
+        expect(tonHotWalletService.sendTon).not.toHaveBeenCalled();
     });
 });

@@ -17,6 +17,7 @@ import {TonTransferType} from '../../../common/constants/payments/ton-transfer-t
 @Index('UQ_ton_transfers_idempotency', ['idempotencyKey'], {unique: true})
 @Index('IDX_ton_transfers_to_address', ['toAddress'])
 @Index('IDX_ton_transfers_transaction_id', ['transactionId'])
+@Index('UQ_ton_transfers_transaction_id', ['transactionId'], {unique: true})
 @Index('UQ_ton_transfers_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TonTransferEntity {
     @PrimaryGeneratedColumn('uuid')

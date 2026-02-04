@@ -88,6 +88,9 @@ export class TransactionEntity extends BaseEntity {
     @Column({type: 'text', nullable: true})
     externalExplorerUrl: string | null;
 
+    @Column({type: 'uuid', nullable: true})
+    tonTransferId: string | null;
+
     @Column({type: 'text', nullable: true})
     destinationAddress: string | null;
 
