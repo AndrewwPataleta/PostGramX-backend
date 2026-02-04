@@ -40,14 +40,20 @@ export class EscrowService {
             throw new EscrowServiceError(EscrowServiceErrorCode.ESCROW_WALLET_MISSING);
         }
 
-        if (escrow.status !== EscrowStatus.AWAITING_PAYMENT) {
+        if (
+            ![
+                EscrowStatus.CREATED,
+                EscrowStatus.AWAITING_PAYMENT,
+                EscrowStatus.PAID_PARTIAL,
+            ].includes(escrow.status)
+        ) {
             throw new EscrowServiceError(EscrowServiceErrorCode.INVALID_TRANSITION);
         }
 
         return {
             dealId: deal.id,
             escrowStatus: escrow.status,
-            depositAddress: escrow.paymentAddress,
+            depositAddress: escrow.depositAddress,
             expiresAt: escrow.paymentDeadlineAt,
         };
     }
@@ -74,8 +80,8 @@ export class EscrowService {
 
         return {
             dealId: deal.id,
-            escrowStatus: escrow?.status ?? EscrowStatus.NOT_CREATED,
-            depositAddress: escrow?.paymentAddress ?? null,
+            escrowStatus: escrow?.status ?? EscrowStatus.CREATED,
+            depositAddress: escrow?.depositAddress ?? null,
             amountNano: escrow?.amountNano ?? null,
             expiresAt: escrow?.paymentDeadlineAt ?? null,
             lastActivityAt: deal.lastActivityAt,

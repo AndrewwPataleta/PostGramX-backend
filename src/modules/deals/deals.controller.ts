@@ -1,4 +1,4 @@
-import {Body, Controller, Post, Req} from '@nestjs/common';
+import {Body, Controller, ForbiddenException, Param, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
 import {I18n, I18nContext} from 'nestjs-i18n';
@@ -20,12 +20,15 @@ import {mapDealErrorToMessageKey, mapDealErrorToStatus} from './deal-error-mappe
 import {CancelDealDto} from './dto/cancel-deal.dto';
 import {AuthType} from '../../common/constants/auth/auth-types.constants';
 import {PlatformType} from '../../common/constants/platform/platform-types.constants';
+import {PaymentsService} from '../payments/payments.service';
+import {DealPaymentPrepareDto} from './dto/deal-payment-prepare.dto';
 
 @Controller('deals')
 @ApiTags('deals')
 export class DealsController {
     constructor(
         private readonly dealsService: DealsService,
+        private readonly paymentsService: PaymentsService,
     ) {}
 
     @Post('create')
@@ -94,6 +97,32 @@ export class DealsController {
                 mapMessageKey: mapDealErrorToMessageKey,
             });
         }
+    }
+
+    @Post(':id/payment/prepare')
+    @ApiOperation({summary: 'Prepare payment for a deal'})
+    @ApiBody({
+        type: DealPaymentPrepareDto,
+        schema: {
+            example: {
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
+                token: '<initData>',
+                data: {},
+            },
+        },
+    })
+    async preparePayment(
+        @Param('id') dealId: string,
+        @Body(dtoValidationPipe) _dto: DealPaymentPrepareDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+        const deal = await this.dealsService.getDeal(user.id, dealId);
+        if (deal.advertiserUserId !== user.id) {
+            throw new ForbiddenException();
+        }
+        return this.paymentsService.ensureDepositAddressForDeal(dealId);
     }
 
     @Post('detail')

@@ -19,9 +19,11 @@ import {DealStage} from '../../../common/constants/deals/deal-stage.constants';
 import {DealEscrowEntity} from './deal-escrow.entity';
 import {DealCreativeEntity} from './deal-creative.entity';
 import {DealPublicationEntity} from './deal-publication.entity';
+import {User} from '../../auth/entities/user.entity';
 
 @Entity({name: 'deals'})
 @Index('IDX_deals_advertiser_status', ['advertiserUserId', 'status'])
+@Index('IDX_deals_publisher_status', ['publisherUserId', 'status'])
 @Index('IDX_deals_channel_status', ['channelId', 'status'])
 @Index('IDX_deals_stage', ['stage'])
 @Index('IDX_deals_scheduled_stage', ['scheduledAt', 'stage'])
@@ -33,6 +35,9 @@ export class DealEntity extends BaseEntity {
 
     @Column({type: 'uuid'})
     advertiserUserId: string;
+
+    @Column({type: 'uuid', nullable: true})
+    publisherUserId: string | null;
 
     @Column({type: 'uuid'})
     channelId: string;
@@ -46,6 +51,14 @@ export class DealEntity extends BaseEntity {
     @ManyToOne(() => ListingEntity, {nullable: true})
     @JoinColumn({name: 'listingId'})
     listing: ListingEntity | null;
+
+    @ManyToOne(() => User, {nullable: false})
+    @JoinColumn({name: 'advertiserUserId'})
+    advertiserUser: User;
+
+    @ManyToOne(() => User, {nullable: true})
+    @JoinColumn({name: 'publisherUserId'})
+    publisherUser: User | null;
 
     @ManyToOne(() => ChannelEntity, {nullable: false})
     @JoinColumn({name: 'channelId'})

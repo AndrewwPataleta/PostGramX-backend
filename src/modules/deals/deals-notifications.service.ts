@@ -373,7 +373,7 @@ export class DealsNotificationsService {
         }
 
         const paymentDeadline = escrow.paymentDeadlineAt;
-        const paymentAddress = escrow.paymentAddress;
+        const paymentAddress = escrow.depositAddress;
         const dealShortId = deal.id.slice(0, 8);
         const messageKey = this.resolvePaymentRequiredKey(
             Boolean(paymentDeadline),
@@ -951,8 +951,8 @@ export class DealsNotificationsService {
         const transaction = await this.transactionRepository.findOne({
             where: {
                 dealId,
-                type: TransactionType.ESCROW_HOLD,
-                status: TransactionStatus.CONFIRMED,
+                type: TransactionType.DEPOSIT,
+                status: TransactionStatus.COMPLETED,
             },
             order: {confirmedAt: 'DESC'},
         });

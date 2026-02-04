@@ -9,6 +9,7 @@ import {DealStatus} from '../../common/constants/deals/deal-status.constants';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {DEAL_TIMEOUTS_CRON} from '../../config/deals.config';
 import {DealsNotificationsService} from './deals-notifications.service';
+import {PaymentsService} from '../payments/payments.service';
 
 @Injectable()
 export class DealsTimeoutsService {
@@ -20,6 +21,7 @@ export class DealsTimeoutsService {
         @InjectRepository(DealEscrowEntity)
         private readonly escrowRepository: Repository<DealEscrowEntity>,
         private readonly dealsNotificationsService: DealsNotificationsService,
+        private readonly paymentsService: PaymentsService,
     ) {}
 
     @Cron(DEAL_TIMEOUTS_CRON)
@@ -60,7 +62,7 @@ export class DealsTimeoutsService {
             where: {
                 status: In([
                     EscrowStatus.AWAITING_PAYMENT,
-                    EscrowStatus.PARTIALLY_PAID,
+                    EscrowStatus.PAID_PARTIAL,
                 ]),
                 paymentDeadlineAt: LessThan(now),
             },
@@ -81,9 +83,17 @@ export class DealsTimeoutsService {
             }
 
             await this.escrowRepository.update(escrow.id, {
-                status: EscrowStatus.EXPIRED,
+                status: EscrowStatus.FAILED,
             });
             await this.cancelDeal(deal, 'PAYMENT_TIMEOUT');
+
+            const paidNano = BigInt(escrow.paidNano ?? '0');
+            if (paidNano > 0n) {
+                await this.paymentsService.refundEscrow(
+                    deal.id,
+                    'PAYMENT_TIMEOUT',
+                );
+            }
         }
     }
 

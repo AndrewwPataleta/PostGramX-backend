@@ -17,6 +17,9 @@ import {EscrowWalletEntity} from '../modules/payments/entities/escrow-wallet.ent
 import {EscrowWalletKeyEntity} from '../modules/payments/entities/escrow-wallet-key.entity';
 import {TonTransferEntity} from '../modules/payments/entities/ton-transfer.entity';
 import {TransactionEntity} from '../modules/payments/entities/transaction.entity';
+import {PayoutRequestEntity} from '../modules/payments/entities/payout-request.entity';
+import {RefundRequestEntity} from '../modules/payments/entities/refund-request.entity';
+import {UserWalletEntity} from '../modules/payments/entities/user-wallet.entity';
 import {User} from '../modules/auth/entities/user.entity';
 
 export const typeOrmEntities = [
@@ -33,6 +36,9 @@ export const typeOrmEntities = [
     ListingEntity,
     EscrowWalletEntity,
     EscrowWalletKeyEntity,
+    PayoutRequestEntity,
+    RefundRequestEntity,
+    UserWalletEntity,
 ];
 
 const getSslConfig = (
