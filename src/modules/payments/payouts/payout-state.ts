@@ -13,6 +13,7 @@ const payoutTransitions: Record<TransactionStatus, TransactionStatus[]> = {
         TransactionStatus.FAILED,
         TransactionStatus.CANCELED,
     ],
+
     [TransactionStatus.AWAITING_CONFIRMATION]: [
         TransactionStatus.CONFIRMED,
         TransactionStatus.COMPLETED,
@@ -22,6 +23,8 @@ const payoutTransitions: Record<TransactionStatus, TransactionStatus[]> = {
         TransactionStatus.COMPLETED,
         TransactionStatus.FAILED,
     ],
+    [TransactionStatus.PARTIAL]: [],
+    [TransactionStatus.REFUNDED]: [],
     [TransactionStatus.COMPLETED]: [],
     [TransactionStatus.FAILED]: [],
     [TransactionStatus.CANCELED]: [],
