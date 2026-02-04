@@ -1,17 +1,17 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
-import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 import {DealEntity} from '../../deals/entities/deal.entity';
 import {TransactionEntity} from '../entities/transaction.entity';
 import {PayoutRequestEntity} from '../entities/payout-request.entity';
-import {PublicationStatus} from '../../common/constants/deals/publication-status.constants';
-import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
-import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
-import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
-import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
-import {RequestStatus} from '../../common/constants/payments/request-status.constants';
+import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
+import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {RequestStatus} from '../../../common/constants/payments/request-status.constants';
 import {BalanceServiceError, BalanceErrorCode} from './errors/balance-service.error';
 
 export type BalanceOverviewResponse = {
