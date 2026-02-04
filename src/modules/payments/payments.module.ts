@@ -37,6 +37,7 @@ import {LiquidityService} from './processing/liquidity.service';
 import {TonSweepService} from './processing/ton-sweep.service';
 import {PayoutProcessorService} from './processing/payout-processor.service';
 import {PaymentsProcessingConfigService} from './processing/payments-processing-config.service';
+import {PayoutExecutionService} from './processing/payout-execution.service';
 
 @Module({
     imports: [
@@ -76,6 +77,7 @@ import {PaymentsProcessingConfigService} from './processing/payments-processing-
         LiquidityService,
         TonSweepService,
         PayoutProcessorService,
+        PayoutExecutionService,
         {
             provide: TonCenterClient,
             useFactory: () => {
