@@ -2,7 +2,29 @@ import dotenv from "dotenv";
 import { mnemonicToPrivateKey } from "@ton/crypto";
 import { SendMode, TonClient, WalletContractV4 } from "@ton/ton";
 
-dotenv.config();
+const resolveMode = (): string => {
+    const modeArgIndex = process.argv.findIndex(
+        (arg) => arg === "--mode" || arg === "-m",
+    );
+    const modeArg =
+        modeArgIndex >= 0 ? process.argv[modeArgIndex + 1] : undefined;
+    const mode = (modeArg ?? process.env.NODE_ENV ?? "local").toLowerCase();
+
+    if (mode === "prod") {
+        return "production";
+    }
+
+    if (mode === "local" || mode === "stage" || mode === "production") {
+        return mode;
+    }
+
+    throw new Error(
+        `Unsupported mode "${mode}". Use local, stage, or prod.`,
+    );
+};
+
+const mode = resolveMode();
+dotenv.config({ path: `.env.${mode}`, override: true });
 
 const requiredEnv = (key: string): string => {
     const value = process.env[key];
