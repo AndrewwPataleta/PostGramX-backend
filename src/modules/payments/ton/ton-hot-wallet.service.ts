@@ -27,6 +27,23 @@ export class TonHotWalletService {
         Address.parse(destination);
     }
 
+    async getAddress(): Promise<string> {
+        const keyPair = await mnemonicToPrivateKey(this.mnemonic);
+        const contract = this.client.open(
+            WalletContractV4.create({
+                workchain: 0,
+                publicKey: keyPair.publicKey,
+            }),
+        );
+        return contract.address.toString();
+    }
+
+    async getBalance(): Promise<bigint> {
+        const address = Address.parse(await this.getAddress());
+        const state = await this.client.getContractState(address);
+        return BigInt(state.balance ?? 0);
+    }
+
     async sendTon(options: {
         toAddress: string;
         amountNano: bigint;

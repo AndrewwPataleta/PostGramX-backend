@@ -22,6 +22,7 @@ import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
 @Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
+@Index('UQ_transactions_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TransactionEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -70,6 +71,12 @@ export class TransactionEntity extends BaseEntity {
 
     @Column({type: 'text', nullable: true})
     externalExplorerUrl: string | null;
+
+    @Column({type: 'text', nullable: true})
+    destinationAddress: string | null;
+
+    @Column({type: 'text', nullable: true})
+    idempotencyKey: string | null;
 
     @Column({type: 'text', nullable: true})
     errorCode: string | null;

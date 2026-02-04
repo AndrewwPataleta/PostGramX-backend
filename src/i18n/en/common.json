@@ -97,8 +97,12 @@
       "escrow_amount_missing": "Escrow amount is not set for this deal.",
       "mock_disabled": "Mock escrow actions are disabled in production.",
       "channel_not_found": "Channel not found.",
+      "wallet_not_connected": "Wallet is not connected.",
       "insufficient_funds": "Insufficient funds for withdrawal.",
       "invalid_amount": "Withdrawal amount is invalid.",
+      "insufficient_liquidity": "Payout liquidity is insufficient.",
+      "payout_already_in_progress": "A payout request is already in progress.",
+      "internal_error": "Payout request failed. Please try again later.",
       "invalid_destination": "Destination address is invalid.",
       "withdraw_minimum": "Withdrawal amount is below the minimum allowed.",
       "withdraw_failed": "Withdrawal failed. Please try again later."
@@ -106,6 +110,7 @@
     "transactions": {
       "types": {
         "deposit": "Deposit",
+        "payout": "Payout",
         "withdraw": "Withdrawal",
         "escrow_hold": "Escrow hold",
         "escrow_release": "Escrow release",
@@ -116,11 +121,12 @@
         "pending": "Pending",
         "partial": "Partially confirmed",
         "awaiting_confirmation": "Awaiting confirmation",
-        "confirmed": "Confirmed",
-        "completed": "Completed",
-        "refunded": "Refunded",
-        "failed": "Failed",
-        "canceled": "Canceled"
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "blocked_liquidity": "Blocked by liquidity",
+      "refunded": "Refunded",
+      "failed": "Failed",
+      "canceled": "Canceled"
       },
       "reasons": {
         "bot_not_admin": "Bot is not an administrator of the channel.",

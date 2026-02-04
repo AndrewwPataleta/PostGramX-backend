@@ -27,6 +27,9 @@ import {TelegramModule} from '../telegram/telegram.module';
 import {User} from '../auth/entities/user.entity';
 import {BalanceController} from './balance/balance.controller';
 import {BalanceService} from './balance/balance.service';
+import {LedgerService} from './ledger/ledger.service';
+import {PayoutsController} from './payouts/payouts.controller';
+import {PayoutsService} from './payouts/payouts.service';
 
 @Module({
     imports: [
@@ -48,11 +51,17 @@ import {BalanceService} from './balance/balance.service';
         WalletsModule,
         forwardRef(() => TelegramModule),
     ],
-    controllers: [PaymentsController, EscrowController, BalanceController],
+    controllers: [
+        PaymentsController,
+        EscrowController,
+        BalanceController,
+        PayoutsController,
+    ],
     providers: [
         PaymentsService,
         EscrowService,
         BalanceService,
+        LedgerService,
         {
             provide: TonCenterClient,
             useFactory: () => {
@@ -67,8 +76,15 @@ import {BalanceService} from './balance/balance.service';
         TonHotWalletService,
         SettlementService,
         UserWalletService,
+        PayoutsService,
     ],
-    exports: [PaymentsService, EscrowService, UserWalletService],
+    exports: [
+        PaymentsService,
+        EscrowService,
+        UserWalletService,
+        LedgerService,
+        PayoutsService,
+    ],
 })
 export class PaymentsModule {
 }

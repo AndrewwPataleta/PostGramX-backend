@@ -97,8 +97,12 @@
       "escrow_amount_missing": "Сумма эскроу не задана для этой сделки.",
       "mock_disabled": "Тестовые операции эскроу отключены в продакшене.",
       "channel_not_found": "Канал не найден.",
+      "wallet_not_connected": "Кошелёк не подключён.",
       "insufficient_funds": "Недостаточно средств для вывода.",
       "invalid_amount": "Сумма вывода указана неверно.",
+      "insufficient_liquidity": "Недостаточно ликвидности для выплаты.",
+      "payout_already_in_progress": "Запрос на выплату уже выполняется.",
+      "internal_error": "Ошибка запроса на выплату. Попробуйте позже.",
       "invalid_destination": "Некорректный адрес получателя.",
       "withdraw_minimum": "Сумма вывода ниже минимально допустимой.",
       "withdraw_failed": "Не удалось выполнить вывод. Попробуйте позже."
@@ -106,6 +110,7 @@
     "transactions": {
       "types": {
         "deposit": "Пополнение",
+        "payout": "Выплата",
         "withdraw": "Вывод",
         "escrow_hold": "Заморозка эскроу",
         "escrow_release": "Выплата эскроу",
@@ -118,6 +123,7 @@
         "awaiting_confirmation": "Ожидает подтверждения",
         "confirmed": "Подтверждено",
         "completed": "Завершено",
+        "blocked_liquidity": "Заблокировано по ликвидности",
         "refunded": "Возвращено",
         "failed": "Не удалось",
         "canceled": "Отменено"
