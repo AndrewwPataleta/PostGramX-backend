@@ -28,6 +28,9 @@ import {TelegramModule} from '../telegram/telegram.module';
 import {User} from '../auth/entities/user.entity';
 import {BalanceController} from './balance/balance.controller';
 import {BalanceService} from './balance/balance.service';
+import {LedgerService} from './ledger/ledger.service';
+import {PayoutsController} from './payouts/payouts.controller';
+import {PayoutsService} from './payouts/payouts.service';
 import {AdminAlertsService} from './processing/admin-alerts.service';
 import {LiquidityService} from './processing/liquidity.service';
 import {TonSweepService} from './processing/ton-sweep.service';
@@ -55,11 +58,17 @@ import {PaymentsProcessingConfigService} from './processing/payments-processing-
         WalletsModule,
         forwardRef(() => TelegramModule),
     ],
-    controllers: [PaymentsController, EscrowController, BalanceController],
+    controllers: [
+        PaymentsController,
+        EscrowController,
+        BalanceController,
+        PayoutsController,
+    ],
     providers: [
         PaymentsService,
         EscrowService,
         BalanceService,
+        LedgerService,
         PaymentsProcessingConfigService,
         AdminAlertsService,
         LiquidityService,
@@ -79,8 +88,15 @@ import {PaymentsProcessingConfigService} from './processing/payments-processing-
         TonHotWalletService,
         SettlementService,
         UserWalletService,
+        PayoutsService,
     ],
-    exports: [PaymentsService, EscrowService, UserWalletService],
+    exports: [
+        PaymentsService,
+        EscrowService,
+        UserWalletService,
+        LedgerService,
+        PayoutsService,
+    ],
 })
 export class PaymentsModule {
 }

@@ -197,6 +197,18 @@ Notes:
 - The hot wallet is only for aggregation/settlement.
 - Deal wallets should be generated per deal (recommended).
 
+### Deploy hot wallet
+
+Use the deployment script to broadcast the initial deploy transaction once the hot wallet address
+has been funded. The script prints the wallet address, balance, and state.
+
+```bash
+HOT_WALLET_MNEMONIC="word1 word2 ... word24" \
+TONCENTER_RPC="https://toncenter.com/api/v2/jsonRPC" \
+TONCENTER_API_KEY="your_key" \
+npm run deploy:hot-wallet
+```
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).

@@ -20,6 +20,9 @@ import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {KeyEncryptionService} from './wallets/crypto/key-encryption.service';
 import {TonWalletDeploymentService} from './ton/ton-wallet-deployment.service';
+import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
+import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
+import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
 import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
 
@@ -43,6 +46,7 @@ export class TonPaymentWatcher {
         private readonly escrowWalletKeyRepo: Repository<EscrowWalletKeyEntity>,
         private readonly keyEncryptionService: KeyEncryptionService,
         private readonly tonWalletDeploymentService: TonWalletDeploymentService,
+        private readonly tonHotWalletService: TonHotWalletService,
     ) {}
 
     @Cron('*/15 * * * * *')
@@ -100,6 +104,53 @@ export class TonPaymentWatcher {
         } catch (err) {
             this.logger.error(
                 'Watcher error',
+                err instanceof Error ? err.stack : String(err),
+            );
+        }
+    }
+
+    @Cron('*/20 * * * * *')
+    async monitorOutgoingTransfers() {
+        try {
+            const hotWalletAddress = await this.tonHotWalletService.getAddress();
+            const transactions = await this.ton.getTransactions(
+                hotWalletAddress,
+                20,
+            );
+
+            for (const entry of transactions) {
+                const outMsgs = (entry as any).out_msgs ?? [];
+                if (!Array.isArray(outMsgs) || outMsgs.length === 0) {
+                    continue;
+                }
+
+                const txHashRaw =
+                    (entry as any).transaction_id?.hash ?? (entry as any).hash;
+                if (!txHashRaw) {
+                    continue;
+                }
+                const txHash = String(txHashRaw).toLowerCase();
+                const observedAt = new Date(Number((entry as any).utime) * 1000);
+
+                for (const msg of outMsgs) {
+                    if (!msg?.destination || !msg?.value) {
+                        continue;
+                    }
+                    await this.processOutgoingTransfer({
+                        txHash,
+                        amountNano: String(msg.value),
+                        fromAddress: hotWalletAddress,
+                        toAddress: String(msg.destination),
+                        observedAt,
+                        raw: entry as any,
+                    });
+                }
+            }
+
+            await this.finalizeOutgoingTransfers();
+        } catch (err) {
+            this.logger.error(
+                'Outgoing watcher error',
                 err instanceof Error ? err.stack : String(err),
             );
         }
@@ -189,6 +240,8 @@ export class TonPaymentWatcher {
                     transactionId: transaction.id,
                     dealId: deal.id,
                     network: CurrencyCode.TON,
+                    type: TonTransferType.DEPOSIT,
+                    status: TonTransferStatus.COMPLETED,
                     toAddress: transfer.toAddress,
                     fromAddress: transfer.fromAddress,
                     amountNano: transfer.amountNano,
@@ -197,6 +250,8 @@ export class TonPaymentWatcher {
                     type: TonTransferType.DEPOSIT,
                     status: TonTransferStatus.COMPLETED,
                     raw: isLate ? {...transfer.raw, late: true} : transfer.raw,
+                    idempotencyKey: `deposit:${transfer.txHash}`,
+                    errorMessage: null,
                 })
                 .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
                 .execute();
@@ -211,14 +266,16 @@ export class TonPaymentWatcher {
             });
 
             this.logger.log(
-                'Payment detected',
-                JSON.stringify({
+                `[TON-WATCHER] ${JSON.stringify({
+                    event: 'incoming_payment',
                     dealId: deal.id,
                     escrowId: lockedEscrow.id,
                     amountNano: transfer.amountNano,
                     paidNano: nextPaid,
-                    status: isConfirmed ? EscrowStatus.PAID_HELD : EscrowStatus.PAID_PARTIAL,
-                }),
+                    status: isConfirmed
+                        ? EscrowStatus.PAID_HELD
+                        : EscrowStatus.PAID_PARTIAL,
+                })}`,
             );
 
             await dealRepo.update(deal.id, {
@@ -286,6 +343,161 @@ export class TonPaymentWatcher {
                     error instanceof Error ? error.message : String(error)
                 }`,
             );
+        }
+    }
+
+    private async processOutgoingTransfer(transfer: {
+        txHash: string;
+        amountNano: string;
+        fromAddress: string;
+        toAddress: string;
+        observedAt: Date;
+        raw: Record<string, unknown>;
+    }): Promise<void> {
+        await this.dataSource.transaction(async (manager) => {
+            const transferRepo = manager.getRepository(TonTransferEntity);
+            const txRepo = manager.getRepository(TransactionEntity);
+
+            let tonTransfer = await transferRepo.findOne({
+                where: {txHash: transfer.txHash},
+            });
+
+            if (!tonTransfer) {
+                tonTransfer = await transferRepo
+                    .createQueryBuilder('t')
+                    .where('t.type = :type', {
+                        type: TonTransferType.WITHDRAW_TO_USER,
+                    })
+                    .andWhere('t.status = :status', {
+                        status: TonTransferStatus.PENDING,
+                    })
+                    .andWhere('t.toAddress = :toAddress', {
+                        toAddress: transfer.toAddress,
+                    })
+                    .andWhere('t.amountNano = :amountNano', {
+                        amountNano: transfer.amountNano,
+                    })
+                    .andWhere('t.createdAt >= :from', {
+                        from: new Date(transfer.observedAt.getTime() - 60 * 60 * 1000),
+                    })
+                    .orderBy('t.createdAt', 'DESC')
+                    .getOne();
+            }
+
+            if (!tonTransfer) {
+                return;
+            }
+
+            if (tonTransfer.status !== TonTransferStatus.PENDING) {
+                return;
+            }
+
+            await transferRepo.update(tonTransfer.id, {
+                status: TonTransferStatus.CONFIRMED,
+                txHash: tonTransfer.txHash ?? transfer.txHash,
+                observedAt: transfer.observedAt,
+                raw: transfer.raw,
+                errorMessage: null,
+            });
+
+            await txRepo.update(tonTransfer.transactionId, {
+                status: TransactionStatus.CONFIRMED,
+                confirmedAt: new Date(),
+            });
+
+            this.logger.log(
+                `[TON-WATCHER] ${JSON.stringify({
+                    event: 'outgoing_confirmed',
+                    tonTransferId: tonTransfer.id,
+                    transactionId: tonTransfer.transactionId,
+                    txHash: transfer.txHash,
+                    amountNano: transfer.amountNano,
+                })}`,
+            );
+        });
+    }
+
+    private async finalizeOutgoingTransfers(): Promise<void> {
+        const confirmationSeconds =
+            Number(process.env.TON_FINALITY_SECONDS ?? '120');
+        const timeoutSeconds =
+            Number(process.env.TON_TRANSFER_TIMEOUT_SECONDS ?? '1800');
+        const now = Date.now();
+
+        const pendingTransfers = await this.dataSource
+            .getRepository(TonTransferEntity)
+            .createQueryBuilder('transfer')
+            .where('transfer.type = :type', {
+                type: TonTransferType.WITHDRAW_TO_USER,
+            })
+            .andWhere('transfer.status IN (:...statuses)', {
+                statuses: [
+                    TonTransferStatus.PENDING,
+                    TonTransferStatus.CONFIRMED,
+                ],
+            })
+            .getMany();
+
+        for (const transfer of pendingTransfers) {
+            if (transfer.status === TonTransferStatus.CONFIRMED) {
+                const observedAt = transfer.observedAt?.getTime();
+                if (
+                    observedAt &&
+                    now - observedAt >= confirmationSeconds * 1000
+                ) {
+                    await this.dataSource.transaction(async (manager) => {
+                        const transferRepo = manager.getRepository(TonTransferEntity);
+                        const txRepo = manager.getRepository(TransactionEntity);
+
+                        await transferRepo.update(transfer.id, {
+                            status: TonTransferStatus.COMPLETED,
+                            errorMessage: null,
+                        });
+
+                        await txRepo.update(transfer.transactionId, {
+                            status: TransactionStatus.COMPLETED,
+                            completedAt: new Date(),
+                        });
+                    });
+
+                    this.logger.log(
+                        `[TON-WATCHER] ${JSON.stringify({
+                            event: 'outgoing_completed',
+                            tonTransferId: transfer.id,
+                            transactionId: transfer.transactionId,
+                        })}`,
+                    );
+                }
+                continue;
+            }
+
+            const createdAt = transfer.createdAt.getTime();
+            if (now - createdAt >= timeoutSeconds * 1000) {
+                await this.dataSource.transaction(async (manager) => {
+                    const transferRepo = manager.getRepository(TonTransferEntity);
+                    const txRepo = manager.getRepository(TransactionEntity);
+
+                    await transferRepo.update(transfer.id, {
+                        status: TonTransferStatus.FAILED,
+                        errorMessage: 'Transfer timeout',
+                    });
+
+                    await txRepo.update(transfer.transactionId, {
+                        status: TransactionStatus.FAILED,
+                        errorCode: 'TRANSFER_TIMEOUT',
+                        errorMessage: 'Transfer timeout',
+                    });
+                });
+
+                this.logger.warn(
+                    `[TON-WATCHER] ${JSON.stringify({
+                        event: 'outgoing_failed',
+                        tonTransferId: transfer.id,
+                        transactionId: transfer.transactionId,
+                        reason: 'timeout',
+                    })}`,
+                );
+            }
         }
     }
 

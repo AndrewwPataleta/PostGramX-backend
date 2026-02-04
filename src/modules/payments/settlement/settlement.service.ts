@@ -59,6 +59,7 @@ export class SettlementService {
                 const payoutRepo = manager.getRepository(PayoutRequestEntity);
                 const dealRepo = manager.getRepository(DealEntity);
                 const publicationRepo = manager.getRepository(DealPublicationEntity);
+                const transactionRepo = manager.getRepository(TransactionEntity);
 
                 const lockedEscrow = await escrowRepo.findOne({
                     where: {id: escrow.id},
@@ -101,6 +102,30 @@ export class SettlementService {
                         idempotencyKey,
                     });
                     payout = await payoutRepo.save(payout);
+                }
+
+                const releaseKey = `escrow_release:${lockedEscrow.id}`;
+                const existingRelease = await transactionRepo.findOne({
+                    where: {idempotencyKey: releaseKey},
+                });
+                if (!existingRelease) {
+                    await transactionRepo.save(
+                        transactionRepo.create({
+                            userId: deal.publisherUserId,
+                            type: TransactionType.PAYOUT,
+                            direction: TransactionDirection.IN,
+                            status: TransactionStatus.COMPLETED,
+                            amountNano: lockedEscrow.amountNano,
+                            currency: lockedEscrow.currency,
+                            dealId: deal.id,
+                            escrowId: lockedEscrow.id,
+                            channelId: deal.channelId,
+                            description: 'Escrow release',
+                            idempotencyKey: releaseKey,
+                            confirmedAt: new Date(),
+                            completedAt: new Date(),
+                        }),
+                    );
                 }
 
                 await escrowRepo.update(lockedEscrow.id, {

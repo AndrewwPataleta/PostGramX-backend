@@ -17,6 +17,7 @@ import {TonTransferType} from '../../../common/constants/payments/ton-transfer-t
 @Index('UQ_ton_transfers_idempotency', ['idempotencyKey'], {unique: true})
 @Index('IDX_ton_transfers_to_address', ['toAddress'])
 @Index('IDX_ton_transfers_transaction_id', ['transactionId'])
+@Index('UQ_ton_transfers_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TonTransferEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -50,6 +51,20 @@ export class TonTransferEntity {
         default: CurrencyCode.TON,
     })
     network: CurrencyCode;
+
+    @Column({
+        type: 'enum',
+        enum: TonTransferType,
+        enumName: 'ton_transfers_type_enum',
+    })
+    type: TonTransferType;
+
+    @Column({
+        type: 'enum',
+        enum: TonTransferStatus,
+        enumName: 'ton_transfers_status_enum',
+    })
+    status: TonTransferStatus;
 
     @Column({type: 'text'})
     toAddress: string;

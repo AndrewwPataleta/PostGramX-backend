@@ -35,6 +35,8 @@ const TRANSACTION_STATUS_KEYS: Record<TransactionStatus, string> = {
         'payments.transactions.statuses.awaiting_confirmation',
     [TransactionStatus.CONFIRMED]: 'payments.transactions.statuses.confirmed',
     [TransactionStatus.COMPLETED]: 'payments.transactions.statuses.completed',
+    [TransactionStatus.BLOCKED_LIQUIDITY]:
+        'payments.transactions.statuses.blocked_liquidity',
     [TransactionStatus.REFUNDED]: 'payments.transactions.statuses.refunded',
     [TransactionStatus.BLOCKED_LIQUIDITY]:
         'payments.transactions.statuses.blocked_liquidity',
