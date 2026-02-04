@@ -154,11 +154,11 @@ export class PaymentsPayoutsService {
             );
         }
 
-        if (amount < MIN_WITHDRAW_NANO) {
-            throw new PaymentsPayoutsError(
-                PaymentsPayoutsErrorCode.WITHDRAW_MINIMUM,
-            );
-        }
+        // if (amount < MIN_WITHDRAW_NANO) {
+        //     throw new PaymentsPayoutsError(
+        //         PaymentsPayoutsErrorCode.WITHDRAW_MINIMUM,
+        //     );
+        // }
 
         try {
             this.tonPayoutService.validateDestinationAddress(destinationAddress);
