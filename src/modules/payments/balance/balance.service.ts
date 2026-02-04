@@ -90,7 +90,7 @@ export class BalanceService {
 
         const pendingRow = await this.payoutRepository
             .createQueryBuilder('payout')
-            .addSelect('COALESCE(SUM(payout.amountNano), 0)::numeric', 'pendingNano')
+            .select('COALESCE(SUM(payout.amountNano), 0)::numeric', 'pendingNano')
             .addSelect('MAX(payout.updatedAt)', 'lastUpdatedAt')
             .where('payout.userId = :userId', {userId})
             .andWhere('payout.currency = :currency', {currency})
