@@ -12,6 +12,10 @@ import {PayoutRequestEntity} from '../entities/payout-request.entity';
 import {RefundRequestEntity} from '../entities/refund-request.entity';
 import {RequestStatus} from '../../../common/constants/payments/request-status.constants';
 import {SETTLEMENT_CRON} from '../../../config/payments.config';
+import {TransactionStatus} from "../../../common/constants/payments/transaction-status.constants";
+import {TransactionDirection} from "../../../common/constants/payments/transaction-direction.constants";
+import {TransactionType} from "../../../common/constants/payments/transaction-type.constants";
+import {TransactionEntity} from "../entities/transaction.entity";
 
 @Injectable()
 export class SettlementService {

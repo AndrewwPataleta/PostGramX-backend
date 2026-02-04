@@ -20,8 +20,6 @@ import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {KeyEncryptionService} from './wallets/crypto/key-encryption.service';
 import {TonWalletDeploymentService} from './ton/ton-wallet-deployment.service';
-import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
-import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
 import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
 import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
@@ -247,8 +245,6 @@ export class TonPaymentWatcher {
                     amountNano: transfer.amountNano,
                     txHash: transfer.txHash,
                     observedAt: transfer.observedAt,
-                    type: TonTransferType.DEPOSIT,
-                    status: TonTransferStatus.COMPLETED,
                     raw: isLate ? {...transfer.raw, late: true} : transfer.raw,
                     idempotencyKey: `deposit:${transfer.txHash}`,
                     errorMessage: null,

@@ -34,9 +34,6 @@ export class TonTransferEntity {
     @Column({type: 'text', nullable: true})
     idempotencyKey: string | null;
 
-    @Column({type: 'enum', enum: TonTransferType, nullable: true})
-    type: TonTransferType | null;
-
     @Column({
         type: 'enum',
         enum: TonTransferStatus,
@@ -59,12 +56,6 @@ export class TonTransferEntity {
     })
     type: TonTransferType;
 
-    @Column({
-        type: 'enum',
-        enum: TonTransferStatus,
-        enumName: 'ton_transfers_status_enum',
-    })
-    status: TonTransferStatus;
 
     @Column({type: 'text'})
     toAddress: string;
