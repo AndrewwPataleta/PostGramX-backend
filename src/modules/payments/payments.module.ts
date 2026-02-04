@@ -25,6 +25,8 @@ import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {UserWalletService} from './wallets/user-wallet.service';
 import {TelegramModule} from '../telegram/telegram.module';
 import {User} from '../auth/entities/user.entity';
+import {BalanceController} from './balance/balance.controller';
+import {BalanceService} from './balance/balance.service';
 
 @Module({
     imports: [
@@ -46,10 +48,11 @@ import {User} from '../auth/entities/user.entity';
         WalletsModule,
         TelegramModule,
     ],
-    controllers: [PaymentsController, EscrowController],
+    controllers: [PaymentsController, EscrowController, BalanceController],
     providers: [
         PaymentsService,
         EscrowService,
+        BalanceService,
         {
             provide: TonCenterClient,
             useFactory: () => {

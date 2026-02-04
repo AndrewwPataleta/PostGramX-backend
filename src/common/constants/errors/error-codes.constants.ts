@@ -12,3 +12,7 @@ export enum DealErrorCode {
     PAYMENT_TIMEOUT = 'deal.payment_timeout',
     CREATIVE_TIMEOUT = 'deal.creative_timeout',
 }
+
+export enum BalanceErrorCode {
+    CURRENCY_UNSUPPORTED = 'balance.currency_unsupported',
+}

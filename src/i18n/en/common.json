@@ -37,6 +37,9 @@
     "spaces_endpoint_not_configured": "DigitalOcean Spaces endpoint is not configured on the server.",
     "spaces_upload_failed": "Failed to upload image to storage.",
     "validation_failed": "Validation failed.",
+    "balance": {
+      "currency_unsupported": "Currency is not supported."
+    },
     "deals": {
       "active_pending_limit": "You already have active pending deals for this listing.",
       "deal_not_actionable": "The deal is not in the expected state.",
