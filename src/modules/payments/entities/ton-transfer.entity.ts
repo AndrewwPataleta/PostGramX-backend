@@ -9,17 +9,39 @@ import {
 } from 'typeorm';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {TransactionEntity} from './transaction.entity';
+import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
+import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
 
 @Entity({name: 'ton_transfers'})
 @Index('UQ_ton_transfers_tx_hash_network', ['txHash', 'network'], {unique: true})
+@Index('UQ_ton_transfers_idempotency', ['idempotencyKey'], {unique: true})
 @Index('IDX_ton_transfers_to_address', ['toAddress'])
 @Index('IDX_ton_transfers_transaction_id', ['transactionId'])
 export class TonTransferEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({type: 'uuid'})
-    transactionId: string;
+    @Column({type: 'uuid', nullable: true})
+    transactionId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
+    dealId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
+    escrowWalletId: string | null;
+
+    @Column({type: 'text', nullable: true})
+    idempotencyKey: string | null;
+
+    @Column({type: 'enum', enum: TonTransferType, nullable: true})
+    type: TonTransferType | null;
+
+    @Column({
+        type: 'enum',
+        enum: TonTransferStatus,
+        default: TonTransferStatus.PENDING,
+    })
+    status: TonTransferStatus;
 
     @Column({
         type: 'enum',
@@ -38,19 +60,22 @@ export class TonTransferEntity {
     @Column({type: 'bigint'})
     amountNano: string;
 
-    @Column({type: 'text'})
-    txHash: string;
+    @Column({type: 'text', nullable: true})
+    txHash: string | null;
 
-    @Column({type: 'timestamptz'})
-    observedAt: Date;
+    @Column({type: 'timestamptz', nullable: true})
+    observedAt: Date | null;
 
     @Column({type: 'jsonb', default: () => "'{}'"})
     raw: Record<string, unknown>;
 
+    @Column({type: 'text', nullable: true})
+    errorMessage: string | null;
+
     @CreateDateColumn({type: 'timestamptz'})
     createdAt: Date;
 
-    @ManyToOne(() => TransactionEntity, {onDelete: 'CASCADE'})
+    @ManyToOne(() => TransactionEntity, {onDelete: 'CASCADE', nullable: true})
     @JoinColumn({name: 'transactionId'})
-    transaction: TransactionEntity;
+    transaction: TransactionEntity | null;
 }

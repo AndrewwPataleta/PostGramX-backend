@@ -5,6 +5,7 @@ export enum TransactionStatus {
     CONFIRMED = 'CONFIRMED',
     COMPLETED = 'COMPLETED',
     REFUNDED = 'REFUNDED',
+    BLOCKED_LIQUIDITY = 'BLOCKED_LIQUIDITY',
     FAILED = 'FAILED',
     CANCELED = 'CANCELED',
 }

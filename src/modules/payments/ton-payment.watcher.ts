@@ -20,6 +20,8 @@ import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {KeyEncryptionService} from './wallets/crypto/key-encryption.service';
 import {TonWalletDeploymentService} from './ton/ton-wallet-deployment.service';
+import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
+import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -185,12 +187,15 @@ export class TonPaymentWatcher {
                 .insert()
                 .values({
                     transactionId: transaction.id,
+                    dealId: deal.id,
                     network: CurrencyCode.TON,
                     toAddress: transfer.toAddress,
                     fromAddress: transfer.fromAddress,
                     amountNano: transfer.amountNano,
                     txHash: transfer.txHash,
                     observedAt: transfer.observedAt,
+                    type: TonTransferType.DEPOSIT,
+                    status: TonTransferStatus.COMPLETED,
                     raw: isLate ? {...transfer.raw, late: true} : transfer.raw,
                 })
                 .onConflict('( \"txHash\", \"network\" ) DO NOTHING')

@@ -25,6 +25,11 @@ import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {UserWalletService} from './wallets/user-wallet.service';
 import {TelegramModule} from '../telegram/telegram.module';
 import {User} from '../auth/entities/user.entity';
+import {AdminAlertsService} from './processing/admin-alerts.service';
+import {LiquidityService} from './processing/liquidity.service';
+import {TonSweepService} from './processing/ton-sweep.service';
+import {PayoutProcessorService} from './processing/payout-processor.service';
+import {PaymentsProcessingConfigService} from './processing/payments-processing-config.service';
 
 @Module({
     imports: [
@@ -50,6 +55,11 @@ import {User} from '../auth/entities/user.entity';
     providers: [
         PaymentsService,
         EscrowService,
+        PaymentsProcessingConfigService,
+        AdminAlertsService,
+        LiquidityService,
+        TonSweepService,
+        PayoutProcessorService,
         {
             provide: TonCenterClient,
             useFactory: () => {

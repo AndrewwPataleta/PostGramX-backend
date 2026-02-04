@@ -12,6 +12,7 @@ import {TelegramMessengerService} from './telegram-messenger.service';
 import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 import {TelegramPermissionsService} from './telegram-permissions.service';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
+import {TelegramSenderService} from './telegram-sender.service';
 
 @Module({
     exports: [
@@ -21,6 +22,7 @@ import {ChannelMembershipEntity} from '../channels/entities/channel-membership.e
         TelegramI18nService,
         TelegramMessengerService,
         TelegramPermissionsService,
+        TelegramSenderService,
     ],
     imports: [
         AppI18nModule,
@@ -39,6 +41,7 @@ import {ChannelMembershipEntity} from '../channels/entities/channel-membership.e
         TelegramI18nService,
         TelegramMessengerService,
         TelegramPermissionsService,
+        TelegramSenderService,
     ],
 })
 export class TelegramModule {}

@@ -21,6 +21,7 @@ import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 @Index('IDX_transactions_escrow_id', ['escrowId'])
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
+@Index('IDX_transactions_source_request_id', ['sourceRequestId'])
 @Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
 export class TransactionEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
@@ -58,6 +59,9 @@ export class TransactionEntity extends BaseEntity {
 
     @Column({type: 'uuid', nullable: true})
     channelId: string | null;
+
+    @Column({type: 'uuid', nullable: true})
+    sourceRequestId: string | null;
 
     @Column({type: 'uuid', nullable: true})
     counterpartyUserId: string | null;

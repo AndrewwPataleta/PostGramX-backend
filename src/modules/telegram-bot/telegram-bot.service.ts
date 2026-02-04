@@ -63,6 +63,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         options?: {
             reply_markup?: {inline_keyboard: TelegramInlineButton[][]};
             parse_mode?: 'HTML' | 'Markdown';
+            message_thread_id?: number;
         },
     ): Promise<void> {
         if (!this.config?.token) {
