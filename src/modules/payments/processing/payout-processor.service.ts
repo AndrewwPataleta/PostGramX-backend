@@ -329,7 +329,7 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                 this.config.hotWalletLowLiquidityThresholdNano > 0n &&
                 liquidity.balanceNano <=
                     this.config.hotWalletLowLiquidityThresholdNano &&
-                notifyLowLiquidityOnce()
+                options.notifyLowLiquidityOnce()
             ) {
                 await this.adminAlertsService.notifyLowLiquidity({
                     balanceNano: liquidity.balanceNano.toString(),
@@ -340,7 +340,7 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                 });
             }
             if (!liquidity.canSpend) {
-                if (notifyLowLiquidityOnce()) {
+                if (options.notifyLowLiquidityOnce()) {
                     await this.adminAlertsService.notifyLowLiquidity({
                         balanceNano: liquidity.balanceNano.toString(),
                         reserveNano:
