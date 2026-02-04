@@ -5,13 +5,11 @@ import {CurrencyCode} from '../../../common/constants/currency/currency.constant
 import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 import {DealEntity} from '../../deals/entities/deal.entity';
 import {TransactionEntity} from '../entities/transaction.entity';
-import {PayoutRequestEntity} from '../entities/payout-request.entity';
 import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
 import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
-import {RequestStatus} from '../../../common/constants/payments/request-status.constants';
 import {BalanceServiceError, BalanceErrorCode} from './errors/balance-service.error';
 
 export type BalanceOverviewResponse = {
@@ -32,8 +30,6 @@ export class BalanceService {
         private readonly escrowRepository: Repository<DealEscrowEntity>,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
-        @InjectRepository(PayoutRequestEntity)
-        private readonly payoutRepository: Repository<PayoutRequestEntity>,
     ) {}
 
     async getOverview(
@@ -70,7 +66,7 @@ export class BalanceService {
         const paidOutRow = await this.transactionRepository
             .createQueryBuilder('transaction')
             .select(
-                'COALESCE(SUM(transaction.amountNano), 0)::numeric',
+                'COALESCE(SUM(COALESCE(transaction.totalDebitNano, transaction.amountNano)), 0)::numeric',
                 'paidOutNano',
             )
             .addSelect('MAX(transaction.completedAt)', 'lastUpdatedAt')
@@ -88,14 +84,26 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        const pendingRow = await this.payoutRepository
-            .createQueryBuilder('payout')
-            .select('COALESCE(SUM(payout.amountNano), 0)::numeric', 'pendingNano')
-            .addSelect('MAX(payout.updatedAt)', 'lastUpdatedAt')
-            .where('payout.userId = :userId', {userId})
-            .andWhere('payout.currency = :currency', {currency})
-            .andWhere('payout.status IN (:...statuses)', {
-                statuses: [RequestStatus.CREATED, RequestStatus.PROCESSING],
+        const pendingRow = await this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select(
+                'COALESCE(SUM(COALESCE(transaction.totalDebitNano, transaction.amountNano)), 0)::numeric',
+                'pendingNano',
+            )
+            .addSelect('MAX(transaction.updatedAt)', 'lastUpdatedAt')
+            .where('transaction.userId = :userId', {userId})
+            .andWhere('transaction.currency = :currency', {currency})
+            .andWhere('transaction.type = :type', {type: TransactionType.PAYOUT})
+            .andWhere('transaction.direction = :direction', {
+                direction: TransactionDirection.OUT,
+            })
+            .andWhere('transaction.status IN (:...statuses)', {
+                statuses: [
+                    TransactionStatus.PENDING,
+                    TransactionStatus.AWAITING_CONFIRMATION,
+                    TransactionStatus.CONFIRMED,
+                    TransactionStatus.BLOCKED_LIQUIDITY,
+                ],
             })
             .getRawOne<{
                 pendingNano: string | null;

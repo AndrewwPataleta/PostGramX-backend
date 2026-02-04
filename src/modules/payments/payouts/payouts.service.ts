@@ -1,7 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {createHash} from 'crypto';
-import {Repository} from 'typeorm';
+import {EntityManager, Repository} from 'typeorm';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
@@ -13,6 +13,7 @@ import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {UserWalletService} from '../wallets/user-wallet.service';
 import {TonHotWalletService} from '../ton/ton-hot-wallet.service';
 import {LedgerService} from '../ledger/ledger.service';
+import {FeesService} from '../fees/fees.service';
 import {PayoutRequestMode} from './dto/payout-request.dto';
 import {PayoutServiceError, PayoutErrorCode} from './errors/payout-service.error';
 
@@ -32,6 +33,7 @@ export class PayoutsService {
         private readonly ledgerService: LedgerService,
         private readonly userWalletService: UserWalletService,
         private readonly tonHotWalletService: TonHotWalletService,
+        private readonly feesService: FeesService,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
         @InjectRepository(TonTransferEntity)
@@ -72,13 +74,34 @@ export class PayoutsService {
 
                 const withdrawableNano = balance.withdrawableNano;
                 let amountNano = payload.amountNano ?? withdrawableNano;
+                let feeResult: Awaited<ReturnType<FeesService['computePayoutFees']>>;
 
                 if (mode === PayoutRequestMode.AMOUNT) {
                     if (!this.isValidAmount(amountNano)) {
                         throw new PayoutServiceError(PayoutErrorCode.INVALID_AMOUNT);
                     }
+                    feeResult = await this.feesService.validatePayout({
+                        amountNano,
+                        withdrawableNano,
+                        currency,
+                        destinationAddress,
+                    });
                 } else {
-                    amountNano = withdrawableNano;
+                    const resolved = await this.resolvePayoutAmountForAll({
+                        withdrawableNano,
+                        currency,
+                        destinationAddress,
+                    });
+                    amountNano = resolved.amountNano;
+                    feeResult = resolved.fees;
+                    if (BigInt(amountNano) > 0n) {
+                        feeResult = await this.feesService.validatePayout({
+                            amountNano,
+                            withdrawableNano,
+                            currency,
+                            destinationAddress,
+                        });
+                    }
                 }
 
                 if (BigInt(amountNano) <= 0n) {
@@ -86,17 +109,17 @@ export class PayoutsService {
                         PayoutErrorCode.INSUFFICIENT_BALANCE,
                         {
                             availableNano: withdrawableNano,
-                            requestedNano: amountNano,
+                            requiredNano: feeResult.totalDebitNano,
                         },
                     );
                 }
 
-                if (BigInt(amountNano) > BigInt(withdrawableNano)) {
+                if (BigInt(feeResult.totalDebitNano) > BigInt(withdrawableNano)) {
                     throw new PayoutServiceError(
                         PayoutErrorCode.INSUFFICIENT_BALANCE,
                         {
                             availableNano: withdrawableNano,
-                            requestedNano: amountNano,
+                            requiredNano: feeResult.totalDebitNano,
                         },
                     );
                 }
@@ -124,13 +147,26 @@ export class PayoutsService {
                     direction: TransactionDirection.OUT,
                     status: TransactionStatus.PENDING,
                     amountNano,
+                    serviceFeeNano: feeResult.serviceFeeNano,
+                    networkFeeNano: feeResult.networkFeeNano,
+                    totalDebitNano: feeResult.totalDebitNano,
+                    feePolicyVersion: feeResult.policyVersion,
                     currency,
                     description: 'Payout request',
                     destinationAddress,
                     idempotencyKey,
+                    metadata: {
+                        fee: feeResult.breakdown,
+                    },
                 });
 
                 const saved = await txRepo.save(createdTx);
+                await this.createFeeTransactions({
+                    manager,
+                    payout: saved,
+                    serviceFeeNano: feeResult.serviceFeeNano,
+                    networkFeeNano: feeResult.networkFeeNano,
+                });
                 created = true;
 
                 this.logger.log(
@@ -138,6 +174,7 @@ export class PayoutsService {
                         userId: payload.userId,
                         amountNano,
                         withdrawableNano,
+                        totalDebitNano: feeResult.totalDebitNano,
                     })}`,
                 );
 
@@ -169,6 +206,10 @@ export class PayoutsService {
                 errorCode: PayoutErrorCode.INSUFFICIENT_LIQUIDITY,
                 errorMessage: 'Insufficient hot wallet liquidity',
             });
+            await this.ledgerService.updateFeeTransactionsStatus(
+                transaction.id,
+                TransactionStatus.CANCELED,
+            );
             throw new PayoutServiceError(PayoutErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
@@ -197,6 +238,10 @@ export class PayoutsService {
                     errorCode: PayoutErrorCode.INTERNAL_ERROR,
                     errorMessage: message,
                 });
+                await this.ledgerService.updateFeeTransactionsStatus(
+                    transaction.id,
+                    TransactionStatus.CANCELED,
+                );
                 throw new PayoutServiceError(PayoutErrorCode.INTERNAL_ERROR);
             }
         }
@@ -258,6 +303,10 @@ export class PayoutsService {
                 confirmedAt: new Date(),
                 completedAt: new Date(),
             });
+            await this.ledgerService.updateFeeTransactionsStatus(
+                transaction.id,
+                TransactionStatus.COMPLETED,
+            );
         } else {
             await this.transactionRepository.update(transaction.id, {
                 status: TransactionStatus.AWAITING_CONFIRMATION,
@@ -288,9 +337,119 @@ export class PayoutsService {
             payoutId: transaction.id,
             status: transaction.status,
             amountNano: transaction.amountNano,
+            serviceFeeNano: transaction.serviceFeeNano,
+            networkFeeNano: transaction.networkFeeNano,
+            totalDebitNano: transaction.totalDebitNano,
             currency: transaction.currency,
             destinationAddress: transaction.destinationAddress,
             createdAt: transaction.createdAt.toISOString(),
         };
+    }
+
+    private async resolvePayoutAmountForAll(options: {
+        withdrawableNano: string;
+        currency: CurrencyCode;
+        destinationAddress: string;
+    }): Promise<{amountNano: string; fees: Awaited<ReturnType<FeesService['computePayoutFees']>>}> {
+        const withdrawable = BigInt(options.withdrawableNano);
+        if (withdrawable <= 0n) {
+            return {
+                amountNano: '0',
+                fees: await this.feesService.computePayoutFees({
+                    amountNano: '0',
+                    currency: options.currency,
+                    destinationAddress: options.destinationAddress,
+                }),
+            };
+        }
+
+        let low = 0n;
+        let high = withdrawable;
+        let bestAmount = 0n;
+        let bestFees = await this.feesService.computePayoutFees({
+            amountNano: '0',
+            currency: options.currency,
+            destinationAddress: options.destinationAddress,
+        });
+
+        while (low < high) {
+            const mid = (low + high + 1n) / 2n;
+            const fees = await this.feesService.computePayoutFees({
+                amountNano: mid.toString(),
+                currency: options.currency,
+                destinationAddress: options.destinationAddress,
+            });
+            if (BigInt(fees.totalDebitNano) <= withdrawable) {
+                low = mid;
+                bestAmount = mid;
+                bestFees = fees;
+            } else {
+                high = mid - 1n;
+            }
+        }
+
+        if (bestAmount !== low) {
+            bestFees = await this.feesService.computePayoutFees({
+                amountNano: low.toString(),
+                currency: options.currency,
+                destinationAddress: options.destinationAddress,
+            });
+        }
+
+        return {amountNano: low.toString(), fees: bestFees};
+    }
+
+    private async createFeeTransactions(options: {
+        manager: EntityManager;
+        payout: TransactionEntity;
+        serviceFeeNano: string;
+        networkFeeNano: string;
+    }): Promise<void> {
+        const txRepo = options.manager.getRepository(TransactionEntity);
+
+        const feeTransactions: TransactionEntity[] = [];
+        if (BigInt(options.serviceFeeNano) > 0n) {
+            feeTransactions.push(
+                txRepo.create({
+                    userId: options.payout.userId,
+                    type: TransactionType.FEE,
+                    direction: TransactionDirection.INTERNAL,
+                    status: TransactionStatus.PENDING,
+                    amountNano: options.serviceFeeNano,
+                    currency: options.payout.currency,
+                    description: 'Service fee charged',
+                    idempotencyKey: `fee:${options.payout.id}:service`,
+                    metadata: {
+                        payoutId: options.payout.id,
+                        feeType: 'SERVICE',
+                        feePolicyVersion: options.payout.feePolicyVersion,
+                    },
+                }),
+            );
+        }
+
+        if (BigInt(options.networkFeeNano) > 0n) {
+            feeTransactions.push(
+                txRepo.create({
+                    userId: options.payout.userId,
+                    type: TransactionType.NETWORK_FEE,
+                    direction: TransactionDirection.INTERNAL,
+                    status: TransactionStatus.PENDING,
+                    amountNano: options.networkFeeNano,
+                    currency: options.payout.currency,
+                    description: 'Network fee charged',
+                    idempotencyKey: `fee:${options.payout.id}:network`,
+                    metadata: {
+                        payoutId: options.payout.id,
+                        feeType: 'NETWORK',
+                        feePolicyVersion: options.payout.feePolicyVersion,
+                    },
+                }),
+            );
+        }
+
+        if (feeTransactions.length > 0) {
+            await txRepo.save(feeTransactions);
+        }
     }
 }

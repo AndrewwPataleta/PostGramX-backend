@@ -8,6 +8,8 @@ import {TransactionStatus} from '../../../common/constants/payments/transaction-
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {randomUUID} from 'crypto';
+import {FeesConfigService} from '../fees/fees-config.service';
+import {FeesService} from '../fees/fees.service';
 
 class InMemoryRepository<T extends {id?: string}> {
     data: T[] = [];
@@ -16,7 +18,14 @@ class InMemoryRepository<T extends {id?: string}> {
         return {...(entity as T)};
     }
 
-    async save(entity: T): Promise<T> {
+    async save(entity: T | T[]): Promise<T | T[]> {
+        if (Array.isArray(entity)) {
+            const saved: T[] = [];
+            for (const item of entity) {
+                saved.push((await this.save(item)) as T);
+            }
+            return saved;
+        }
         if (!entity.id) {
             entity.id = randomUUID();
         }
@@ -52,6 +61,8 @@ describe('PayoutsService', () => {
     let ledgerService: any;
     let userWalletService: any;
     let tonHotWalletService: any;
+    let feesService: FeesService;
+    let configMap: Record<string, string>;
 
     beforeEach(() => {
         transactionRepo = new InMemoryRepository<TransactionEntity>();
@@ -68,6 +79,22 @@ describe('PayoutsService', () => {
         };
 
         const baseCredits = 100n;
+        configMap = {
+            FEES_ENABLED: 'true',
+            PAYOUT_SERVICE_FEE_MODE: 'FIXED',
+            PAYOUT_SERVICE_FEE_FIXED_NANO: '10',
+            PAYOUT_SERVICE_FEE_BPS: '50',
+            PAYOUT_SERVICE_FEE_MIN_NANO: '0',
+            PAYOUT_NETWORK_FEE_MODE: 'FIXED',
+            PAYOUT_NETWORK_FEE_FIXED_NANO: '5',
+            PAYOUT_NETWORK_FEE_MIN_NANO: '0',
+        };
+        const configService = {
+            get: (key: string) => configMap[key],
+        } as any;
+        const feesConfigService = new FeesConfigService(configService);
+        feesService = new FeesService(feesConfigService, tonHotWalletService);
+
         ledgerService = {
             withUserLock: jest.fn(async (_userId: string, action: any) => {
                 return action({
@@ -87,7 +114,11 @@ describe('PayoutsService', () => {
                                 TransactionStatus.BLOCKED_LIQUIDITY,
                             ].includes(tx.status),
                     )
-                    .reduce((sum, tx) => sum + BigInt(tx.amountNano), 0n);
+                    .reduce(
+                        (sum, tx) =>
+                            sum + BigInt(tx.totalDebitNano ?? tx.amountNano),
+                        0n,
+                    );
                 const completedDebits = transactionRepo.data
                     .filter(
                         (tx) =>
@@ -95,7 +126,11 @@ describe('PayoutsService', () => {
                             tx.type === TransactionType.PAYOUT &&
                             tx.status === TransactionStatus.COMPLETED,
                     )
-                    .reduce((sum, tx) => sum + BigInt(tx.amountNano), 0n);
+                    .reduce(
+                        (sum, tx) =>
+                            sum + BigInt(tx.totalDebitNano ?? tx.amountNano),
+                        0n,
+                    );
                 const withdrawable = baseCredits - completedDebits - reserved;
                 return {
                     withdrawableNano:
@@ -106,6 +141,20 @@ describe('PayoutsService', () => {
                 };
             }),
             getReservedPayoutsTotal: jest.fn().mockResolvedValue('0'),
+            updateFeeTransactionsStatus: jest.fn(async (payoutId, status) => {
+                transactionRepo.data
+                    .filter(
+                        (tx) =>
+                            [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(
+                                tx.type,
+                            ) &&
+                            tx.metadata &&
+                            (tx.metadata as any).payoutId === payoutId,
+                    )
+                    .forEach((tx) => {
+                        (tx as any).status = status;
+                    });
+            }),
         };
     });
 
@@ -114,6 +163,7 @@ describe('PayoutsService', () => {
             ledgerService,
             userWalletService,
             tonHotWalletService,
+            feesService,
             transactionRepo as any,
             transferRepo as any,
         );
@@ -162,7 +212,19 @@ describe('PayoutsService', () => {
         });
 
         expect(first.payoutId).toEqual(second.payoutId);
-        expect(transactionRepo.data).toHaveLength(1);
+        expect(first.serviceFeeNano).toEqual(second.serviceFeeNano);
+        expect(first.networkFeeNano).toEqual(second.networkFeeNano);
+        expect(first.totalDebitNano).toEqual(second.totalDebitNano);
+        expect(
+            transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
+        ).toHaveLength(1);
+        expect(
+            transactionRepo.data.filter((tx) =>
+                [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(
+                    tx.type,
+                ),
+            ),
+        ).toHaveLength(2);
         expect(transferRepo.data).toHaveLength(1);
         expect(tonHotWalletService.sendTon).toHaveBeenCalledTimes(1);
     });
@@ -191,5 +253,78 @@ describe('PayoutsService', () => {
                 code: PayoutErrorCode.INSUFFICIENT_BALANCE,
             }),
         );
+    });
+
+    it('calculates ALL-mode payout with fixed fees', async () => {
+        const service = createService();
+
+        const result = await service.requestPayout({
+            userId,
+            currency: CurrencyCode.TON,
+            mode: PayoutRequestMode.ALL,
+        });
+
+        expect(result.amountNano).toEqual('85');
+        expect(result.serviceFeeNano).toEqual('10');
+        expect(result.networkFeeNano).toEqual('5');
+        expect(result.totalDebitNano).toEqual('100');
+    });
+
+    it('calculates ALL-mode payout with BPS fees', async () => {
+        configMap.PAYOUT_SERVICE_FEE_MODE = 'BPS';
+        configMap.PAYOUT_SERVICE_FEE_BPS = '500';
+        configMap.PAYOUT_SERVICE_FEE_FIXED_NANO = '0';
+        configMap.PAYOUT_NETWORK_FEE_FIXED_NANO = '10';
+        const configService = {get: (key: string) => configMap[key]} as any;
+        feesService = new FeesService(
+            new FeesConfigService(configService),
+            tonHotWalletService,
+        );
+
+        const service = createService();
+        const result = await service.requestPayout({
+            userId,
+            currency: CurrencyCode.TON,
+            mode: PayoutRequestMode.ALL,
+        });
+
+        const withdrawable = 100n;
+        const expected = (() => {
+            for (let amount = withdrawable; amount >= 0n; amount -= 1n) {
+                const fee = (amount * 500n + 9999n) / 10000n;
+                const total = amount + fee + 10n;
+                if (total <= withdrawable) {
+                    return amount;
+                }
+            }
+            return 0n;
+        })();
+
+        expect(result.amountNano).toEqual(expected.toString());
+        expect(BigInt(result.totalDebitNano)).toBeLessThanOrEqual(withdrawable);
+    });
+
+    it('cancels fee transactions when payout fails', async () => {
+        tonHotWalletService.sendTon.mockRejectedValueOnce(new Error('send fail'));
+        const service = createService();
+
+        await expect(
+            service.requestPayout({
+                userId,
+                amountNano: '10',
+                currency: CurrencyCode.TON,
+                mode: PayoutRequestMode.AMOUNT,
+            }),
+        ).rejects.toEqual(
+            expect.objectContaining({code: PayoutErrorCode.INTERNAL_ERROR}),
+        );
+
+        const feeTransactions = transactionRepo.data.filter((tx) =>
+            [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(tx.type),
+        );
+        expect(feeTransactions.length).toBeGreaterThan(0);
+        feeTransactions.forEach((tx) => {
+            expect(tx.status).toEqual(TransactionStatus.CANCELED);
+        });
     });
 });

@@ -20,9 +20,10 @@ import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {KeyEncryptionService} from './wallets/crypto/key-encryption.service';
 import {TonWalletDeploymentService} from './ton/ton-wallet-deployment.service';
-import {TonHotWalletService} from './ton/ton-hot-wallet.service';
-import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
 import {TonTransferStatus} from '../../common/constants/payments/ton-transfer-status.constants';
+import {TonTransferType} from '../../common/constants/payments/ton-transfer-type.constants';
+import {TonHotWalletService} from './ton/ton-hot-wallet.service';
+import {LedgerService} from './ledger/ledger.service';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -45,6 +46,7 @@ export class TonPaymentWatcher {
         private readonly keyEncryptionService: KeyEncryptionService,
         private readonly tonWalletDeploymentService: TonWalletDeploymentService,
         private readonly tonHotWalletService: TonHotWalletService,
+        private readonly ledgerService: LedgerService,
     ) {}
 
     @Cron('*/15 * * * * *')
@@ -454,6 +456,11 @@ export class TonPaymentWatcher {
                             status: TransactionStatus.COMPLETED,
                             completedAt: new Date(),
                         });
+                        await this.ledgerService.updateFeeTransactionsStatus(
+                            transfer.transactionId,
+                            TransactionStatus.COMPLETED,
+                            manager,
+                        );
                     });
 
                     this.logger.log(
@@ -483,6 +490,11 @@ export class TonPaymentWatcher {
                         errorCode: 'TRANSFER_TIMEOUT',
                         errorMessage: 'Transfer timeout',
                     });
+                    await this.ledgerService.updateFeeTransactionsStatus(
+                        transfer.transactionId,
+                        TransactionStatus.CANCELED,
+                        manager,
+                    );
                 });
 
                 this.logger.warn(

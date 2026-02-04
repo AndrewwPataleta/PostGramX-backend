@@ -115,7 +115,8 @@
         "escrow_hold": "Заморозка эскроу",
         "escrow_release": "Выплата эскроу",
         "escrow_refund": "Возврат эскроу",
-        "fee": "Комиссия"
+        "fee": "Комиссия",
+        "network_fee": "Сетевой сбор"
       },
       "statuses": {
         "pending": "В ожидании",
@@ -138,8 +139,24 @@
       },
       "descriptions": {
         "escrow_hold": "Заморозка эскроу",
-        "channel_withdrawal": "Вывод средств канала"
+        "channel_withdrawal": "Вывод средств канала",
+        "service_fee": "Сервисная комиссия",
+        "network_fee": "Сетевой сбор"
       }
+    }
+  },
+  "payouts": {
+    "request": {
+      "summary": {
+        "title": "Сводка выплаты",
+        "receive": "Сумма к получению",
+        "serviceFee": "Сервисная комиссия",
+        "networkFee": "Сетевой сбор (оценка)",
+        "totalDebit": "Списано всего"
+      },
+      "insufficientBalance": "Недостаточно средств. Доступно: {{available}}, требуется: {{required}}.",
+      "walletNotConnected": "Кошелёк не подключён.",
+      "failed": "Не удалось запросить выплату. Попробуйте позже."
     }
   },
   "deals": {

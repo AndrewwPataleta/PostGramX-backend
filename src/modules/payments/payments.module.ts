@@ -31,6 +31,7 @@ import {BalanceService} from './balance/balance.service';
 import {LedgerService} from './ledger/ledger.service';
 import {PayoutsController} from './payouts/payouts.controller';
 import {PayoutsService} from './payouts/payouts.service';
+import {FeesModule} from './fees/fees.module';
 import {AdminAlertsService} from './processing/admin-alerts.service';
 import {LiquidityService} from './processing/liquidity.service';
 import {TonSweepService} from './processing/ton-sweep.service';
@@ -57,6 +58,7 @@ import {PaymentsProcessingConfigService} from './processing/payments-processing-
         forwardRef(() => DealsModule),
         WalletsModule,
         forwardRef(() => TelegramModule),
+        FeesModule,
     ],
     controllers: [
         PaymentsController,
