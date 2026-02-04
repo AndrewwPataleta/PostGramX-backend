@@ -49,4 +49,10 @@ export class TonWalletDeploymentService {
 
         return true;
     }
+
+    async getBalance(address: string): Promise<bigint> {
+        const parsed = Address.parse(address);
+        const state = await this.client.getContractState(parsed);
+        return BigInt(state.balance ?? 0);
+    }
 }
