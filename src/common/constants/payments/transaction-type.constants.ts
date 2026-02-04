@@ -1,8 +1,7 @@
 export enum TransactionType {
     DEPOSIT = 'DEPOSIT',
-    WITHDRAW = 'WITHDRAW',
-    ESCROW_HOLD = 'ESCROW_HOLD',
-    ESCROW_RELEASE = 'ESCROW_RELEASE',
-    ESCROW_REFUND = 'ESCROW_REFUND',
+    PAYOUT = 'PAYOUT',
+    REFUND = 'REFUND',
+    SWEEP = 'SWEEP',
     FEE = 'FEE',
 }

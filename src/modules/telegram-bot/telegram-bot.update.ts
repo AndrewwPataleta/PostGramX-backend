@@ -205,7 +205,6 @@ export class TelegramBotUpdate {
             if (this.isKnownCommand(messageText)) {
                 return;
             }
-            console.log('message '+context.message.text)
             const handledChangeRequest =
                 await this.dealsBotHandler.handleAdminRequestChangesReply(
                     context,

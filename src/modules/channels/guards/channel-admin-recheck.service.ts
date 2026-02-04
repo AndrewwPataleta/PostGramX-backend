@@ -74,13 +74,11 @@ export class ChannelAdminRecheckService {
         }
 
         const chatId = channel.telegramChatId ?? channel.username;
-        console.log("chat id "+channel.telegramChatId)
-        const admins = await this.telegramChatService.getChatAdministrators(channel.username);
+        const admins = await this.telegramChatService.getChatAdministrators(chatId);
         let admin: TelegramChatMember;
         try {
             admin = this.findTelegramAdmin(admins, telegramId);
         } catch (error) {
-            console.log(error)
             if (error instanceof ChannelServiceError) {
                 membership.isActive = false;
                 membership.lastRecheckAt = new Date();

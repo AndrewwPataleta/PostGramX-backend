@@ -13,11 +13,13 @@ import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.c
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {DealEntity} from './deal.entity';
 import {EscrowWalletEntity} from '../../payments/entities/escrow-wallet.entity';
+import {PayoutRequestEntity} from '../../payments/entities/payout-request.entity';
+import {RefundRequestEntity} from '../../payments/entities/refund-request.entity';
 
 @Entity({name: 'deal_escrows'})
 @Index('IDX_deal_escrows_status', ['status'])
 @Index('IDX_deal_escrows_payment_deadline', ['paymentDeadlineAt'])
-@Index('IDX_deal_escrows_payment_address', ['paymentAddress'])
+@Index('IDX_deal_escrows_payment_address', ['depositAddress'])
 @Index('UQ_deal_escrows_deal_id', ['dealId'], {unique: true})
 export class DealEscrowEntity {
     @PrimaryGeneratedColumn('uuid')
@@ -30,7 +32,7 @@ export class DealEscrowEntity {
         type: 'enum',
         enum: EscrowStatus,
         enumName: 'deal_escrows_status_enum',
-        default: EscrowStatus.NOT_CREATED,
+        default: EscrowStatus.CREATED,
     })
     status: EscrowStatus;
 
@@ -49,22 +51,31 @@ export class DealEscrowEntity {
     paidNano: string;
 
     @Column({type: 'uuid', nullable: true})
-    walletId: string | null;
+    depositWalletId: string | null;
 
     @Column({type: 'text', nullable: true})
-    paymentAddress: string | null;
+    depositAddress: string | null;
 
     @Column({type: 'timestamptz', nullable: true})
     paymentDeadlineAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
-    confirmedAt: Date | null;
+    paidAt: Date | null;
 
     @Column({type: 'timestamptz', nullable: true})
-    releasedAt: Date | null;
+    heldAt: Date | null;
+
+    @Column({type: 'uuid', nullable: true})
+    payoutId: string | null;
 
     @Column({type: 'timestamptz', nullable: true})
     refundedAt: Date | null;
+
+    @Column({type: 'uuid', nullable: true})
+    refundId: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    paidOutAt: Date | null;
 
     @CreateDateColumn({type: 'timestamptz'})
     createdAt: Date;
@@ -77,6 +88,14 @@ export class DealEscrowEntity {
     deal: DealEntity;
 
     @ManyToOne(() => EscrowWalletEntity, {nullable: true})
-    @JoinColumn({name: 'walletId'})
-    wallet: EscrowWalletEntity | null;
+    @JoinColumn({name: 'depositWalletId'})
+    depositWallet: EscrowWalletEntity | null;
+
+    @ManyToOne(() => PayoutRequestEntity, {nullable: true})
+    @JoinColumn({name: 'payoutId'})
+    payout: PayoutRequestEntity | null;
+
+    @ManyToOne(() => RefundRequestEntity, {nullable: true})
+    @JoinColumn({name: 'refundId'})
+    refund: RefundRequestEntity | null;
 }

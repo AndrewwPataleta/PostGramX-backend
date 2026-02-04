@@ -16,6 +16,8 @@ import {TelegramPosterService} from './telegram-poster.service';
 import {PaymentsService} from '../../payments/payments.service';
 import {DealsNotificationsService} from '../../deals/deals-notifications.service';
 import {DEALS_CONFIG} from '../../../config/deals.config';
+import {TelegramPermissionsService} from '../../telegram/telegram-permissions.service';
+import {PAYMENTS_CONFIG} from '../../../config/payments.config';
 
 const POST_VERIFICATION_CRON =
     process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *';
@@ -38,6 +40,7 @@ export class DealPostingWorker {
         private readonly telegramPosterService: TelegramPosterService,
         private readonly paymentsService: PaymentsService,
         private readonly dealsNotificationsService: DealsNotificationsService,
+        private readonly telegramPermissionsService: TelegramPermissionsService,
     ) {}
 
     @Cron('*/30 * * * * *')
@@ -84,7 +87,7 @@ export class DealPostingWorker {
         const escrow = await this.escrowRepository.findOne({
             where: {dealId: deal.id},
         });
-        if (!escrow || escrow.status !== EscrowStatus.PAID_CONFIRMED) {
+        if (!escrow || escrow.status !== EscrowStatus.PAID_HELD) {
             return;
         }
 
@@ -92,6 +95,11 @@ export class DealPostingWorker {
             where: {id: deal.channelId},
         });
         if (!channel) {
+            return;
+        }
+
+        const permissionCheck = await this.ensurePermissions(deal);
+        if (!permissionCheck.ok) {
             return;
         }
 
@@ -139,13 +147,15 @@ export class DealPostingWorker {
 
             const publishedAt = new Date();
             const listingSnapshot = deal.listingSnapshot as {
+                pinDurationHours?: number;
                 visibilityDurationHours?: number;
             };
-            const mustRemainUntil = listingSnapshot.visibilityDurationHours
-                ? new Date(
-                      publishedAt.getTime() +
-                          listingSnapshot.visibilityDurationHours * 60 * 60 * 1000,
-                  )
+            const windowHours =
+                listingSnapshot.pinDurationHours ??
+                listingSnapshot.visibilityDurationHours ??
+                PAYMENTS_CONFIG.VERIFY_WINDOW_HOURS;
+            const mustRemainUntil = windowHours
+                ? new Date(publishedAt.getTime() + windowHours * 60 * 60 * 1000)
                 : null;
 
             await this.upsertPublication(deal.id, {
@@ -221,6 +231,11 @@ export class DealPostingWorker {
             return;
         }
 
+        const permissionCheck = await this.ensurePermissions(deal);
+        if (!permissionCheck.ok) {
+            return;
+        }
+
         if (publication.publishedMessageId) {
             const exists = await this.telegramPosterService.checkMessagePresence(
                 channel,
@@ -293,7 +308,6 @@ export class DealPostingWorker {
             verifiedAt: now,
         });
 
-        await this.paymentsService.releaseEscrow(deal.id, 'DELIVERY_CONFIRMED');
         await this.dealRepository.update(deal.id, {
             stage: DealStage.FINALIZED,
             status: DealStatus.COMPLETED,
@@ -367,5 +381,74 @@ export class DealPostingWorker {
             ...data,
         });
         await this.publicationRepository.save(created);
+    }
+
+    private async ensurePermissions(
+        deal: DealEntity,
+    ): Promise<{ok: boolean}> {
+        const botCheck = await this.telegramPermissionsService.checkBotIsAdmin(
+            deal.channelId,
+        );
+        if (!botCheck.ok) {
+            this.logger.warn(
+                `Permission check failed: bot not admin for deal ${deal.id}`,
+            );
+            await this.cancelDealForPermissions(deal, 'BOT_NOT_ADMIN');
+            return {ok: false};
+        }
+
+        if (!deal.publisherUserId) {
+            this.logger.warn(
+                `Permission check failed: publisher not bound for deal ${deal.id}`,
+            );
+            await this.cancelDealForPermissions(deal, 'PUBLISHER_NOT_BOUND');
+            return {ok: false};
+        }
+
+        const userCheck =
+            await this.telegramPermissionsService.checkUserIsAdmin(
+                deal.publisherUserId,
+                deal.channelId,
+            );
+        if (!userCheck.ok) {
+            this.logger.warn(
+                `Permission check failed: publisher admin missing for deal ${deal.id}`,
+            );
+            await this.cancelDealForPermissions(deal, 'ADMIN_RIGHTS_LOST');
+            return {ok: false};
+        }
+
+        return {ok: true};
+    }
+
+    private async cancelDealForPermissions(
+        deal: DealEntity,
+        reason: string,
+    ): Promise<void> {
+        await this.upsertPublication(deal.id, {
+            status: PublicationStatus.FAILED,
+            error: reason,
+        });
+        await this.paymentsService.refundEscrow(deal.id, reason);
+        await this.dealRepository.update(deal.id, {
+            stage: DealStage.FINALIZED,
+            status: DealStatus.CANCELED,
+            cancelReason: reason,
+        });
+
+        if (reason === 'BOT_NOT_ADMIN') {
+            await this.dealsNotificationsService.notifyPostNotPublishedAdmin(
+                deal,
+            );
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'telegram.deal.post.not_published_advertiser',
+            );
+        } else if (reason === 'ADMIN_RIGHTS_LOST') {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'telegram.deal.canceled.admin_rights_lost',
+            );
+        }
     }
 }

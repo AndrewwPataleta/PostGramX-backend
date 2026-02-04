@@ -14,6 +14,7 @@ import {TonTransferEntity} from './entities/ton-transfer.entity';
 import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
 import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
 import {TonCenterClient} from './ton/toncenter.client';
 import {addNano, gteNano, subNano} from './utils/bigint';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
@@ -50,7 +51,7 @@ export class TonPaymentWatcher {
                 where: {
                     status: In([
                         EscrowStatus.AWAITING_PAYMENT,
-                        EscrowStatus.PARTIALLY_PAID,
+                        EscrowStatus.PAID_PARTIAL,
                     ]),
                 },
                 take: 20,
@@ -61,12 +62,12 @@ export class TonPaymentWatcher {
             }
 
             for (const escrow of escrows) {
-                if (!escrow.paymentAddress) {
+                if (!escrow.depositAddress) {
                     continue;
                 }
 
                 const transactions = await this.ton.getTransactions(
-                    escrow.paymentAddress,
+                    escrow.depositAddress,
                     10,
                 );
 
@@ -84,12 +85,11 @@ export class TonPaymentWatcher {
                     }
                     const txHash = String(txHashRaw).toLowerCase();
                     const observedAt = new Date(Number((entry as any).utime) * 1000);
-                    console.log(inMsg)
                     await this.processTransfer(escrow, {
                         txHash,
                         amountNano,
                         fromAddress: inMsg.source ?? 'unknown',
-                        toAddress: escrow.paymentAddress,
+                        toAddress: escrow.depositAddress,
                         observedAt,
                         raw: entry as any,
                     });
@@ -98,88 +98,6 @@ export class TonPaymentWatcher {
         } catch (err) {
             this.logger.error(
                 'Watcher error',
-                err instanceof Error ? err.stack : String(err),
-            );
-        }
-    }
-
-    @Cron('*/15 * * * * *')
-    async monitorWithdrawals() {
-        try {
-            const withdrawals = await this.txRepo.find({
-                where: {
-                    type: TransactionType.WITHDRAW,
-                    status: In([TransactionStatus.AWAITING_CONFIRMATION]),
-                },
-                take: 20,
-            });
-
-            for (const withdrawal of withdrawals) {
-                const metadata = withdrawal.metadata as
-                    | {destinationAddress?: string; sourceAddress?: string}
-                    | null;
-                const destinationAddress = metadata?.destinationAddress;
-                const sourceAddress = metadata?.sourceAddress;
-
-                if (!destinationAddress || !sourceAddress) {
-                    continue;
-                }
-
-                const transactions = await this.ton.getTransactions(
-                    sourceAddress,
-                    10,
-                );
-
-                for (const entry of transactions) {
-                    const outMsgs = (entry as any).out_msgs;
-                    if (!Array.isArray(outMsgs) || outMsgs.length === 0) {
-                        continue;
-                    }
-
-                    const txHashRaw =
-                        (entry as any).transaction_id?.hash ?? (entry as any).hash;
-                    if (!txHashRaw) {
-                        continue;
-                    }
-
-                    const observedAt = new Date(
-                        Number((entry as any).utime) * 1000,
-                    );
-                    const txHash = String(txHashRaw).toLowerCase();
-
-                    for (const outMsg of outMsgs) {
-                        const outValue = outMsg?.value;
-                        const outDestination = outMsg?.destination;
-                        if (!outValue || !outDestination) {
-                            continue;
-                        }
-
-                        if (
-                            String(outDestination).toLowerCase() !==
-                            destinationAddress.toLowerCase()
-                        ) {
-                            continue;
-                        }
-
-                        if (String(outValue) !== withdrawal.amountNano) {
-                            continue;
-                        }
-
-                        await this.processWithdrawalTransfer(withdrawal, {
-                            txHash,
-                            amountNano: String(outValue),
-                            fromAddress: sourceAddress,
-                            toAddress: destinationAddress,
-                            observedAt,
-                            raw: entry as any,
-                        });
-                        break;
-                    }
-                }
-            }
-        } catch (err) {
-            this.logger.error(
-                'Withdrawal watcher error',
                 err instanceof Error ? err.stack : String(err),
             );
         }
@@ -199,9 +117,9 @@ export class TonPaymentWatcher {
         const shouldDeploy = await this.dataSource.transaction(
             async (manager) => {
             const transferRepo = manager.getRepository(TonTransferEntity);
-            const txRepo = manager.getRepository(TransactionEntity);
             const escrowRepo = manager.getRepository(DealEscrowEntity);
             const dealRepo = manager.getRepository(DealEntity);
+            const txRepo = manager.getRepository(TransactionEntity);
 
             const lockedEscrow = await escrowRepo.findOne({
                 where: {id: escrow.id},
@@ -220,46 +138,19 @@ export class TonPaymentWatcher {
                 return false;
             }
 
-            const transaction = await txRepo.findOne({
-                where: {escrowId: lockedEscrow.id, type: TransactionType.ESCROW_HOLD},
-                lock: {mode: 'pessimistic_write'},
-            });
-
-            if (!transaction) {
-                return false;
-            }
-
-            const insertResult = await transferRepo
-                .createQueryBuilder()
-                .insert()
-                .values({
-                    transactionId: transaction.id,
-                    network: CurrencyCode.TON,
-                    toAddress: transfer.toAddress,
-                    fromAddress: transfer.fromAddress,
-                    amountNano: transfer.amountNano,
-                    txHash: transfer.txHash,
-                    observedAt: transfer.observedAt,
-                    raw: transfer.raw,
-                })
-                .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
-                .execute();
-
-            const inserted = Boolean(insertResult.identifiers?.length);
-            if (!inserted) {
-                return false;
-            }
-
             const deadline = lockedEscrow.paymentDeadlineAt;
-            if (deadline && transfer.observedAt > deadline) {
-                await transferRepo.update(
-                    {txHash: transfer.txHash, network: CurrencyCode.TON},
-                    {raw: {...transfer.raw, late: true}},
-                );
+            const isLate = Boolean(deadline && transfer.observedAt > deadline);
+            if (isLate) {
                 await this.dealsNotificationsService.notifyAdvertiser(
                     deal,
                     'telegram.payment.expired',
                 );
+            }
+
+            const existingTx = await txRepo.findOne({
+                where: {externalTxHash: transfer.txHash},
+            });
+            if (existingTx) {
                 return false;
             }
 
@@ -270,13 +161,60 @@ export class TonPaymentWatcher {
             const isConfirmed = gteNano(nextPaid, expected);
             const remaining = isConfirmed ? '0' : subNano(expected, nextPaid);
 
+            const transaction = await txRepo.save(
+                txRepo.create({
+                    userId: deal.advertiserUserId,
+                    type: TransactionType.DEPOSIT,
+                    direction: TransactionDirection.IN,
+                    status: TransactionStatus.COMPLETED,
+                    amountNano: transfer.amountNano,
+                    currency: lockedEscrow.currency,
+                    dealId: deal.id,
+                    escrowId: lockedEscrow.id,
+                    channelId: deal.channelId,
+                    depositAddress: lockedEscrow.depositAddress,
+                    externalTxHash: transfer.txHash,
+                    description: 'Deposit received',
+                    confirmedAt: new Date(),
+                    completedAt: new Date(),
+                }),
+            );
+
+            await transferRepo
+                .createQueryBuilder()
+                .insert()
+                .values({
+                    transactionId: transaction.id,
+                    network: CurrencyCode.TON,
+                    toAddress: transfer.toAddress,
+                    fromAddress: transfer.fromAddress,
+                    amountNano: transfer.amountNano,
+                    txHash: transfer.txHash,
+                    observedAt: transfer.observedAt,
+                    raw: isLate ? {...transfer.raw, late: true} : transfer.raw,
+                })
+                .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
+                .execute();
+
             await escrowRepo.update(lockedEscrow.id, {
                 paidNano: nextPaid,
                 status: isConfirmed
-                    ? EscrowStatus.PAID_CONFIRMED
-                    : EscrowStatus.PARTIALLY_PAID,
-                confirmedAt: isConfirmed ? new Date() : lockedEscrow.confirmedAt,
+                    ? EscrowStatus.PAID_HELD
+                    : EscrowStatus.PAID_PARTIAL,
+                paidAt: lockedEscrow.paidAt ?? new Date(),
+                heldAt: isConfirmed ? new Date() : lockedEscrow.heldAt,
             });
+
+            this.logger.log(
+                'Payment detected',
+                JSON.stringify({
+                    dealId: deal.id,
+                    escrowId: lockedEscrow.id,
+                    amountNano: transfer.amountNano,
+                    paidNano: nextPaid,
+                    status: isConfirmed ? EscrowStatus.PAID_HELD : EscrowStatus.PAID_PARTIAL,
+                }),
+            );
 
             await dealRepo.update(deal.id, {
                 stage: isConfirmed
@@ -287,17 +225,6 @@ export class TonPaymentWatcher {
                         ? DealStage.POST_SCHEDULED
                         : DealStage.PAYMENT_PARTIALLY_PAID,
                 ),
-            });
-
-            await txRepo.update(transaction.id, {
-                receivedNano: nextPaid,
-                status: isConfirmed
-                    ? TransactionStatus.CONFIRMED
-                    : TransactionStatus.PARTIAL,
-                confirmedAt: isConfirmed
-                    ? transaction.confirmedAt ?? new Date()
-                    : transaction.confirmedAt,
-                externalTxHash: isConfirmed ? transfer.txHash : transaction.externalTxHash,
             });
 
             if (isConfirmed) {
@@ -326,11 +253,13 @@ export class TonPaymentWatcher {
         },
         );
 
-        if (!shouldDeploy || !escrow.walletId) {
+        if (!shouldDeploy || !escrow.depositWalletId) {
             return;
         }
 
-        const deploymentOptions = await this.getDeploymentOptions(escrow.walletId);
+        const deploymentOptions = await this.getDeploymentOptions(
+            escrow.depositWalletId,
+        );
         if (!deploymentOptions) {
             return;
         }
@@ -376,7 +305,6 @@ export class TonPaymentWatcher {
         await this.dataSource.transaction(async (manager) => {
             const escrowRepo = manager.getRepository(DealEscrowEntity);
             const dealRepo = manager.getRepository(DealEntity);
-            const txRepo = manager.getRepository(TransactionEntity);
 
             const lockedEscrow = await escrowRepo.findOne({
                 where: {id: escrowId},
@@ -387,22 +315,10 @@ export class TonPaymentWatcher {
                 !lockedEscrow ||
                 ![
                     EscrowStatus.AWAITING_PAYMENT,
-                    EscrowStatus.PARTIALLY_PAID,
-                    EscrowStatus.PAID_CONFIRMED,
+                    EscrowStatus.PAID_PARTIAL,
+                    EscrowStatus.PAID_HELD,
                 ].includes(lockedEscrow.status)
             ) {
-                return;
-            }
-
-            const transaction = await txRepo.findOne({
-                where: {
-                    escrowId: lockedEscrow.id,
-                    type: TransactionType.ESCROW_HOLD,
-                },
-                lock: {mode: 'pessimistic_write'},
-            });
-
-            if (!transaction) {
                 return;
             }
 
@@ -418,18 +334,10 @@ export class TonPaymentWatcher {
             await escrowRepo.update(lockedEscrow.id, {
                 paidNano: balanceStr,
                 status: isConfirmed
-                    ? EscrowStatus.PAID_CONFIRMED
-                    : EscrowStatus.PARTIALLY_PAID,
-                confirmedAt: isConfirmed
-                    ? lockedEscrow.confirmedAt ?? new Date()
-                    : null,
-            });
-
-            await txRepo.update(transaction.id, {
-                receivedNano: balanceStr,
-                status: isConfirmed
-                    ? TransactionStatus.CONFIRMED
-                    : TransactionStatus.PARTIAL,
+                    ? EscrowStatus.PAID_HELD
+                    : EscrowStatus.PAID_PARTIAL,
+                paidAt: lockedEscrow.paidAt ?? new Date(),
+                heldAt: isConfirmed ? lockedEscrow.heldAt ?? new Date() : null,
             });
 
             if (!isConfirmed) {
@@ -482,60 +390,4 @@ export class TonPaymentWatcher {
         };
     }
 
-    private async processWithdrawalTransfer(
-        withdrawal: TransactionEntity,
-        transfer: {
-            txHash: string;
-            amountNano: string;
-            fromAddress: string;
-            toAddress: string;
-            observedAt: Date;
-            raw: Record<string, unknown>;
-        },
-    ): Promise<void> {
-        await this.dataSource.transaction(async (manager) => {
-            const transferRepo = manager.getRepository(TonTransferEntity);
-            const txRepo = manager.getRepository(TransactionEntity);
-
-            const lockedTx = await txRepo.findOne({
-                where: {id: withdrawal.id},
-                lock: {mode: 'pessimistic_write'},
-            });
-
-            if (!lockedTx) {
-                return;
-            }
-
-            if (lockedTx.status !== TransactionStatus.AWAITING_CONFIRMATION) {
-                return;
-            }
-
-            const insertResult = await transferRepo
-                .createQueryBuilder()
-                .insert()
-                .values({
-                    transactionId: lockedTx.id,
-                    network: CurrencyCode.TON,
-                    toAddress: transfer.toAddress,
-                    fromAddress: transfer.fromAddress,
-                    amountNano: transfer.amountNano,
-                    txHash: transfer.txHash,
-                    observedAt: transfer.observedAt,
-                    raw: transfer.raw,
-                })
-                .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
-                .execute();
-
-            const inserted = Boolean(insertResult.identifiers?.length);
-            if (!inserted) {
-                return;
-            }
-
-            await txRepo.update(lockedTx.id, {
-                status: TransactionStatus.COMPLETED,
-                externalTxHash: transfer.txHash,
-                completedAt: new Date(),
-            });
-        });
-    }
 }

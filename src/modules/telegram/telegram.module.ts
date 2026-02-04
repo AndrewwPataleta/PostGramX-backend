@@ -10,6 +10,8 @@ import {ChannelTelegramAdminEntity} from '../channels/entities/channel-telegram-
 import {TelegramI18nService} from './i18n/telegram-i18n.service';
 import {TelegramMessengerService} from './telegram-messenger.service';
 import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
+import {TelegramPermissionsService} from './telegram-permissions.service';
+import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 
 @Module({
     exports: [
@@ -18,6 +20,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
         TelegramAdminsSyncService,
         TelegramI18nService,
         TelegramMessengerService,
+        TelegramPermissionsService,
     ],
     imports: [
         AppI18nModule,
@@ -25,6 +28,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
             User,
             ChannelEntity,
             ChannelTelegramAdminEntity,
+            ChannelMembershipEntity,
         ]),
         forwardRef(() => TelegramBotModule),
     ],
@@ -34,6 +38,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
         TelegramAdminsSyncService,
         TelegramI18nService,
         TelegramMessengerService,
+        TelegramPermissionsService,
     ],
 })
 export class TelegramModule {}

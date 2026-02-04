@@ -24,6 +24,7 @@ import {ChannelAdminRecheckService} from '../channels/guards/channel-admin-reche
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {formatTon} from '../payments/utils/bigint';
 import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
+import {PAYMENTS_CONFIG} from '../../config/payments.config';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -139,6 +140,7 @@ export class DealsService {
                 listingId: listing.id,
                 channelId: listing.channelId,
                 advertiserUserId: userId,
+                publisherUserId: null,
                 createdByUserId: userId,
                 status: mapStageToDealStatus(stage),
                 stage,
@@ -584,7 +586,7 @@ export class DealsService {
 
             const escrow = escrowRepo.create({
                 dealId: deal.id,
-                status: EscrowStatus.NOT_CREATED,
+                status: EscrowStatus.CREATED,
                 amountNano: deal.listingSnapshot.priceNano,
                 paidNano: '0',
                 currency: deal.listingSnapshot.currency,
@@ -593,25 +595,22 @@ export class DealsService {
 
             const amountNano =
                 (deal.listingSnapshot as DealListingSnapshot).priceNano ?? '0';
-            const {wallet} = await this.paymentsService.createEscrowHold({
-                manager,
-                deal,
-                escrow,
-                amountNano,
-            });
 
             const paymentDeadlineAt = this.addMinutes(
                 now,
-                DEALS_CONFIG.PAYMENT_DEADLINE_MINUTES,
+                PAYMENTS_CONFIG.PAYMENT_WINDOW_MINUTES,
             );
 
             await escrowRepo.update(escrow.id, {
                 status: EscrowStatus.AWAITING_PAYMENT,
                 amountNano,
-                walletId: wallet?.id ?? null,
-                paymentAddress: wallet?.address ?? null,
                 paymentDeadlineAt,
             });
+
+            await this.paymentsService.ensureDepositAddressForDeal(
+                deal.id,
+                manager,
+            );
 
             const stage = DealStage.PAYMENT_AWAITING;
             await dealRepo.update(deal.id, {
@@ -718,8 +717,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             if (
                 escrow &&
                 [
-                    EscrowStatus.PAID_CONFIRMED,
-                    EscrowStatus.PARTIALLY_PAID,
+                    EscrowStatus.PAID_HELD,
+                    EscrowStatus.PAID_PARTIAL,
                 ].includes(escrow.status)
             ) {
                 shouldRefund = true;
@@ -1137,8 +1136,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             if (
                 escrow &&
                 [
-                    EscrowStatus.PAID_CONFIRMED,
-                    EscrowStatus.PARTIALLY_PAID,
+                    EscrowStatus.PAID_HELD,
+                    EscrowStatus.PAID_PARTIAL,
                 ].includes(escrow.status)
             ) {
                 shouldRefund = true;
@@ -1202,10 +1201,11 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         }
 
         const isAdvertiser = deal.advertiserUserId === userId;
-        const isPublisher =
-            (await this.membershipRepository.findOne({
-                where: {channelId: deal.channelId, userId},
-            })) !== null;
+        const isPublisher = deal.publisherUserId
+            ? deal.publisherUserId === userId
+            : (await this.membershipRepository.findOne({
+                  where: {channelId: deal.channelId, userId},
+              })) !== null;
 
         if (!isAdvertiser && !isPublisher) {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
@@ -1253,13 +1253,24 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         if (role === 'advertiser') {
             qb.andWhere('deal.advertiserUserId = :userId', {userId});
         } else if (role === 'publisher') {
-            qb.andWhere('membership.id IS NOT NULL');
+            qb.andWhere(
+                new Brackets((builder) => {
+                    builder
+                        .where('deal.publisherUserId = :userId', {userId})
+                        .orWhere(
+                            'deal.publisherUserId IS NULL AND membership.id IS NOT NULL',
+                        );
+                }),
+            );
         } else {
             qb.andWhere(
                 new Brackets((builder) => {
                     builder
                         .where('deal.advertiserUserId = :userId', {userId})
-                        .orWhere('membership.id IS NOT NULL');
+                        .orWhere('deal.publisherUserId = :userId', {userId})
+                        .orWhere(
+                            'deal.publisherUserId IS NULL AND membership.id IS NOT NULL',
+                        );
                 }),
             );
         }
@@ -1313,9 +1324,10 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         const channel = deal.channel;
 
         return {
-
             id: deal.id,
             advertiserUserId: deal.advertiserUserId,
+            publisherUserId: deal.publisherUserId,
+            channelId: deal.channelId,
             status: deal.status,
             stage: deal.stage,
             scheduledAt: deal.scheduledAt,
@@ -1334,7 +1346,7 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                     status: escrow.status,
                     amountNano: escrow.amountNano,
                     paidNano: escrow.paidNano,
-                    paymentAddress: escrow.paymentAddress,
+                    depositAddress: escrow.depositAddress,
                     paymentDeadlineAt: escrow.paymentDeadlineAt,
                 }
                 : null,
@@ -1432,6 +1444,10 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
     }
 
     private async ensurePublisherAdmin(userId: string, deal: DealEntity) {
+        if (deal.publisherUserId && deal.publisherUserId !== userId) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
+        }
+
         const membership = await this.membershipRepository.findOne({
             where: {channelId: deal.channelId, userId, isActive: true},
         });
@@ -1457,6 +1473,13 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                 await this.cancelDealForAdminRightsLoss(deal);
                 throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
             }
+        }
+
+        if (!deal.publisherUserId) {
+            await this.dealRepository.update(deal.id, {
+                publisherUserId: userId,
+            });
+            deal.publisherUserId = userId;
         }
     }
 

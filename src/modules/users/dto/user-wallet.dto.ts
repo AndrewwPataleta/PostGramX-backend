@@ -5,8 +5,6 @@ import {
     IsIn,
     IsNotEmpty,
     IsString,
-    IsUUID,
-    Matches,
     MaxLength,
     ValidateNested,
 } from 'class-validator';
@@ -14,29 +12,18 @@ import {
     SUPPORTED_AUTH_TYPES,
     SUPPORTED_PLATFORM_TYPES,
     SupportedAuthType,
-    SupportedPlatformType
-} from "../../auth/auth.constants";
+    SupportedPlatformType,
+} from '../../auth/auth.constants';
 
-
-class WithdrawChannelDataDto {
-    @ApiProperty({format: 'uuid'})
-    @IsUUID()
-    channelId: string;
-
-    @ApiProperty({description: 'Amount in nano TON as a string'})
+class UserWalletDataDto {
+    @ApiProperty({description: 'TonConnect address'})
     @IsString()
     @IsNotEmpty()
-    @Matches(/^\d+$/)
-    amountNano: string;
-
-    @ApiProperty({description: 'Destination TON address'})
-    @IsString()
     @MaxLength(256)
-    @IsNotEmpty()
-    destinationAddress: string;
+    tonAddress: string;
 }
 
-export class WithdrawChannelDto {
+export class UserWalletDto {
     @ApiProperty({enum: SUPPORTED_PLATFORM_TYPES})
     @IsIn(SUPPORTED_PLATFORM_TYPES)
     platformType: SupportedPlatformType;
@@ -49,9 +36,9 @@ export class WithdrawChannelDto {
     @IsString()
     token: string;
 
-    @ApiProperty({type: () => WithdrawChannelDataDto})
+    @ApiProperty({type: () => UserWalletDataDto})
     @IsDefined()
     @ValidateNested()
-    @Type(() => WithdrawChannelDataDto)
-    data: WithdrawChannelDataDto;
+    @Type(() => UserWalletDataDto)
+    data: UserWalletDataDto;
 }
