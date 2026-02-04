@@ -37,6 +37,9 @@
     "spaces_endpoint_not_configured": "Endpoint DigitalOcean Spaces не настроен на сервере.",
     "spaces_upload_failed": "Не удалось загрузить изображение в хранилище.",
     "validation_failed": "Ошибка валидации.",
+    "balance": {
+      "currency_unsupported": "Валюта не поддерживается."
+    },
     "deals": {
       "active_pending_limit": "У вас уже есть активные сделки в ожидании по этому листингу.",
       "deal_not_actionable": "Сделка находится в неверном состоянии.",
