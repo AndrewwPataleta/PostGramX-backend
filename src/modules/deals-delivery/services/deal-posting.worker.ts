@@ -317,6 +317,8 @@ export class DealPostingWorker {
             where: {dealId: deal.id},
         });
 
+        await this.paymentsService.markEscrowPayoutPending(deal.id);
+
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
             'telegram.deal.post.delivery_confirmed',
