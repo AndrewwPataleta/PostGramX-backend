@@ -4,4 +4,5 @@ export enum TransactionType {
     REFUND = 'REFUND',
     SWEEP = 'SWEEP',
     FEE = 'FEE',
+    NETWORK_FEE = 'NETWORK_FEE',
 }

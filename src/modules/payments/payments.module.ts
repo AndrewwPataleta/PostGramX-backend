@@ -30,6 +30,7 @@ import {BalanceService} from './balance/balance.service';
 import {LedgerService} from './ledger/ledger.service';
 import {PayoutsController} from './payouts/payouts.controller';
 import {PayoutsService} from './payouts/payouts.service';
+import {FeesModule} from './fees/fees.module';
 
 @Module({
     imports: [
@@ -50,6 +51,7 @@ import {PayoutsService} from './payouts/payouts.service';
         forwardRef(() => DealsModule),
         WalletsModule,
         forwardRef(() => TelegramModule),
+        FeesModule,
     ],
     controllers: [
         PaymentsController,

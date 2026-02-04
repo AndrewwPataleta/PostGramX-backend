@@ -43,6 +43,18 @@ export class TransactionEntity extends BaseEntity {
     amountNano: string;
 
     @Column({type: 'bigint', default: '0'})
+    serviceFeeNano: string;
+
+    @Column({type: 'bigint', default: '0'})
+    networkFeeNano: string;
+
+    @Column({type: 'bigint', default: '0'})
+    totalDebitNano: string;
+
+    @Column({type: 'int', default: 1})
+    feePolicyVersion: number;
+
+    @Column({type: 'bigint', default: '0'})
     receivedNano: string;
 
     @Column({default: CurrencyCode.TON})

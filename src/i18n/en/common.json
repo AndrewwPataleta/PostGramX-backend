@@ -115,7 +115,8 @@
         "escrow_hold": "Escrow hold",
         "escrow_release": "Escrow release",
         "escrow_refund": "Escrow refund",
-        "fee": "Fee"
+        "fee": "Fee",
+        "network_fee": "Network fee"
       },
       "statuses": {
         "pending": "Pending",
@@ -138,8 +139,24 @@
       },
       "descriptions": {
         "escrow_hold": "Escrow hold",
-        "channel_withdrawal": "Channel withdrawal"
+        "channel_withdrawal": "Channel withdrawal",
+        "service_fee": "Service fee charged",
+        "network_fee": "Network fee charged"
       }
+    }
+  },
+  "payouts": {
+    "request": {
+      "summary": {
+        "title": "Payout summary",
+        "receive": "Amount you will receive",
+        "serviceFee": "Service fee",
+        "networkFee": "Network fee (estimated)",
+        "totalDebit": "Total debited"
+      },
+      "insufficientBalance": "Insufficient balance. Available: {{available}}, required: {{required}}.",
+      "walletNotConnected": "Wallet is not connected.",
+      "failed": "Payout request failed. Please try again later."
     }
   },
   "deals": {
