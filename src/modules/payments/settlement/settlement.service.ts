@@ -28,7 +28,7 @@ export class SettlementService {
         private readonly dataSource: DataSource,
         @InjectRepository(DealEscrowEntity)
         private readonly escrowRepository: Repository<DealEscrowEntity>,
-        @InjectRepository(DealPublicationEntity)
+
         @InjectRepository(DealEntity)
         private readonly dealRepository: Repository<DealEntity>,
         @InjectRepository(PayoutRequestEntity)

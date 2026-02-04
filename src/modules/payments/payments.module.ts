@@ -46,7 +46,7 @@ import {BalanceService} from './balance/balance.service';
         ]),
         forwardRef(() => DealsModule),
         WalletsModule,
-        TelegramModule,
+        forwardRef(() => TelegramModule),
     ],
     controllers: [PaymentsController, EscrowController, BalanceController],
     providers: [
