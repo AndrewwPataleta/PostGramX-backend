@@ -138,5 +138,6 @@ About 30 to 40 percent of the codebase was generated with AI assistance with man
 
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [DEAL_FLOW.md](DEAL_FLOW.md)
+- [LIQUIDITY_AND_FEES.md](LIQUIDITY_AND_FEES.md)
 - [SECURITY.md](SECURITY.md)
 - [ROADMAP.md](ROADMAP.md)
