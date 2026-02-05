@@ -386,27 +386,45 @@ export class TonPaymentWatcher {
 
             if (!tonTransfer) {
                 const normalizedToAddress = this.normalizeAddress(transfer.toAddress);
-                const candidates = await transferRepo
-                    .createQueryBuilder('t')
-                    .where('t.type = :type', {
-                        type: TonTransferType.PAYOUT,
+                const observedAtMs = transfer.observedAt.getTime();
+                const candidatePayouts = await txRepo
+                    .createQueryBuilder('tx')
+                    .where('tx.type = :type', {
+                        type: TransactionType.PAYOUT,
                     })
-                    .andWhere('t.status = :status', {
-                        status: TonTransferStatus.PENDING,
+                    .andWhere('tx.direction = :direction', {
+                        direction: TransactionDirection.OUT,
                     })
-                    .andWhere('t.amountNano = :amountNano', {
-                        amountNano: transfer.amountNano,
+                    .andWhere('tx.status = :status', {
+                        status: TransactionStatus.AWAITING_CONFIRMATION,
                     })
-                    .andWhere('t.createdAt >= :from', {
-                        from: new Date(transfer.observedAt.getTime() - 60 * 60 * 1000),
+                    .andWhere('tx.createdAt >= :from', {
+                        from: new Date(observedAtMs - 24 * 60 * 60 * 1000),
                     })
-                    .orderBy('t.createdAt', 'DESC')
+                    .orderBy('tx.createdAt', 'DESC')
                     .getMany();
-                tonTransfer = candidates.find(
-                    (candidate) =>
-                        this.normalizeAddress(candidate.toAddress) ===
-                        normalizedToAddress,
-                );
+
+                const payout = candidatePayouts.find((candidate) => {
+                    if (!candidate.destinationAddress) {
+                        return false;
+                    }
+                    return (
+                        this.normalizeAddress(candidate.destinationAddress) ===
+                        normalizedToAddress
+                    );
+                });
+
+                if (payout) {
+                    if (payout.tonTransferId) {
+                        tonTransfer = await transferRepo.findOne({
+                            where: {id: payout.tonTransferId},
+                        });
+                    } else {
+                        tonTransfer = await transferRepo.findOne({
+                            where: {transactionId: payout.id},
+                        });
+                    }
+                }
             }
 
             if (!tonTransfer) {
