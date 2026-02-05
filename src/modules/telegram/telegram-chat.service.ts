@@ -1,6 +1,6 @@
 import {Injectable} from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
 import {ServiceError} from '../../core/service-error';
+import {TelegramApiService} from '../../core/telegram-api.service';
 
 export enum TelegramChatErrorCode {
     CHANNEL_NOT_FOUND = 'CHANNEL_NOT_FOUND',
@@ -76,21 +76,10 @@ export interface TelegramFile {
 @Injectable()
 export class TelegramChatService {
     private readonly apiBaseUrl: string;
-    private readonly fileBaseUrl: string;
     private botInfoPromise?: Promise<TelegramUser>;
 
-    constructor(private readonly configService: ConfigService) {
-        const token = this.configService.get<string>('BOT_TOKEN');
-        if (!token) {
-            throw new Error('BOT_TOKEN is required for TelegramChatService');
-        }
-        const baseUrl = this.configService.get<string>('TELEGRAM_BOT_API_BASE_URL');
-        this.apiBaseUrl = baseUrl ?? `https://api.telegram.org/bot${token}`;
-        const fileBaseUrl = this.configService.get<string>(
-            'TELEGRAM_BOT_FILE_API_BASE_URL',
-        );
-        this.fileBaseUrl =
-            fileBaseUrl ?? this.resolveFileBaseUrl(this.apiBaseUrl, token);
+    constructor(private readonly telegramApiService: TelegramApiService) {
+        this.apiBaseUrl = this.telegramApiService.getApiBaseUrl();
     }
 
     normalizeUsernameOrLink(input: string): string {
@@ -146,7 +135,7 @@ export class TelegramChatService {
     }
 
     buildFileUrl(filePath: string): string {
-        return `${this.fileBaseUrl}/${filePath}`;
+        return this.telegramApiService.buildFileUrl(filePath);
     }
 
     async getChatAdministratorsByUsername(
@@ -264,13 +253,6 @@ export class TelegramChatService {
         throw new TelegramChatServiceError(
             TelegramChatErrorCode.BOT_FORBIDDEN,
         );
-    }
-
-    private resolveFileBaseUrl(apiBaseUrl: string, token: string): string {
-        if (apiBaseUrl.includes('/bot')) {
-            return apiBaseUrl.replace('/bot', '/file/bot');
-        }
-        return `https://api.telegram.org/file/bot${token}`;
     }
 
     private normalizeChatId(chatId: string | number): string {

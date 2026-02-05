@@ -1,8 +1,8 @@
 import {Injectable, Logger} from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
 import {DealCreativeEntity} from '../../deals/entities/deal-creative.entity';
 import {DealEntity} from '../../deals/entities/deal.entity';
 import {ChannelEntity} from '../../channels/entities/channel.entity';
+import {TelegramApiService} from '../../../core/telegram-api.service';
 import {
     TelegramChatService,
     TelegramChatServiceError,
@@ -34,17 +34,10 @@ export class TelegramPosterService {
     private readonly apiBaseUrl: string;
 
     constructor(
-        private readonly configService: ConfigService,
         private readonly telegramChatService: TelegramChatService,
+        private readonly telegramApiService: TelegramApiService,
     ) {
-        const token = this.configService.get<string>('BOT_TOKEN');
-        if (!token) {
-            throw new Error('BOT_TOKEN is required for TelegramPosterService');
-        }
-        const baseUrl = this.configService.get<string>(
-            'TELEGRAM_BOT_API_BASE_URL',
-        );
-        this.apiBaseUrl = baseUrl ?? `https://api.telegram.org/bot${token}`;
+        this.apiBaseUrl = this.telegramApiService.getApiBaseUrl();
     }
 
     async checkCanPost(channel: ChannelEntity): Promise<DeliveryCheckResult> {
