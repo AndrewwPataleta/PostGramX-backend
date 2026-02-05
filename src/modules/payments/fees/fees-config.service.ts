@@ -1,5 +1,8 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
+import {InjectRepository} from '@nestjs/typeorm';
+import {Repository} from 'typeorm';
+import {FeesConfigEntity} from '../entities/fees-config.entity';
 
 export type FeeMode = 'FIXED' | 'BPS';
 export type NetworkFeeMode = 'FIXED' | 'ESTIMATE';
@@ -23,10 +26,63 @@ export type FeesConfig = {
 
 @Injectable()
 export class FeesConfigService {
-    private readonly config: FeesConfig;
+    constructor(
+        @InjectRepository(FeesConfigEntity)
+        private readonly feesConfigRepository: Repository<FeesConfigEntity>,
+        private readonly configService: ConfigService,
+    ) {}
 
-    constructor(private readonly configService: ConfigService) {
-        this.config = {
+    async getConfig(): Promise<FeesConfig> {
+        const stored = await this.feesConfigRepository.findOne({
+            where: {id: 1},
+        });
+        if (!stored) {
+            return this.buildFromEnv();
+        }
+        const fallback = this.buildFromEnv();
+
+        return {
+            feesEnabled: stored.feesEnabled ?? fallback.feesEnabled,
+            payoutServiceFeeMode: this.readEnumValue<FeeMode>(
+                stored.payoutServiceFeeMode ?? fallback.payoutServiceFeeMode,
+                ['FIXED', 'BPS'],
+                fallback.payoutServiceFeeMode,
+            ),
+            payoutServiceFeeFixedNano:
+                stored.payoutServiceFeeFixedNano ??
+                fallback.payoutServiceFeeFixedNano,
+            payoutServiceFeeBps:
+                stored.payoutServiceFeeBps ?? fallback.payoutServiceFeeBps,
+            payoutServiceFeeMinNano:
+                stored.payoutServiceFeeMinNano ?? fallback.payoutServiceFeeMinNano,
+            payoutServiceFeeMaxNano:
+                stored.payoutServiceFeeMaxNano ?? fallback.payoutServiceFeeMaxNano,
+            payoutNetworkFeeMode: this.readEnumValue<NetworkFeeMode>(
+                stored.payoutNetworkFeeMode ?? fallback.payoutNetworkFeeMode,
+                ['FIXED', 'ESTIMATE'],
+                fallback.payoutNetworkFeeMode,
+            ),
+            payoutNetworkFeeFixedNano:
+                stored.payoutNetworkFeeFixedNano ??
+                fallback.payoutNetworkFeeFixedNano,
+            payoutNetworkFeeMinNano:
+                stored.payoutNetworkFeeMinNano ?? fallback.payoutNetworkFeeMinNano,
+            payoutNetworkFeeMaxNano:
+                stored.payoutNetworkFeeMaxNano ?? fallback.payoutNetworkFeeMaxNano,
+            payoutMinNetAmountNano:
+                stored.payoutMinNetAmountNano ?? fallback.payoutMinNetAmountNano,
+            feeRevenueStrategy: this.readEnumValue<FeeRevenueStrategy>(
+                stored.feeRevenueStrategy ?? fallback.feeRevenueStrategy,
+                ['LEDGER_ONLY', 'LEDGER_AND_TRANSFER'],
+                fallback.feeRevenueStrategy,
+            ),
+            feeRevenueAddress:
+                stored.feeRevenueAddress ?? fallback.feeRevenueAddress,
+        };
+    }
+
+    private buildFromEnv(): FeesConfig {
+        return {
             feesEnabled: this.readBoolean('FEES_ENABLED', true),
             payoutServiceFeeMode: this.readEnum<FeeMode>(
                 'PAYOUT_SERVICE_FEE_MODE',
@@ -73,10 +129,6 @@ export class FeesConfigService {
         };
     }
 
-    getConfig(): FeesConfig {
-        return this.config;
-    }
-
     private readBoolean(key: string, fallback: boolean): boolean {
         const value = this.configService.get<string>(key);
         if (value === undefined) {
@@ -91,6 +143,17 @@ export class FeesConfigService {
         fallback: T,
     ): T {
         const value = this.configService.get<string>(key);
+        if (!value) {
+            return fallback;
+        }
+        return allowed.includes(value as T) ? (value as T) : fallback;
+    }
+
+    private readEnumValue<T extends string>(
+        value: string,
+        allowed: T[],
+        fallback: T,
+    ): T {
         if (!value) {
             return fallback;
         }

@@ -26,6 +26,8 @@ import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {UserWalletService} from './wallets/user-wallet.service';
 import {TelegramModule} from '../telegram/telegram.module';
 import {User} from '../auth/entities/user.entity';
+import {FeesConfigEntity} from './entities/fees-config.entity';
+import {LiquidityConfigEntity} from './entities/liquidity-config.entity';
 import {BalanceController} from './balance/balance.controller';
 import {BalanceService} from './balance/balance.service';
 import {LedgerService} from './ledger/ledger.service';
@@ -38,6 +40,7 @@ import {TonSweepService} from './processing/ton-sweep.service';
 import {PayoutProcessorService} from './processing/payout-processor.service';
 import {PaymentsProcessingConfigService} from './processing/payments-processing-config.service';
 import {PayoutExecutionService} from './processing/payout-execution.service';
+import {LiquidityConfigService} from './processing/liquidity-config.service';
 
 @Module({
     imports: [
@@ -49,6 +52,8 @@ import {PayoutExecutionService} from './processing/payout-execution.service';
             DealPublicationEntity,
             EscrowWalletEntity,
             EscrowWalletKeyEntity,
+            FeesConfigEntity,
+            LiquidityConfigEntity,
             TonTransferEntity,
             TransactionEntity,
             PayoutRequestEntity,
@@ -73,6 +78,7 @@ import {PayoutExecutionService} from './processing/payout-execution.service';
         BalanceService,
         LedgerService,
         PaymentsProcessingConfigService,
+        LiquidityConfigService,
         AdminAlertsService,
         LiquidityService,
         TonSweepService,

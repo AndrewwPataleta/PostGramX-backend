@@ -41,7 +41,7 @@ export class FeesService {
         currency?: CurrencyCode;
         destinationAddress?: string;
     }): Promise<PayoutFeeResult> {
-        const config = this.feesConfigService.getConfig();
+        const config = await this.feesConfigService.getConfig();
         const amount = BigInt(options.amountNano ?? '0');
 
         if (!config.feesEnabled) {
@@ -107,7 +107,7 @@ export class FeesService {
             throw new PayoutServiceError(PayoutErrorCode.INVALID_AMOUNT);
         }
 
-        const config = this.feesConfigService.getConfig();
+        const config = await this.feesConfigService.getConfig();
         const minNet = config.payoutMinNetAmountNano
             ? BigInt(config.payoutMinNetAmountNano)
             : null;

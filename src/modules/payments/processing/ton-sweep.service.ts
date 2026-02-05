@@ -7,6 +7,7 @@ import {EscrowWalletKeyEntity} from '../entities/escrow-wallet-key.entity';
 import {KeyEncryptionService} from '../wallets/crypto/key-encryption.service';
 import {TonWalletDeploymentService} from '../ton/ton-wallet-deployment.service';
 import {LiquidityService} from './liquidity.service';
+import {LiquidityConfigService} from './liquidity-config.service';
 import {PaymentsProcessingConfigService} from './payments-processing-config.service';
 import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
@@ -37,6 +38,7 @@ export class TonSweepService {
         private readonly keyEncryptionService: KeyEncryptionService,
         private readonly tonWalletDeploymentService: TonWalletDeploymentService,
         private readonly liquidityService: LiquidityService,
+        private readonly liquidityConfigService: LiquidityConfigService,
         private readonly config: PaymentsProcessingConfigService,
     ) {
         const endpoint = this.config.toncenterRpc;
@@ -61,6 +63,8 @@ export class TonSweepService {
                         params.wallet.id,
                         params.needNano,
                     );
+                    const sweepConfig =
+                        await this.liquidityConfigService.getConfig();
                     try {
                         const failedCount = await this.transferRepository.count({
                             where: {
@@ -121,7 +125,8 @@ export class TonSweepService {
 
                         const reserveMultiplier = wasDeployed ? 1n : 2n;
                         const gasReserve =
-                            this.config.sweepMaxGasReserveNano * reserveMultiplier;
+                            sweepConfig.sweepMaxGasReserveNano *
+                            reserveMultiplier;
                         const maxSweepable = balanceNano - gasReserve;
                         const sweepable = maxSweepable > 0n ? maxSweepable : 0n;
                         const amountNano =
@@ -129,7 +134,7 @@ export class TonSweepService {
                                 ? sweepable
                                 : params.needNano;
 
-                        if (amountNano < this.config.sweepMinWithdrawNano) {
+                        if (amountNano < sweepConfig.sweepMinWithdrawNano) {
                             throw new SweepNotWorthItError(
                                 `Sweep amount ${amountNano.toString()} below minimum`,
                             );

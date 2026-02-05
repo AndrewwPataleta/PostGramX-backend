@@ -25,6 +25,7 @@ import {TonTransferType} from '../../common/constants/payments/ton-transfer-type
 import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {LedgerService} from './ledger/ledger.service';
 import {ensureTransitionAllowed} from './payouts/payout-state';
+import {FeesConfigService} from './fees/fees-config.service';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -48,6 +49,7 @@ export class TonPaymentWatcher {
         private readonly tonWalletDeploymentService: TonWalletDeploymentService,
         private readonly tonHotWalletService: TonHotWalletService,
         private readonly ledgerService: LedgerService,
+        private readonly feesConfigService: FeesConfigService,
     ) {}
 
     @Cron('*/15 * * * * *')
@@ -472,6 +474,13 @@ export class TonPaymentWatcher {
                     observedAt &&
                     now - observedAt >= confirmationSeconds * 1000
                 ) {
+                    let feeTransferContext:
+                        | {
+                              payoutId: string;
+                              currency: CurrencyCode;
+                              amountNano: bigint;
+                          }
+                        | null = null;
                     await this.dataSource.transaction(async (manager) => {
                         const transferRepo = manager.getRepository(TonTransferEntity);
                         const txRepo = manager.getRepository(TransactionEntity);
@@ -515,6 +524,20 @@ export class TonPaymentWatcher {
                                     TransactionStatus.COMPLETED,
                                     manager,
                                 );
+                                const serviceFee = BigInt(
+                                    transaction.serviceFeeNano ?? '0',
+                                );
+                                const networkFee = BigInt(
+                                    transaction.networkFeeNano ?? '0',
+                                );
+                                const totalFee = serviceFee + networkFee;
+                                if (totalFee > 0n) {
+                                    feeTransferContext = {
+                                        payoutId: transaction.id,
+                                        currency: transaction.currency,
+                                        amountNano: totalFee,
+                                    };
+                                }
                             }
                         }
                     });
@@ -526,6 +549,9 @@ export class TonPaymentWatcher {
                             transactionId: transfer.transactionId,
                         })}`,
                     );
+                    if (feeTransferContext) {
+                        await this.sendFeeRevenueTransfer(feeTransferContext);
+                    }
                 }
                 continue;
             }
@@ -589,6 +615,101 @@ export class TonPaymentWatcher {
                     })}`,
                 );
             }
+        }
+    }
+
+    private async sendFeeRevenueTransfer(options: {
+        payoutId: string;
+        currency: CurrencyCode;
+        amountNano: bigint;
+    }): Promise<void> {
+        const config = await this.feesConfigService.getConfig();
+        if (!config.feesEnabled) {
+            return;
+        }
+        if (config.feeRevenueStrategy !== 'LEDGER_AND_TRANSFER') {
+            return;
+        }
+        if (!config.feeRevenueAddress) {
+            this.logger.warn(
+                `[TON-WATCHER] Fee transfer skipped: FEE_REVENUE_ADDRESS missing`,
+            );
+            return;
+        }
+        if (options.amountNano <= 0n) {
+            return;
+        }
+
+        const transferRepo = this.dataSource.getRepository(TonTransferEntity);
+        const idempotencyKey = `fee:${options.payoutId}`;
+        let transfer = await transferRepo.findOne({
+            where: {idempotencyKey},
+        });
+
+        if (transfer && transfer.status !== TonTransferStatus.FAILED) {
+            return;
+        }
+
+        const fromAddress = await this.tonHotWalletService.getAddress();
+        if (!transfer) {
+            transfer = await transferRepo.save(
+                transferRepo.create({
+                    transactionId: null,
+                    dealId: null,
+                    escrowWalletId: null,
+                    idempotencyKey,
+                    type: TonTransferType.FEE,
+                    status: TonTransferStatus.PENDING,
+                    network: options.currency,
+                    fromAddress,
+                    toAddress: config.feeRevenueAddress,
+                    amountNano: options.amountNano.toString(),
+                    txHash: null,
+                    observedAt: new Date(),
+                    raw: {reason: 'fee_revenue', payoutId: options.payoutId},
+                    errorMessage: null,
+                }),
+            );
+        } else {
+            await transferRepo.update(transfer.id, {
+                status: TonTransferStatus.PENDING,
+                errorMessage: null,
+            });
+        }
+
+        try {
+            await this.tonHotWalletService.sendTon({
+                toAddress: config.feeRevenueAddress,
+                amountNano: options.amountNano,
+            });
+            await transferRepo.update(transfer.id, {
+                status: TonTransferStatus.COMPLETED,
+                observedAt: new Date(),
+                errorMessage: null,
+            });
+            this.logger.log(
+                `[TON-WATCHER] ${JSON.stringify({
+                    event: 'fee_revenue_sent',
+                    payoutId: options.payoutId,
+                    tonTransferId: transfer.id,
+                    amountNano: options.amountNano.toString(),
+                    toAddress: config.feeRevenueAddress,
+                })}`,
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await transferRepo.update(transfer.id, {
+                status: TonTransferStatus.FAILED,
+                errorMessage: message,
+            });
+            this.logger.warn(
+                `[TON-WATCHER] ${JSON.stringify({
+                    event: 'fee_revenue_failed',
+                    payoutId: options.payoutId,
+                    tonTransferId: transfer.id,
+                    error: message,
+                })}`,
+            );
         }
     }
 
