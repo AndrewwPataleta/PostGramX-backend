@@ -126,6 +126,7 @@
     }
   },
   "payment": {
-    "expired": "<b>Payment window expired</b>; funds cannot be applied automatically. Contact support."
+    "expired": "<b>Payment window expired</b>; funds cannot be applied automatically. Contact support.",
+    "payout_confirmed": "<b>Withdrawal completed</b>.\nPlease check your wallet.\nIf you have any questions, contact support."
   }
 }

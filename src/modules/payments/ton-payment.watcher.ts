@@ -27,6 +27,8 @@ import {LedgerService} from './ledger/ledger.service';
 import {ensureTransitionAllowed} from './payouts/payout-state';
 import {FeesConfigService} from './fees/fees-config.service';
 import {Address} from '@ton/ton';
+import {TelegramMessengerService} from '../telegram/telegram-messenger.service';
+import {User} from '../auth/entities/user.entity';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -51,6 +53,9 @@ export class TonPaymentWatcher {
         private readonly tonHotWalletService: TonHotWalletService,
         private readonly ledgerService: LedgerService,
         private readonly feesConfigService: FeesConfigService,
+        private readonly telegramMessengerService: TelegramMessengerService,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
     ) {}
 
     @Cron('*/15 * * * * *')
@@ -356,6 +361,7 @@ export class TonPaymentWatcher {
         observedAt: Date;
         raw: Record<string, unknown>;
     }): Promise<void> {
+        let payoutUserId: string | null = null;
         await this.dataSource.transaction(async (manager) => {
             const transferRepo = manager.getRepository(TonTransferEntity);
             const txRepo = manager.getRepository(TransactionEntity);
@@ -435,6 +441,12 @@ export class TonPaymentWatcher {
                         confirmedAt: new Date(),
                         externalTxHash: tonTransfer.txHash ?? transfer.txHash,
                     });
+                    if (
+                        transaction.type === TransactionType.PAYOUT &&
+                        transaction.direction === TransactionDirection.OUT
+                    ) {
+                        payoutUserId = transaction.userId;
+                    }
                 }
             }
 
@@ -448,6 +460,9 @@ export class TonPaymentWatcher {
                 })}`,
             );
         });
+        if (payoutUserId) {
+            await this.notifyPayoutConfirmed(payoutUserId);
+        }
     }
 
     private normalizeAddress(address: string): string {
@@ -456,6 +471,19 @@ export class TonPaymentWatcher {
         } catch (error) {
             return address.trim().toLowerCase();
         }
+    }
+
+    private async notifyPayoutConfirmed(userId: string): Promise<void> {
+        const user = await this.userRepository.findOne({
+            where: {id: userId},
+        });
+        if (!user?.telegramId) {
+            return;
+        }
+        await this.telegramMessengerService.sendText(
+            user.telegramId,
+            'telegram.payment.payout_confirmed',
+        );
     }
 
     private async finalizeOutgoingTransfers(): Promise<void> {
