@@ -23,6 +23,10 @@ async function bootstrap() {
     const bodyLimit = process.env.REQUEST_BODY_LIMIT || '30mb';
     app.use(json({limit: bodyLimit}));
     app.use(urlencoded({extended: true, limit: bodyLimit}));
+    app.enableCors({
+        origin: true,
+        credentials: true,
+    });
 
     if (['local', 'stage'].includes(process.env.NODE_ENV || '')) {
         const config = new DocumentBuilder()
