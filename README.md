@@ -45,6 +45,21 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Utility scripts
+
+### Seed a withdrawable balance for a user
+
+This script simulates a completed deal and creates a completed payout transaction so the user
+has a withdrawable balance in the ledger.
+
+```bash
+# Default amount is 1 TON in nano units
+$ NODE_ENV=local npm run seed:withdrawable-balance -- <userId>
+
+# Specify amount in nano units
+$ NODE_ENV=local npm run seed:withdrawable-balance -- <userId> 2500000000
+```
+
 ## Telegram Bot (Polling MVP)
 
 Set the required environment variables before starting the backend:
