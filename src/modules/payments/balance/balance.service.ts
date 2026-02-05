@@ -110,9 +110,51 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
+        const escrowPendingRow = await this.escrowRepository
+            .createQueryBuilder('escrow')
+            .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
+            .innerJoin('deal.publication', 'publication')
+            .leftJoin(
+                TransactionEntity,
+                'payoutTransaction',
+                [
+                    'payoutTransaction.sourceRequestId = escrow.payoutId',
+                    'payoutTransaction.type = :payoutType',
+                    'payoutTransaction.direction = :payoutDirection',
+                    'payoutTransaction.status IN (:...payoutStatuses)',
+                ].join(' AND '),
+                {
+                    payoutType: TransactionType.PAYOUT,
+                    payoutDirection: TransactionDirection.OUT,
+                    payoutStatuses: [
+                        TransactionStatus.PENDING,
+                        TransactionStatus.AWAITING_CONFIRMATION,
+                        TransactionStatus.CONFIRMED,
+                        TransactionStatus.BLOCKED_LIQUIDITY,
+                    ],
+                },
+            )
+            .select('COALESCE(SUM(escrow.amountNano), 0)::numeric', 'pendingNano')
+            .addSelect('MAX(escrow.updatedAt)', 'lastUpdatedAt')
+            .where('deal.publisherUserId = :userId', {userId})
+            .andWhere('escrow.currency = :currency', {currency})
+            .andWhere('publication.status = :publicationStatus', {
+                publicationStatus: PublicationStatus.VERIFIED,
+            })
+            .andWhere('escrow.status = :escrowStatus', {
+                escrowStatus: EscrowStatus.PAYOUT_PENDING,
+            })
+            .andWhere('payoutTransaction.id IS NULL')
+            .getRawOne<{
+                pendingNano: string | null;
+                lastUpdatedAt: string | null;
+            }>();
+
         const earned = BigInt(earnedRow?.earnedNano ?? '0');
         const paidOut = BigInt(paidOutRow?.paidOutNano ?? '0');
-        const pending = BigInt(pendingRow?.pendingNano ?? '0');
+        const pendingTransactions = BigInt(pendingRow?.pendingNano ?? '0');
+        const pendingEscrow = BigInt(escrowPendingRow?.pendingNano ?? '0');
+        const pending = pendingTransactions + pendingEscrow;
 
         let available = earned - paidOut - pending;
         if (available < 0n) {
@@ -126,6 +168,7 @@ export class BalanceService {
             earnedRow?.lastUpdatedAt,
             paidOutRow?.lastUpdatedAt,
             pendingRow?.lastUpdatedAt,
+            escrowPendingRow?.lastUpdatedAt,
         ]
             .filter(Boolean)
             .map((value) => new Date(value as string).getTime())
