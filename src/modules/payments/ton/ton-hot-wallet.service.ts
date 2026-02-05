@@ -69,6 +69,43 @@ export class TonHotWalletService {
             ],
         });
 
-        return {txHash: null};
+        const txHash = await this.waitForTxHash(contract, seqno);
+        return {txHash};
+    }
+
+    private async waitForTxHash(
+        contract: WalletContractV4,
+        expectedSeqno: number,
+    ): Promise<string> {
+        const address = contract.address;
+        const maxAttempts = 10;
+        const delayMs = 1000;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            const currentSeqno = await contract.getSeqno();
+            if (currentSeqno <= expectedSeqno) {
+                await this.sleep(delayMs);
+                continue;
+            }
+
+            const transactions = (await (this.client as any).getTransactions(
+                address,
+                {limit: 5},
+            )) as Array<Record<string, any>>;
+            const latest = transactions?.[0];
+            const hash =
+                latest?.transaction_id?.hash ?? latest?.hash ?? latest?.txHash;
+            if (hash) {
+                return String(hash).toLowerCase();
+            }
+
+            await this.sleep(delayMs);
+        }
+
+        throw new Error('Unable to resolve broadcast transaction hash');
+    }
+
+    private async sleep(ms: number): Promise<void> {
+        await new Promise((resolve) => setTimeout(resolve, ms));
     }
 }

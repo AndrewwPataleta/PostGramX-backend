@@ -1,3 +1,6 @@
+jest.mock('@ton/ton', () => ({}), {virtual: true});
+jest.mock('@ton/crypto', () => ({}), {virtual: true});
+
 import {PayoutExecutionService} from './payout-execution.service';
 import {TransactionEntity} from '../entities/transaction.entity';
 import {TonTransferEntity} from '../entities/ton-transfer.entity';
@@ -52,8 +55,15 @@ class InMemoryRepository<T extends {id?: string}> {
         );
     }
 
-    async update(id: string, update: Partial<T>): Promise<void> {
-        const item = this.data.find((entry) => entry.id === id);
+    async update(id: string | Partial<T>, update: Partial<T>): Promise<void> {
+        const item =
+            typeof id === 'string'
+                ? this.data.find((entry) => entry.id === id)
+                : this.data.find((entry) =>
+                      Object.entries(id).every(
+                          ([key, value]) => (entry as any)[key] === value,
+                      ),
+                  );
         if (item) {
             Object.assign(item, update);
         }
@@ -144,7 +154,7 @@ describe('PayoutExecutionService', () => {
 
         const tonHotWalletService = {
             getBalance: jest.fn().mockResolvedValue(2000000000n),
-            sendTon: jest.fn().mockResolvedValue({txHash: null}),
+            sendTon: jest.fn().mockResolvedValue({txHash: 'tx-1'}),
         };
 
         const config = {
@@ -172,6 +182,7 @@ describe('PayoutExecutionService', () => {
         const payout = await transactionRepo.findOne({where: {id: payoutId}});
         expect(payout?.status).toEqual(TransactionStatus.AWAITING_CONFIRMATION);
         expect(payout?.tonTransferId).toBeTruthy();
-        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.PENDING);
+        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.BROADCASTED);
+        expect(transferRepo.data[0].txHash).toEqual('tx-1');
     });
 });

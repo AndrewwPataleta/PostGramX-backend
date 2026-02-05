@@ -1,14 +1,19 @@
+jest.mock('@ton/ton', () => ({}), {virtual: true});
+jest.mock('@ton/crypto', () => ({}), {virtual: true});
+
 import {PayoutsService} from './payouts.service';
 import {PayoutRequestMode} from './dto/payout-request.dto';
 import {PayoutErrorCode} from './errors/payout-service.error';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {TransactionEntity} from '../entities/transaction.entity';
+import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {randomUUID} from 'crypto';
 import {FeesConfigService} from '../fees/fees-config.service';
 import {FeesService} from '../fees/fees.service';
+import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
 
 class InMemoryRepository<T extends {id?: string}> {
     data: T[] = [];
@@ -56,6 +61,7 @@ describe('PayoutsService', () => {
     const userId = 'user-1';
     const destinationAddress = 'EQC-test';
     let transactionRepo: InMemoryRepository<TransactionEntity>;
+    let transferRepo: InMemoryRepository<TonTransferEntity>;
     let ledgerService: any;
     let userWalletService: any;
     let tonHotWalletService: any;
@@ -64,6 +70,7 @@ describe('PayoutsService', () => {
 
     beforeEach(() => {
         transactionRepo = new InMemoryRepository<TransactionEntity>();
+        transferRepo = new InMemoryRepository<TonTransferEntity>();
 
         userWalletService = {
             getWallet: jest.fn().mockResolvedValue({tonAddress: destinationAddress}),
@@ -89,13 +96,24 @@ describe('PayoutsService', () => {
         const configService = {
             get: (key: string) => configMap[key],
         } as any;
-        const feesConfigService = new FeesConfigService(configService);
+        const feesConfigService = new FeesConfigService(
+            {findOne: jest.fn().mockResolvedValue(null)} as any,
+            configService,
+        );
         feesService = new FeesService(feesConfigService, tonHotWalletService);
 
         ledgerService = {
             withUserLock: jest.fn(async (_userId: string, action: any) => {
                 return action({
-                    getRepository: () => transactionRepo,
+                    getRepository: (entity: any) => {
+                        if (entity === TransactionEntity) {
+                            return transactionRepo;
+                        }
+                        if (entity === TonTransferEntity) {
+                            return transferRepo;
+                        }
+                        return transactionRepo;
+                    },
                 });
             }),
             getWithdrawableBalance: jest.fn(async () => {
@@ -161,6 +179,8 @@ describe('PayoutsService', () => {
             userWalletService,
             feesService,
             transactionRepo as any,
+            transferRepo as any,
+            tonHotWalletService as any,
         );
 
     it('rejects payout when balance is insufficient', async () => {
@@ -213,6 +233,8 @@ describe('PayoutsService', () => {
         expect(
             transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
         ).toHaveLength(1);
+        expect(transferRepo.data).toHaveLength(1);
+        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.CREATED);
         expect(
             transactionRepo.data.filter((tx) =>
                 [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(
@@ -220,6 +242,24 @@ describe('PayoutsService', () => {
                 ),
             ),
         ).toHaveLength(2);
+    });
+
+    it('creates a single outbound payout transaction per withdrawal request', async () => {
+        const service = createService();
+
+        await service.requestPayout({
+            userId,
+            amountNano: '10',
+            currency: CurrencyCode.TON,
+            mode: PayoutRequestMode.AMOUNT,
+            idempotencyKey: 'single-request',
+        });
+
+        const outbound = transactionRepo.data.filter(
+            (tx) => tx.direction === TransactionDirection.OUT,
+        );
+        expect(outbound).toHaveLength(1);
+        expect(outbound[0].type).toEqual(TransactionType.PAYOUT);
     });
 
     it('prevents overdraw on concurrent requests', async () => {
@@ -270,7 +310,10 @@ describe('PayoutsService', () => {
         configMap.PAYOUT_NETWORK_FEE_FIXED_NANO = '10';
         const configService = {get: (key: string) => configMap[key]} as any;
         feesService = new FeesService(
-            new FeesConfigService(configService),
+            new FeesConfigService(
+                {findOne: jest.fn().mockResolvedValue(null)} as any,
+                configService,
+            ),
             tonHotWalletService,
         );
 
@@ -309,5 +352,7 @@ describe('PayoutsService', () => {
 
         expect(result.status).toEqual(TransactionStatus.PENDING);
         expect(tonHotWalletService.sendTon).not.toHaveBeenCalled();
+        expect(transferRepo.data).toHaveLength(1);
+        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.CREATED);
     });
 });
