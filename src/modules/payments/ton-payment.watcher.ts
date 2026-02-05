@@ -26,6 +26,7 @@ import {TonHotWalletService} from './ton/ton-hot-wallet.service';
 import {LedgerService} from './ledger/ledger.service';
 import {ensureTransitionAllowed} from './payouts/payout-state';
 import {FeesConfigService} from './fees/fees-config.service';
+import {Address} from '@ton/ton';
 
 @Injectable()
 export class TonPaymentWatcher {
