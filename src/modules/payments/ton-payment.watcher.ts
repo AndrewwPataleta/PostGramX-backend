@@ -604,11 +604,11 @@ export class TonPaymentWatcher {
                     .andWhere('transfer.network = :network', {
                         network: CurrencyCode.TON,
                     })
-                    .andWhere('transfer.amountNano::numeric BETWEEN :minAmount::numeric AND :maxAmount::numeric', {
+                    .andWhere('"transfer"."amountNano"::numeric BETWEEN :minAmount::numeric AND :maxAmount::numeric', {
                         minAmount,
                         maxAmount,
                     })
-                    .andWhere('transfer.createdAt BETWEEN :start AND :end', {
+                    .andWhere('"transfer"."createdAt" BETWEEN :start AND :end', {
                         start: windowStart,
                         end: windowEnd,
                     })
