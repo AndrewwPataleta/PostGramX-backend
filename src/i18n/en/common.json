@@ -47,6 +47,9 @@
       "creative_not_submitted": "Creative has not been submitted yet."
     }
   },
+  "balance": {
+    "withdraw_full_amount_note": "Network fee is paid by the platform."
+  },
   "internalProductCategories": {
     "pets": "Pet Supplies",
     "servicesRentals": "Services & Rentals",

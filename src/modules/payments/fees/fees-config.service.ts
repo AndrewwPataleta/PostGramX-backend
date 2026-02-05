@@ -10,6 +10,7 @@ export type FeeRevenueStrategy = 'LEDGER_ONLY' | 'LEDGER_AND_TRANSFER';
 
 export type FeesConfig = {
     feesEnabled: boolean;
+    payoutUserReceivesFullAmount: boolean;
     payoutServiceFeeMode: FeeMode;
     payoutServiceFeeFixedNano: string;
     payoutServiceFeeBps: string;
@@ -43,6 +44,8 @@ export class FeesConfigService {
 
         return {
             feesEnabled: stored.feesEnabled ?? fallback.feesEnabled,
+            payoutUserReceivesFullAmount:
+                fallback.payoutUserReceivesFullAmount,
             payoutServiceFeeMode: this.readEnumValue<FeeMode>(
                 stored.payoutServiceFeeMode ?? fallback.payoutServiceFeeMode,
                 ['FIXED', 'BPS'],
@@ -84,6 +87,10 @@ export class FeesConfigService {
     buildSeedConfig(): FeesConfig {
         return {
             feesEnabled: this.readBoolean('FEES_ENABLED', true),
+            payoutUserReceivesFullAmount: this.readBoolean(
+                'PAYOUT_USER_RECEIVES_FULL_AMOUNT',
+                true,
+            ),
             payoutServiceFeeMode: this.readEnum<FeeMode>(
                 'PAYOUT_SERVICE_FEE_MODE',
                 ['FIXED', 'BPS'],

@@ -47,6 +47,9 @@
       "creative_not_submitted": "Креатив ещё не отправлен."
     }
   },
+  "balance": {
+    "withdraw_full_amount_note": "Сетевой сбор оплачивается платформой."
+  },
   "internalProductCategories": {
     "pets": "Товары для животных",
     "servicesRentals": "Услуги и аренда",
