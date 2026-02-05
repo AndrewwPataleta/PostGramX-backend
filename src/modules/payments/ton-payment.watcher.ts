@@ -364,16 +364,14 @@ export class TonPaymentWatcher {
             });
 
             if (!tonTransfer) {
-                tonTransfer = await transferRepo
+                const normalizedToAddress = this.normalizeAddress(transfer.toAddress);
+                const candidates = await transferRepo
                     .createQueryBuilder('t')
                     .where('t.type = :type', {
                         type: TonTransferType.PAYOUT,
                     })
                     .andWhere('t.status = :status', {
                         status: TonTransferStatus.PENDING,
-                    })
-                    .andWhere('t.toAddress = :toAddress', {
-                        toAddress: transfer.toAddress,
                     })
                     .andWhere('t.amountNano = :amountNano', {
                         amountNano: transfer.amountNano,
@@ -382,7 +380,12 @@ export class TonPaymentWatcher {
                         from: new Date(transfer.observedAt.getTime() - 60 * 60 * 1000),
                     })
                     .orderBy('t.createdAt', 'DESC')
-                    .getOne();
+                    .getMany();
+                tonTransfer = candidates.find(
+                    (candidate) =>
+                        this.normalizeAddress(candidate.toAddress) ===
+                        normalizedToAddress,
+                );
             }
 
             if (!tonTransfer) {
@@ -444,6 +447,14 @@ export class TonPaymentWatcher {
                 })}`,
             );
         });
+    }
+
+    private normalizeAddress(address: string): string {
+        try {
+            return Address.parse(address).toString();
+        } catch (error) {
+            return address.trim().toLowerCase();
+        }
     }
 
     private async finalizeOutgoingTransfers(): Promise<void> {
