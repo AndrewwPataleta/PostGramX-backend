@@ -1,6 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Address, internal, TonClient, WalletContractV4} from '@ton/ton';
+import {Address, internal, TonClient, WalletContractV4, WalletContractV5R1} from '@ton/ton';
 import {Repository, DataSource} from 'typeorm';
 import {EscrowWalletEntity} from '../entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from '../entities/escrow-wallet-key.entity';

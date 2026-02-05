@@ -44,10 +44,6 @@ export class BalanceService {
             );
         }
 
-        /**
-         * 1️⃣ Lifetime earned
-         * Всё, что пользователь заработал и может/смог вывести
-         */
         const earnedRow = await this.escrowRepository
             .createQueryBuilder('escrow')
             .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
@@ -70,10 +66,6 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        /**
-         * 2️⃣ Lifetime paid out
-         * Реально выведенные средства
-         */
         const paidOutRow = await this.transactionRepository
             .createQueryBuilder('tx')
             .select(
@@ -97,10 +89,6 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        /**
-         * 3️⃣ Pending payouts (transaction-level)
-         * Деньги, по которым вывод УЖЕ запущен
-         */
         const pendingTxRow = await this.transactionRepository
             .createQueryBuilder('tx')
             .select(
@@ -129,11 +117,6 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        /**
-         * 4️⃣ Pending escrow (escrow-level)
-         * PAYOUT_PENDING, НО payout-транзакция УЖЕ существует
-         * → деньги зарезервированы и не доступны
-         */
         const pendingEscrowRow = await this.escrowRepository
             .createQueryBuilder('escrow')
             .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
@@ -173,8 +156,6 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        // ─────────────────────────────────────────────
-
         const earned = BigInt(earnedRow?.earnedNano ?? '0');
         const paidOut = BigInt(paidOutRow?.paidOutNano ?? '0');
         const pendingTx = BigInt(pendingTxRow?.pendingNano ?? '0');
@@ -190,9 +171,6 @@ export class BalanceService {
             available = 0n;
         }
 
-        /**
-         * 🧾 Диагностические логи
-         */
         this.logger.log(
             [
                 '[BALANCE OVERVIEW]',
