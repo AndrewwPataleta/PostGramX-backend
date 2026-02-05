@@ -133,7 +133,7 @@ export class FeesService {
 
     private computeServiceFeeNano(
         amount: bigint,
-        config: ReturnType<FeesConfigService['getConfig']>,
+        config: Awaited<ReturnType<FeesConfigService['getConfig']>>,
     ): bigint {
         if (amount <= 0n) {
             return 0n;
@@ -157,7 +157,7 @@ export class FeesService {
     private async computeNetworkFeeNano(
         amount: bigint,
         destinationAddress: string | undefined,
-        config: ReturnType<FeesConfigService['getConfig']>,
+        config: Awaited<ReturnType<FeesConfigService['getConfig']>>,
     ): Promise<{fee: bigint; estimated: boolean}> {
         let fee = BigInt(config.payoutNetworkFeeFixedNano);
         let estimated = false;
