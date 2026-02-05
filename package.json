@@ -19,6 +19,7 @@
     "start:stage": "NODE_ENV=stage nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "seed:local-mock": "NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/seed-local-mock.ts",
+    "cleanup:deals": "ts-node -r tsconfig-paths/register src/scripts/cleanup-deals-data.ts",
     "clean:local-mock": "NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/cleanup-local-mock.ts",
     "deploy:hot-wallet": "ts-node src/scripts/deploy-hot-wallet.ts"
   },
