@@ -128,7 +128,7 @@ export class MarketplaceService {
         }
 
         query.addOrderBy('channel.id', 'DESC');
-        query.skip(offset).take(limit);
+        query.offset(offset).limit(limit);
 
         const rows = await query.getRawMany();
 
