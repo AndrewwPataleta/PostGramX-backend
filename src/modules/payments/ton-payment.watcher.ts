@@ -57,7 +57,8 @@ export class TonPaymentWatcher {
         private readonly telegramMessengerService: TelegramMessengerService,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
-    ) {}
+    ) {
+    }
 
     @Cron('*/15 * * * * *')
     async monitorIncomingPayments() {
@@ -241,12 +242,12 @@ export class TonPaymentWatcher {
 
     private async fetchIncomingTransactions(
         address: string,
-        stopCursor: {lt: string; hash: string} | null,
-    ): Promise<{transactions: any[]; newestCursor: {lt: string; hash: string} | null}> {
+        stopCursor: { lt: string; hash: string } | null,
+    ): Promise<{ transactions: any[]; newestCursor: { lt: string; hash: string } | null }> {
         const limit = 50;
         const transactions: any[] = [];
-        let cursor: {lt: string; hash: string} | null = null;
-        let newestCursor: {lt: string; hash: string} | null = null;
+        let cursor: { lt: string; hash: string } | null = null;
+        let newestCursor: { lt: string; hash: string } | null = null;
         let reachedCursor = false;
 
         do {
@@ -293,7 +294,7 @@ export class TonPaymentWatcher {
 
     private getTransactionCursor(
         entry: Record<string, any>,
-    ): {lt: string; hash: string} | null {
+    ): { lt: string; hash: string } | null {
         const txHash =
             entry?.transaction_id?.hash ?? entry?.hash ?? entry?.txHash;
         const lt =
@@ -325,11 +326,11 @@ export class TonPaymentWatcher {
             direction: options.direction,
             in_msg: inMsg
                 ? {
-                      source: inMsg.source ?? null,
-                      destination: inMsg.destination ?? null,
-                      value: inMsg.value ?? null,
-                      bounced: inMsg.bounced ?? inMsg.bounce ?? null,
-                  }
+                    source: inMsg.source ?? null,
+                    destination: inMsg.destination ?? null,
+                    value: inMsg.value ?? null,
+                    bounced: inMsg.bounced ?? inMsg.bounce ?? null,
+                }
                 : null,
             out_msgs: normalizedOutMsgs.map((msg: any) => ({
                 source: msg?.source ?? null,
@@ -377,154 +378,154 @@ export class TonPaymentWatcher {
     ): Promise<void> {
         const shouldDeploy = await this.dataSource.transaction(
             async (manager) => {
-            const transferRepo = manager.getRepository(TonTransferEntity);
-            const escrowRepo = manager.getRepository(DealEscrowEntity);
-            const dealRepo = manager.getRepository(DealEntity);
-            const txRepo = manager.getRepository(TransactionEntity);
+                const transferRepo = manager.getRepository(TonTransferEntity);
+                const escrowRepo = manager.getRepository(DealEscrowEntity);
+                const dealRepo = manager.getRepository(DealEntity);
+                const txRepo = manager.getRepository(TransactionEntity);
 
-            const lockedEscrow = await escrowRepo.findOne({
-                where: {id: escrow.id},
-                lock: {mode: 'pessimistic_write'},
-            });
+                const lockedEscrow = await escrowRepo.findOne({
+                    where: {id: escrow.id},
+                    lock: {mode: 'pessimistic_write'},
+                });
 
-            if (!lockedEscrow) {
-                return false;
-            }
+                if (!lockedEscrow) {
+                    return false;
+                }
 
-            const deal = await dealRepo.findOne({
-                where: {id: lockedEscrow.dealId},
-                lock: {mode: 'pessimistic_write'},
-            });
-            if (!deal) {
-                return false;
-            }
+                const deal = await dealRepo.findOne({
+                    where: {id: lockedEscrow.dealId},
+                    lock: {mode: 'pessimistic_write'},
+                });
+                if (!deal) {
+                    return false;
+                }
 
-            const deadline = lockedEscrow.paymentDeadlineAt;
-            const isLate = Boolean(deadline && transfer.observedAt > deadline);
-            if (isLate) {
-                await this.dealsNotificationsService.notifyAdvertiser(
-                    deal,
-                    'telegram.payment.expired',
+                const deadline = lockedEscrow.paymentDeadlineAt;
+                const isLate = Boolean(deadline && transfer.observedAt > deadline);
+                if (isLate) {
+                    await this.dealsNotificationsService.notifyAdvertiser(
+                        deal,
+                        'telegram.payment.expired',
+                    );
+                }
+
+                const existingTx = await txRepo.findOne({
+                    where: {
+                        externalTxHash: transfer.txHash,
+                        currency: lockedEscrow.currency,
+                    },
+                });
+                if (existingTx) {
+                    return false;
+                }
+
+                const currentPaid = lockedEscrow.paidNano ?? '0';
+                const nextPaid = addNano(currentPaid, transfer.amountNano);
+                const expected = lockedEscrow.amountNano;
+
+                const isConfirmed = gteNano(nextPaid, expected);
+                const remaining = isConfirmed ? '0' : subNano(expected, nextPaid);
+
+                const transaction = await txRepo.save(
+                    txRepo.create({
+                        userId: deal.advertiserUserId,
+                        type: TransactionType.DEPOSIT,
+                        direction: TransactionDirection.IN,
+                        status: TransactionStatus.COMPLETED,
+                        amountNano: transfer.amountNano,
+                        currency: lockedEscrow.currency,
+                        dealId: deal.id,
+                        escrowId: lockedEscrow.id,
+                        channelId: deal.channelId,
+                        depositAddress: lockedEscrow.depositAddress,
+                        externalTxHash: transfer.txHash,
+                        idempotencyKey: `deposit:${transfer.txHash}`,
+                        description: 'Deposit received',
+                        confirmedAt: new Date(),
+                        completedAt: new Date(),
+                    }),
                 );
-            }
 
-            const existingTx = await txRepo.findOne({
-                where: {
-                    externalTxHash: transfer.txHash,
-                    currency: lockedEscrow.currency,
-                },
-            });
-            if (existingTx) {
-                return false;
-            }
+                await transferRepo
+                    .createQueryBuilder()
+                    .insert()
+                    .values({
+                        transactionId: transaction.id,
+                        dealId: deal.id,
+                        network: CurrencyCode.TON,
+                        type: TonTransferType.DEPOSIT,
+                        status: TonTransferStatus.COMPLETED,
+                        toAddress: transfer.toAddress,
+                        fromAddress: transfer.fromAddress,
+                        amountNano: transfer.amountNano,
+                        txHash: transfer.txHash,
+                        observedAt: transfer.observedAt,
+                        raw: isLate
+                            ? {...transfer.raw, late: true}
+                            : transfer.raw,
+                        idempotencyKey: `deposit:${transfer.txHash}`,
+                        errorMessage: null,
+                    })
+                    .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
+                    .execute();
 
-            const currentPaid = lockedEscrow.paidNano ?? '0';
-            const nextPaid = addNano(currentPaid, transfer.amountNano);
-            const expected = lockedEscrow.amountNano;
-
-            const isConfirmed = gteNano(nextPaid, expected);
-            const remaining = isConfirmed ? '0' : subNano(expected, nextPaid);
-
-            const transaction = await txRepo.save(
-                txRepo.create({
-                    userId: deal.advertiserUserId,
-                    type: TransactionType.DEPOSIT,
-                    direction: TransactionDirection.IN,
-                    status: TransactionStatus.COMPLETED,
-                    amountNano: transfer.amountNano,
-                    currency: lockedEscrow.currency,
-                    dealId: deal.id,
-                    escrowId: lockedEscrow.id,
-                    channelId: deal.channelId,
-                    depositAddress: lockedEscrow.depositAddress,
-                    externalTxHash: transfer.txHash,
-                    idempotencyKey: `deposit:${transfer.txHash}`,
-                    description: 'Deposit received',
-                    confirmedAt: new Date(),
-                    completedAt: new Date(),
-                }),
-            );
-
-            await transferRepo
-                .createQueryBuilder()
-                .insert()
-                .values({
-                    transactionId: transaction.id,
-                    dealId: deal.id,
-                    network: CurrencyCode.TON,
-                    type: TonTransferType.DEPOSIT,
-                    status: TonTransferStatus.COMPLETED,
-                    toAddress: transfer.toAddress,
-                    fromAddress: transfer.fromAddress,
-                    amountNano: transfer.amountNano,
-                    txHash: transfer.txHash,
-                    observedAt: transfer.observedAt,
-                    raw: isLate
-                        ? {...transfer.raw, late: true}
-                        : transfer.raw,
-                    idempotencyKey: `deposit:${transfer.txHash}`,
-                    errorMessage: null,
-                })
-                .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
-                .execute();
-
-            await escrowRepo.update(lockedEscrow.id, {
-                paidNano: nextPaid,
-                status: isConfirmed
-                    ? EscrowStatus.PAID_HELD
-                    : EscrowStatus.PAID_PARTIAL,
-                paidAt: lockedEscrow.paidAt ?? new Date(),
-                heldAt: isConfirmed ? new Date() : lockedEscrow.heldAt,
-            });
-
-            this.logger.log(
-                `[TON-WATCHER] ${JSON.stringify({
-                    event: 'incoming_payment',
-                    dealId: deal.id,
-                    escrowId: lockedEscrow.id,
-                    amountNano: transfer.amountNano,
+                await escrowRepo.update(lockedEscrow.id, {
                     paidNano: nextPaid,
                     status: isConfirmed
                         ? EscrowStatus.PAID_HELD
                         : EscrowStatus.PAID_PARTIAL,
-                })}`,
-            );
+                    paidAt: lockedEscrow.paidAt ?? new Date(),
+                    heldAt: isConfirmed ? new Date() : lockedEscrow.heldAt,
+                });
 
-            await dealRepo.update(deal.id, {
-                stage: isConfirmed
-                    ? DealStage.POST_SCHEDULED
-                    : DealStage.PAYMENT_PARTIALLY_PAID,
-                status: mapStageToDealStatus(
-                    isConfirmed
+                this.logger.log(
+                    `[TON-WATCHER] ${JSON.stringify({
+                        event: 'incoming_payment',
+                        dealId: deal.id,
+                        escrowId: lockedEscrow.id,
+                        amountNano: transfer.amountNano,
+                        paidNano: nextPaid,
+                        status: isConfirmed
+                            ? EscrowStatus.PAID_HELD
+                            : EscrowStatus.PAID_PARTIAL,
+                    })}`,
+                );
+
+                await dealRepo.update(deal.id, {
+                    stage: isConfirmed
                         ? DealStage.POST_SCHEDULED
                         : DealStage.PAYMENT_PARTIALLY_PAID,
-                ),
-            });
+                    status: mapStageToDealStatus(
+                        isConfirmed
+                            ? DealStage.POST_SCHEDULED
+                            : DealStage.PAYMENT_PARTIALLY_PAID,
+                    ),
+                });
 
-            if (isConfirmed) {
+                if (isConfirmed) {
+                    const updatedDeal = await dealRepo.findOne({
+                        where: {id: deal.id},
+                    });
+                    if (updatedDeal) {
+                        await this.dealsNotificationsService.notifyPaymentConfirmed(
+                            updatedDeal,
+                        );
+                    }
+                    return true;
+                }
+
                 const updatedDeal = await dealRepo.findOne({
                     where: {id: deal.id},
                 });
                 if (updatedDeal) {
-                    await this.dealsNotificationsService.notifyPaymentConfirmed(
+                    await this.dealsNotificationsService.notifyAdvertiserPartialPayment(
                         updatedDeal,
+                        nextPaid,
+                        remaining,
                     );
                 }
                 return true;
-            }
-
-            const updatedDeal = await dealRepo.findOne({
-                where: {id: deal.id},
-            });
-            if (updatedDeal) {
-                await this.dealsNotificationsService.notifyAdvertiserPartialPayment(
-                    updatedDeal,
-                    nextPaid,
-                    remaining,
-                );
-            }
-            return true;
-        },
+            },
         );
 
         if (!shouldDeploy || !escrow.depositWalletId) {
@@ -587,6 +588,11 @@ export class TonPaymentWatcher {
                 const windowEnd = new Date(
                     transfer.observedAt.getTime() + matchWindowMs,
                 );
+                const amount = BigInt(transfer.amountNano);
+                const tolerance = BigInt(process.env.TON_OUTGOING_MATCH_TOLERANCE_NANO ?? '200000');
+                const minAmount = (amount - tolerance).toString();
+                const maxAmount = (amount + tolerance).toString();
+
                 const candidates = await transferRepo
                     .createQueryBuilder('transfer')
                     .where('transfer.status = :status', {
@@ -598,8 +604,9 @@ export class TonPaymentWatcher {
                     .andWhere('transfer.network = :network', {
                         network: CurrencyCode.TON,
                     })
-                    .andWhere('transfer.amountNano = :amountNano', {
-                        amountNano: transfer.amountNano,
+                    .andWhere('transfer.amountNano::numeric BETWEEN :minAmount::numeric AND :maxAmount::numeric', {
+                        minAmount,
+                        maxAmount,
                     })
                     .andWhere('transfer.createdAt BETWEEN :start AND :end', {
                         start: windowStart,
@@ -761,10 +768,10 @@ export class TonPaymentWatcher {
                 ) {
                     let feeTransferContext:
                         | {
-                              payoutId: string;
-                              currency: CurrencyCode;
-                              amountNano: bigint;
-                          }
+                        payoutId: string;
+                        currency: CurrencyCode;
+                        amountNano: bigint;
+                    }
                         | null = null;
                     await this.dataSource.transaction(async (manager) => {
                         const transferRepo = manager.getRepository(TonTransferEntity);
@@ -807,7 +814,7 @@ export class TonPaymentWatcher {
                                 if (
                                     transaction.type === TransactionType.PAYOUT &&
                                     transaction.direction ===
-                                        TransactionDirection.OUT
+                                    TransactionDirection.OUT
                                 ) {
                                     await this.ledgerService.updateFeeTransactionsStatus(
                                         transfer.transactionId,
@@ -891,7 +898,7 @@ export class TonPaymentWatcher {
                             if (
                                 transaction.type === TransactionType.PAYOUT &&
                                 transaction.direction ===
-                                    TransactionDirection.OUT
+                                TransactionDirection.OUT
                             ) {
                                 await this.ledgerService.updateFeeTransactionsStatus(
                                     transfer.transactionId,
@@ -1080,7 +1087,7 @@ export class TonPaymentWatcher {
 
     private async getDeploymentOptions(
         walletId: string,
-    ): Promise<{publicKeyHex: string; secretKeyHex: string; address: string} | null> {
+    ): Promise<{ publicKeyHex: string; secretKeyHex: string; address: string } | null> {
         const wallet = await this.escrowWalletRepo.findOne({where: {id: walletId}});
         if (!wallet) {
             return null;
