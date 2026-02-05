@@ -21,6 +21,54 @@ PostGramX backend is a modular NestJS service that powers a Telegram ads marketp
 - Deal Escrow tracks deposit address status and settlement
 - Deal Publication tracks posting status and verification
 
+## Module architecture diagram
+
+```mermaid
+flowchart TD
+  ROOT[PostGramX Backend]
+  ROOT --> APP[app.module.ts]
+  APP --> CORE[core]
+  APP --> COMMON[common]
+  APP --> CONFIG[config]
+  APP --> DB[database]
+  APP --> MODULES[modules]
+
+  MODULES --> AUTH[auth]
+  MODULES --> USERS[users]
+  MODULES --> CHANNELS[channels]
+  MODULES --> LISTINGS[listings]
+  MODULES --> MARKETPLACE[marketplace]
+  MODULES --> DEALS[deals]
+  MODULES --> DELIVERY[deals-delivery]
+  MODULES --> PAYMENTS[payments]
+  MODULES --> TELEGRAM[telegram]
+  MODULES --> BOT[telegram-bot]
+  MODULES --> HEALTH[health]
+```
+
+## Project layout
+
+```text
+src/
+  app.module.ts
+  common/
+  config/
+  core/
+  database/
+  modules/
+    auth/
+    users/
+    channels/
+    listings/
+    marketplace/
+    deals/
+    deals-delivery/
+    payments/
+    telegram/
+    telegram-bot/
+    health/
+```
+
 ## Deal state machine
 
 Deal stages live in a strict state machine. The stage drives the public deal status and controls what actions are allowed. The state machine allows forward progress and controlled cancellations.

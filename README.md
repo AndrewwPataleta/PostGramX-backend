@@ -11,36 +11,44 @@ Open source backend for a Telegram ads marketplace with TON escrow and deal auto
 
 ```mermaid
 flowchart LR
-  subgraph Telegram
+  subgraph Telegram Surface
     MA[Mini App UI]
     BOT[Text Bot]
-    CH[Channel]
   end
 
   subgraph Backend[NestJS Backend]
     API[HTTP API]
-    DEALS[Deals Service]
-    ESCROW[Escrow Service]
-    POSTING[Auto Posting Service]
-    STATS[Telegram Stats Service]
+    MODS[Modules]
     JOBS[Cron and Workers]
+  end
+
+  subgraph Modules
+    DEALS[Deals and Delivery]
+    PAY[Payments and Escrow]
+    CHAN[Channels and Listings]
+    TG[Telegram Integration]
   end
 
   subgraph Infra
     PG[(PostgreSQL)]
     TON[TON Blockchain]
+    TAPI[Telegram APIs]
   end
 
   MA --> API
   BOT --> API
-  API --> DEALS
+  API --> MODS
+  MODS --> DEALS
+  MODS --> PAY
+  MODS --> CHAN
+  MODS --> TG
   DEALS --> PG
-  DEALS --> ESCROW
-  ESCROW --> TON
-  POSTING --> CH
-  STATS --> CH
+  PAY --> PG
+  PAY --> TON
+  TG --> TAPI
+  CHAN --> TAPI
   JOBS --> DEALS
-  JOBS --> POSTING
+  JOBS --> PAY
 ```
 
 ## What this project demonstrates
