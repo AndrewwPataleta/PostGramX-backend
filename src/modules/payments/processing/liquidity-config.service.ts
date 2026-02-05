@@ -21,14 +21,9 @@ export class LiquidityConfigService {
         const stored = await this.liquidityConfigRepository.findOne({
             where: {id: 1},
         });
-        const fallbackMaxGas = this.getBigInt(
-            'SWEEP_MAX_GAS_RESERVE_NANO',
-            50_000_000n,
-        );
-        const fallbackMinWithdraw = this.getBigInt(
-            'SWEEP_MIN_WITHDRAW_NANO',
-            20_000_000n,
-        );
+        const defaults = this.buildSeedConfig();
+        const fallbackMaxGas = defaults.sweepMaxGasReserveNano;
+        const fallbackMinWithdraw = defaults.sweepMinWithdrawNano;
 
         if (!stored) {
             return {
@@ -44,6 +39,19 @@ export class LiquidityConfigService {
             sweepMinWithdrawNano: stored.sweepMinWithdrawNano
                 ? BigInt(stored.sweepMinWithdrawNano)
                 : fallbackMinWithdraw,
+        };
+    }
+
+    buildSeedConfig(): LiquidityConfig {
+        return {
+            sweepMaxGasReserveNano: this.getBigInt(
+                'SWEEP_MAX_GAS_RESERVE_NANO',
+                50_000_000n,
+            ),
+            sweepMinWithdrawNano: this.getBigInt(
+                'SWEEP_MIN_WITHDRAW_NANO',
+                20_000_000n,
+            ),
         };
     }
 

@@ -81,7 +81,7 @@ export class FeesConfigService {
         };
     }
 
-    private buildFromEnv(): FeesConfig {
+    buildSeedConfig(): FeesConfig {
         return {
             feesEnabled: this.readBoolean('FEES_ENABLED', true),
             payoutServiceFeeMode: this.readEnum<FeeMode>(
@@ -127,6 +127,10 @@ export class FeesConfigService {
             ),
             feeRevenueAddress: this.readOptionalString('FEE_REVENUE_ADDRESS'),
         };
+    }
+
+    private buildFromEnv(): FeesConfig {
+        return this.buildSeedConfig();
     }
 
     private readBoolean(key: string, fallback: boolean): boolean {
