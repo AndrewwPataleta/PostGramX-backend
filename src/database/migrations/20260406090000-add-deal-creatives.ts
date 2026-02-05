@@ -15,11 +15,11 @@ export class AddDealCreatives20260406090000 implements MigrationInterface {
         `);
 
         await queryRunner.query(
-            "CREATE TYPE \"deal_creative_type_enum\" AS ENUM('TEXT', 'IMAGE', 'VIDEO')",
+            "CREATE TYPE IF NOT EXISTS \"deal_creative_type_enum\" AS ENUM('TEXT', 'IMAGE', 'VIDEO')",
         );
 
         await queryRunner.query(`
-            CREATE TABLE "deal_creatives" (
+            CREATE TABLE IF NOT EXISTS "deal_creatives" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "dealId" uuid NOT NULL,
                 "type" "deal_creative_type_enum" NOT NULL,
@@ -34,7 +34,7 @@ export class AddDealCreatives20260406090000 implements MigrationInterface {
         `);
 
         await queryRunner.query(
-            'CREATE INDEX "IDX_deal_creatives_created_at" ON "deal_creatives" ("createdAt")',
+            'CREATE INDEX IF NOT EXISTS "IDX_deal_creatives_created_at" ON "deal_creatives" ("createdAt")',
         );
     }
 
