@@ -11,7 +11,7 @@ const {User} = require('../modules/auth/entities/user.entity');
 const MOCK_PREFIX = 'mock_listing_';
 const MOCK_EMAIL = 'mock-listing-user@postgramx.local';
 
-const MOCK_CHANNELS = [
+const BASE_MOCK_CHANNELS = [
     {username: `${MOCK_PREFIX}tech`, title: 'Mock Tech Deals', subscribersCount: 12400, avgViews: 5600},
     {username: `${MOCK_PREFIX}design`, title: 'Mock Design Picks', subscribersCount: 8300, avgViews: 3200},
     {username: `${MOCK_PREFIX}crypto`, title: 'Mock Crypto Insights', subscribersCount: 20500, avgViews: 9800},
@@ -33,6 +33,26 @@ const MOCK_CHANNELS = [
     {username: `${MOCK_PREFIX}nature`, title: 'Mock Nature Watch', subscribersCount: 7100, avgViews: 2800},
     {username: `${MOCK_PREFIX}art`, title: 'Mock Art Studio', subscribersCount: 5900, avgViews: 2300},
 ];
+
+const MOCK_CHANNEL_TOTAL = 500;
+
+const GENERATED_MOCK_CHANNELS = Array.from(
+    {length: Math.max(0, MOCK_CHANNEL_TOTAL - BASE_MOCK_CHANNELS.length)},
+    (_, index) => {
+        const channelIndex = index + 1;
+        const subscribersCount = 3000 + channelIndex * 37;
+        const avgViews = Math.max(900, Math.round(subscribersCount * 0.45));
+
+        return {
+            username: `${MOCK_PREFIX}channel_${channelIndex}`,
+            title: `Mock Channel ${channelIndex}`,
+            subscribersCount,
+            avgViews,
+        };
+    },
+);
+
+const MOCK_CHANNELS = [...BASE_MOCK_CHANNELS, ...GENERATED_MOCK_CHANNELS];
 
 async function seedLocalMock() {
     await AppDataSource.initialize();
