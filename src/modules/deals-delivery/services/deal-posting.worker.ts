@@ -317,7 +317,7 @@ export class DealPostingWorker {
             where: {dealId: deal.id},
         });
 
-        await this.paymentsService.markEscrowPaidOut(deal.id);
+        await this.paymentsService.markEscrowPayoutPending(deal.id);
 
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
