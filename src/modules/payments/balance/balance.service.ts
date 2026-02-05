@@ -37,67 +37,86 @@ export class BalanceService {
         currencyInput?: CurrencyCode,
     ): Promise<BalanceOverviewResponse> {
         const currency = currencyInput ?? CurrencyCode.TON;
+
         if (!Object.values(CurrencyCode).includes(currency)) {
-            throw new BalanceServiceError(BalanceErrorCode.CURRENCY_UNSUPPORTED);
+            throw new BalanceServiceError(
+                BalanceErrorCode.CURRENCY_UNSUPPORTED,
+            );
         }
 
+        /**
+         * 1️⃣ Lifetime earned
+         * Всё, что пользователь заработал и может/смог вывести
+         */
         const earnedRow = await this.escrowRepository
             .createQueryBuilder('escrow')
             .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
             .innerJoin('deal.publication', 'publication')
-            .select('COALESCE(SUM(escrow.amountNano), 0)::numeric', 'earnedNano')
+            .select('COALESCE(SUM(escrow.amountNano), 0)::bigint', 'earnedNano')
             .addSelect('MAX(escrow.updatedAt)', 'lastUpdatedAt')
-            .where('deal.publisherUserId = :userId', {userId})
-            .andWhere('escrow.currency = :currency', {currency})
+            .where('deal.publisherUserId = :userId', { userId })
+            .andWhere('escrow.currency = :currency', { currency })
             .andWhere('publication.status = :publicationStatus', {
                 publicationStatus: PublicationStatus.VERIFIED,
             })
-            .andWhere('escrow.status IN (:...escrowStatuses)', {
-                escrowStatuses: [
+            .andWhere('escrow.status IN (:...statuses)', {
+                statuses: [
                     EscrowStatus.PAYOUT_PENDING,
                     EscrowStatus.PAID_OUT,
                 ],
             })
             .getRawOne<{
-                earnedNano: string | null;
+                earnedNano: string;
                 lastUpdatedAt: string | null;
             }>();
 
+        /**
+         * 2️⃣ Lifetime paid out
+         * Реально выведенные средства
+         */
         const paidOutRow = await this.transactionRepository
-            .createQueryBuilder('transaction')
+            .createQueryBuilder('tx')
             .select(
-                'COALESCE(SUM(COALESCE(transaction.totalDebitNano, transaction.amountNano)), 0)::numeric',
+                'COALESCE(SUM(COALESCE(tx.totalDebitNano, tx.amountNano)), 0)::bigint',
                 'paidOutNano',
             )
-            .addSelect('MAX(transaction.completedAt)', 'lastUpdatedAt')
-            .where('transaction.userId = :userId', {userId})
-            .andWhere('transaction.currency = :currency', {currency})
-            .andWhere('transaction.type = :type', {type: TransactionType.PAYOUT})
-            .andWhere('transaction.status = :status', {
-                status: TransactionStatus.COMPLETED,
+            .addSelect('MAX(tx.completedAt)', 'lastUpdatedAt')
+            .where('tx.userId = :userId', { userId })
+            .andWhere('tx.currency = :currency', { currency })
+            .andWhere('tx.type = :type', {
+                type: TransactionType.PAYOUT,
             })
-            .andWhere('transaction.direction = :direction', {
+            .andWhere('tx.direction = :direction', {
                 direction: TransactionDirection.OUT,
             })
+            .andWhere('tx.status = :status', {
+                status: TransactionStatus.COMPLETED,
+            })
             .getRawOne<{
-                paidOutNano: string | null;
+                paidOutNano: string;
                 lastUpdatedAt: string | null;
             }>();
 
-        const pendingRow = await this.transactionRepository
-            .createQueryBuilder('transaction')
+        /**
+         * 3️⃣ Pending payouts (transaction-level)
+         * Деньги, по которым вывод УЖЕ запущен
+         */
+        const pendingTxRow = await this.transactionRepository
+            .createQueryBuilder('tx')
             .select(
-                'COALESCE(SUM(COALESCE(transaction.totalDebitNano, transaction.amountNano)), 0)::numeric',
+                'COALESCE(SUM(COALESCE(tx.totalDebitNano, tx.amountNano)), 0)::bigint',
                 'pendingNano',
             )
-            .addSelect('MAX(transaction.updatedAt)', 'lastUpdatedAt')
-            .where('transaction.userId = :userId', {userId})
-            .andWhere('transaction.currency = :currency', {currency})
-            .andWhere('transaction.type = :type', {type: TransactionType.PAYOUT})
-            .andWhere('transaction.direction = :direction', {
+            .addSelect('MAX(tx.updatedAt)', 'lastUpdatedAt')
+            .where('tx.userId = :userId', { userId })
+            .andWhere('tx.currency = :currency', { currency })
+            .andWhere('tx.type = :type', {
+                type: TransactionType.PAYOUT,
+            })
+            .andWhere('tx.direction = :direction', {
                 direction: TransactionDirection.OUT,
             })
-            .andWhere('transaction.status IN (:...statuses)', {
+            .andWhere('tx.status IN (:...statuses)', {
                 statuses: [
                     TransactionStatus.PENDING,
                     TransactionStatus.AWAITING_CONFIRMATION,
@@ -106,27 +125,32 @@ export class BalanceService {
                 ],
             })
             .getRawOne<{
-                pendingNano: string | null;
+                pendingNano: string;
                 lastUpdatedAt: string | null;
             }>();
 
-        const escrowPendingRow = await this.escrowRepository
+        /**
+         * 4️⃣ Pending escrow (escrow-level)
+         * PAYOUT_PENDING, НО payout-транзакция УЖЕ существует
+         * → деньги зарезервированы и не доступны
+         */
+        const pendingEscrowRow = await this.escrowRepository
             .createQueryBuilder('escrow')
             .innerJoin(DealEntity, 'deal', 'deal.id = escrow.dealId')
             .innerJoin('deal.publication', 'publication')
-            .leftJoin(
+            .innerJoin(
                 TransactionEntity,
-                'payoutTransaction',
+                'payoutTx',
                 [
-                    'payoutTransaction.sourceRequestId = escrow.payoutId',
-                    'payoutTransaction.type = :payoutType',
-                    'payoutTransaction.direction = :payoutDirection',
-                    'payoutTransaction.status IN (:...payoutStatuses)',
+                    'payoutTx.sourceRequestId = escrow.payoutId',
+                    'payoutTx.type = :type',
+                    'payoutTx.direction = :direction',
+                    'payoutTx.status IN (:...statuses)',
                 ].join(' AND '),
                 {
-                    payoutType: TransactionType.PAYOUT,
-                    payoutDirection: TransactionDirection.OUT,
-                    payoutStatuses: [
+                    type: TransactionType.PAYOUT,
+                    direction: TransactionDirection.OUT,
+                    statuses: [
                         TransactionStatus.PENDING,
                         TransactionStatus.AWAITING_CONFIRMATION,
                         TransactionStatus.CONFIRMED,
@@ -134,61 +158,74 @@ export class BalanceService {
                     ],
                 },
             )
-            .select('COALESCE(SUM(escrow.amountNano), 0)::numeric', 'pendingNano')
+            .select('COALESCE(SUM(escrow.amountNano), 0)::bigint', 'pendingNano')
             .addSelect('MAX(escrow.updatedAt)', 'lastUpdatedAt')
-            .where('deal.publisherUserId = :userId', {userId})
-            .andWhere('escrow.currency = :currency', {currency})
+            .where('deal.publisherUserId = :userId', { userId })
+            .andWhere('escrow.currency = :currency', { currency })
             .andWhere('publication.status = :publicationStatus', {
                 publicationStatus: PublicationStatus.VERIFIED,
             })
-            .andWhere('escrow.status = :escrowStatus', {
-                escrowStatus: EscrowStatus.PAYOUT_PENDING,
+            .andWhere('escrow.status = :status', {
+                status: EscrowStatus.PAYOUT_PENDING,
             })
-            .andWhere('payoutTransaction.id IS NULL')
             .getRawOne<{
-                pendingNano: string | null;
+                pendingNano: string;
                 lastUpdatedAt: string | null;
             }>();
 
+        // ─────────────────────────────────────────────
+
         const earned = BigInt(earnedRow?.earnedNano ?? '0');
         const paidOut = BigInt(paidOutRow?.paidOutNano ?? '0');
-        const pendingTransactions = BigInt(pendingRow?.pendingNano ?? '0');
-        const pendingEscrow = BigInt(escrowPendingRow?.pendingNano ?? '0');
-        const pending = pendingTransactions + pendingEscrow;
+        const pendingTx = BigInt(pendingTxRow?.pendingNano ?? '0');
+        const pendingEscrow = BigInt(pendingEscrowRow?.pendingNano ?? '0');
+
+        const pending = pendingTx + pendingEscrow;
 
         let available = earned - paidOut - pending;
         if (available < 0n) {
             this.logger.warn(
-                `Balance overview clamped negative available amount for userId=${userId}`,
+                `[BALANCE] Negative available clamped userId=${userId} available=${available}`,
             );
             available = 0n;
         }
 
+        /**
+         * 🧾 Диагностические логи
+         */
+        this.logger.log(
+            [
+                '[BALANCE OVERVIEW]',
+                `userId=${userId}`,
+                `currency=${currency}`,
+                `earned=${earned}`,
+                `paidOut=${paidOut}`,
+                `pendingTx=${pendingTx}`,
+                `pendingEscrow=${pendingEscrow}`,
+                `available=${available}`,
+            ].join(' | '),
+        );
+
         const lastUpdatedAt = [
             earnedRow?.lastUpdatedAt,
             paidOutRow?.lastUpdatedAt,
-            pendingRow?.lastUpdatedAt,
-            escrowPendingRow?.lastUpdatedAt,
+            pendingTxRow?.lastUpdatedAt,
+            pendingEscrowRow?.lastUpdatedAt,
         ]
             .filter(Boolean)
-            .map((value) => new Date(value as string).getTime())
+            .map((v) => new Date(v as string).getTime())
             .sort((a, b) => b - a)[0];
 
-        const lastUpdatedAtIso = lastUpdatedAt
-            ? new Date(lastUpdatedAt).toISOString()
-            : new Date(0).toISOString();
-
-        this.logger.log(
-            `Balance overview userId=${userId} currency=${currency} availableNano=${available.toString()}`,
-        );
-
         return {
-            currency: CurrencyCode.TON,
+            currency,
             availableNano: available.toString(),
             pendingNano: pending.toString(),
             lifetimeEarnedNano: earned.toString(),
             lifetimePaidOutNano: paidOut.toString(),
-            lastUpdatedAt: lastUpdatedAtIso,
+            lastUpdatedAt: lastUpdatedAt
+                ? new Date(lastUpdatedAt).toISOString()
+                : new Date(0).toISOString(),
         };
     }
+
 }
