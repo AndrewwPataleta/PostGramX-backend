@@ -15,6 +15,8 @@ import {DealPublicationEntity} from '../modules/deals/entities/deal-publication.
 import {ListingEntity} from '../modules/listings/entities/listing.entity';
 import {EscrowWalletEntity} from '../modules/payments/entities/escrow-wallet.entity';
 import {EscrowWalletKeyEntity} from '../modules/payments/entities/escrow-wallet-key.entity';
+import {FeesConfigEntity} from '../modules/payments/entities/fees-config.entity';
+import {LiquidityConfigEntity} from '../modules/payments/entities/liquidity-config.entity';
 import {TonTransferEntity} from '../modules/payments/entities/ton-transfer.entity';
 import {TransactionEntity} from '../modules/payments/entities/transaction.entity';
 import {PayoutRequestEntity} from '../modules/payments/entities/payout-request.entity';
@@ -36,6 +38,8 @@ export const typeOrmEntities = [
     ListingEntity,
     EscrowWalletEntity,
     EscrowWalletKeyEntity,
+    FeesConfigEntity,
+    LiquidityConfigEntity,
     PayoutRequestEntity,
     RefundRequestEntity,
     UserWalletEntity,

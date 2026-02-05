@@ -1,6 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {Address, TonClient} from '@ton/ton';
 import {PaymentsProcessingConfigService} from './payments-processing-config.service';
+import {LiquidityConfigService} from './liquidity-config.service';
 
 @Injectable()
 export class LiquidityService {
@@ -9,6 +10,7 @@ export class LiquidityService {
 
     constructor(
         private readonly config: PaymentsProcessingConfigService,
+        private readonly liquidityConfigService: LiquidityConfigService,
     ) {
         const endpoint = this.config.toncenterRpc;
         if (!endpoint) {
@@ -49,8 +51,9 @@ export class LiquidityService {
         return {balanceNano, isDeployed};
     }
 
-    computeMaxSweepableNano(balanceNano: bigint): bigint {
-        const max = balanceNano - this.config.sweepMaxGasReserveNano;
+    async computeMaxSweepableNano(balanceNano: bigint): Promise<bigint> {
+        const sweepConfig = await this.liquidityConfigService.getConfig();
+        const max = balanceNano - sweepConfig.sweepMaxGasReserveNano;
         return max > 0n ? max : 0n;
     }
 }

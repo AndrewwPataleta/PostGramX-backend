@@ -623,7 +623,7 @@ export class TonPaymentWatcher {
         currency: CurrencyCode;
         amountNano: bigint;
     }): Promise<void> {
-        const config = this.feesConfigService.getConfig();
+        const config = await this.feesConfigService.getConfig();
         if (!config.feesEnabled) {
             return;
         }
