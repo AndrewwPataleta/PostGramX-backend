@@ -455,7 +455,7 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                     : TonTransferType.REFUND,
             status: this.config.payoutDryRun
                 ? TonTransferStatus.SIMULATED
-                : TonTransferStatus.PENDING,
+                : TonTransferStatus.CREATED,
             network: options.currency as any,
             fromAddress: this.config.hotWalletAddress ?? '',
             toAddress: options.toAddress,

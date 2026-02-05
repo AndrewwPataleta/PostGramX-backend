@@ -7,11 +7,15 @@ import {TransactionDirection} from '../../../common/constants/payments/transacti
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
 import {TransactionEntity} from '../entities/transaction.entity';
+import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {UserWalletService} from '../wallets/user-wallet.service';
 import {LedgerService} from '../ledger/ledger.service';
 import {FeesService} from '../fees/fees.service';
 import {PayoutRequestMode} from './dto/payout-request.dto';
 import {PayoutServiceError, PayoutErrorCode} from './errors/payout-service.error';
+import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
+import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
+import {TonHotWalletService} from '../ton/ton-hot-wallet.service';
 
 type PayoutRequestPayload = {
     userId: string;
@@ -31,40 +35,62 @@ export class PayoutsService {
         private readonly feesService: FeesService,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
+        @InjectRepository(TonTransferEntity)
+        private readonly transferRepository: Repository<TonTransferEntity>,
+        private readonly tonHotWalletService: TonHotWalletService,
     ) {}
 
     async requestPayout(payload: PayoutRequestPayload) {
-        const currency = payload.currency ?? CurrencyCode.TON;
-        const mode =
-            payload.mode ??
-            (payload.amountNano ? PayoutRequestMode.AMOUNT : PayoutRequestMode.ALL);
-
         const wallet = await this.userWalletService.getWallet(payload.userId);
         if (!wallet?.tonAddress) {
             throw new PayoutServiceError(PayoutErrorCode.WALLET_NOT_CONNECTED);
         }
 
-        const destinationAddress = wallet.tonAddress;
+        return this.requestWithdrawal({
+            userId: payload.userId,
+            amountNano: payload.amountNano,
+            currency: payload.currency,
+            mode: payload.mode,
+            idempotencyKey: payload.idempotencyKey,
+            toAddress: wallet.tonAddress,
+        });
+    }
+
+    async requestWithdrawal(options: {
+        userId: string;
+        amountNano?: string;
+        currency?: CurrencyCode;
+        mode?: PayoutRequestMode;
+        idempotencyKey?: string;
+        toAddress: string;
+    }) {
+        const currency = options.currency ?? CurrencyCode.TON;
+        const mode =
+            options.mode ??
+            (options.amountNano ? PayoutRequestMode.AMOUNT : PayoutRequestMode.ALL);
+        const destinationAddress = options.toAddress;
         let created = false;
+
         this.logger.log(
             `[PAYOUT-REQUEST] start ${JSON.stringify({
-                userId: payload.userId,
-                amountNano: payload.amountNano,
+                userId: options.userId,
+                amountNano: options.amountNano,
                 currency,
                 mode,
                 destinationAddress,
-                idempotencyKey: payload.idempotencyKey,
+                idempotencyKey: options.idempotencyKey,
             })}`,
         );
 
         const transaction = await this.ledgerService.withUserLock(
-            payload.userId,
+            options.userId,
             async (manager) => {
                 const txRepo = manager.getRepository(TransactionEntity);
+                const transferRepo = manager.getRepository(TonTransferEntity);
 
-                if (payload.idempotencyKey) {
+                if (options.idempotencyKey) {
                     const existing = await txRepo.findOne({
-                        where: {idempotencyKey: payload.idempotencyKey},
+                        where: {idempotencyKey: options.idempotencyKey},
                     });
                     if (existing) {
                         return existing;
@@ -72,13 +98,13 @@ export class PayoutsService {
                 }
 
                 const balance = await this.ledgerService.getWithdrawableBalance(
-                    payload.userId,
+                    options.userId,
                     currency,
                     manager,
                 );
 
                 const withdrawableNano = balance.withdrawableNano;
-                let amountNano = payload.amountNano ?? withdrawableNano;
+                let amountNano = options.amountNano ?? withdrawableNano;
                 let feeResult: Awaited<ReturnType<FeesService['computePayoutFees']>>;
 
                 if (mode === PayoutRequestMode.AMOUNT) {
@@ -130,14 +156,14 @@ export class PayoutsService {
                 }
 
                 const idempotencyKey =
-                    payload.idempotencyKey ??
+                    options.idempotencyKey ??
                     this.buildIdempotencyKey({
-                        userId: payload.userId,
+                        userId: options.userId,
                         destinationAddress,
                         amountNano,
                     });
 
-                if (!payload.idempotencyKey) {
+                if (!options.idempotencyKey) {
                     const existing = await txRepo.findOne({
                         where: {idempotencyKey},
                     });
@@ -147,7 +173,7 @@ export class PayoutsService {
                 }
 
                 const createdTx = txRepo.create({
-                    userId: payload.userId,
+                    userId: options.userId,
                     type: TransactionType.PAYOUT,
                     direction: TransactionDirection.OUT,
                     status: TransactionStatus.PENDING,
@@ -174,10 +200,39 @@ export class PayoutsService {
                 });
                 created = true;
 
+                const idempotencyTransferKey = `withdraw:${saved.idempotencyKey}`;
+                const existingTransfer = await transferRepo.findOne({
+                    where: {idempotencyKey: idempotencyTransferKey},
+                });
+                if (!existingTransfer) {
+                    const fromAddress = await this.tonHotWalletService.getAddress();
+                    const transfer = transferRepo.create({
+                        transactionId: saved.id,
+                        dealId: saved.dealId ?? null,
+                        escrowWalletId: null,
+                        idempotencyKey: idempotencyTransferKey,
+                        type: TonTransferType.PAYOUT,
+                        status: TonTransferStatus.CREATED,
+                        network: saved.currency,
+                        fromAddress,
+                        toAddress: destinationAddress,
+                        amountNano: saved.amountNano,
+                        txHash: null,
+                        observedAt: null,
+                        raw: {reason: 'withdrawal_request'},
+                        errorMessage: null,
+                    });
+                    const savedTransfer = await transferRepo.save(transfer);
+                    await txRepo.update(saved.id, {
+                        tonTransferId: savedTransfer.id,
+                    });
+                }
+
                 this.logger.log(
                     `[PAYOUT-REQUEST] created ${JSON.stringify({
                         payoutId: saved.id,
-                        userId: payload.userId,
+                        idempotencyKey: saved.idempotencyKey,
+                        userId: options.userId,
                         amountNano,
                         withdrawableNano,
                         totalDebitNano: feeResult.totalDebitNano,

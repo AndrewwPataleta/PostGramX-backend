@@ -1,5 +1,6 @@
 export enum TonTransferStatus {
-    PENDING = 'PENDING',
+    CREATED = 'CREATED',
+    BROADCASTED = 'BROADCASTED',
     CONFIRMED = 'CONFIRMED',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED',
