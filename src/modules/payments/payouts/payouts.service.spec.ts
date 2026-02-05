@@ -78,6 +78,7 @@ describe('PayoutsService', () => {
         const baseCredits = 100n;
         configMap = {
             FEES_ENABLED: 'true',
+            PAYOUT_USER_RECEIVES_FULL_AMOUNT: 'true',
             PAYOUT_SERVICE_FEE_MODE: 'FIXED',
             PAYOUT_SERVICE_FEE_FIXED_NANO: '10',
             PAYOUT_SERVICE_FEE_BPS: '50',
@@ -89,7 +90,13 @@ describe('PayoutsService', () => {
         const configService = {
             get: (key: string) => configMap[key],
         } as any;
-        const feesConfigService = new FeesConfigService(configService);
+        const feesConfigRepository = {
+            findOne: jest.fn().mockResolvedValue(null),
+        };
+        const feesConfigService = new FeesConfigService(
+            feesConfigRepository as any,
+            configService,
+        );
         feesService = new FeesService(feesConfigService, tonHotWalletService);
 
         ledgerService = {
@@ -185,6 +192,9 @@ describe('PayoutsService', () => {
                 code: PayoutErrorCode.INSUFFICIENT_BALANCE,
             }),
         );
+        expect(
+            transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
+        ).toHaveLength(0);
     });
 
     it('returns existing payout for same idempotency key', async () => {
@@ -210,6 +220,8 @@ describe('PayoutsService', () => {
         expect(first.serviceFeeNano).toEqual(second.serviceFeeNano);
         expect(first.networkFeeNano).toEqual(second.networkFeeNano);
         expect(first.totalDebitNano).toEqual(second.totalDebitNano);
+        expect(first.amountToUserNano).toEqual('10');
+        expect(first.totalDebitNano).toEqual('10');
         expect(
             transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
         ).toHaveLength(1);
@@ -219,7 +231,7 @@ describe('PayoutsService', () => {
                     tx.type,
                 ),
             ),
-        ).toHaveLength(2);
+        ).toHaveLength(0);
     });
 
     it('prevents overdraw on concurrent requests', async () => {
@@ -248,7 +260,7 @@ describe('PayoutsService', () => {
         );
     });
 
-    it('calculates ALL-mode payout with fixed fees', async () => {
+    it('calculates ALL-mode payout with full amount', async () => {
         const service = createService();
 
         const result = await service.requestPayout({
@@ -257,20 +269,24 @@ describe('PayoutsService', () => {
             mode: PayoutRequestMode.ALL,
         });
 
-        expect(result.amountNano).toEqual('85');
-        expect(result.serviceFeeNano).toEqual('10');
-        expect(result.networkFeeNano).toEqual('5');
+        expect(result.amountNano).toEqual('100');
+        expect(result.amountToUserNano).toEqual('100');
+        expect(result.serviceFeeNano).toEqual('0');
+        expect(result.networkFeeNano).toEqual('0');
         expect(result.totalDebitNano).toEqual('100');
     });
 
-    it('calculates ALL-mode payout with BPS fees', async () => {
+    it('ignores fee configuration when full amount flag is enabled', async () => {
         configMap.PAYOUT_SERVICE_FEE_MODE = 'BPS';
         configMap.PAYOUT_SERVICE_FEE_BPS = '500';
         configMap.PAYOUT_SERVICE_FEE_FIXED_NANO = '0';
         configMap.PAYOUT_NETWORK_FEE_FIXED_NANO = '10';
         const configService = {get: (key: string) => configMap[key]} as any;
+        const feesConfigRepository = {
+            findOne: jest.fn().mockResolvedValue(null),
+        };
         feesService = new FeesService(
-            new FeesConfigService(configService),
+            new FeesConfigService(feesConfigRepository as any, configService),
             tonHotWalletService,
         );
 
@@ -281,20 +297,9 @@ describe('PayoutsService', () => {
             mode: PayoutRequestMode.ALL,
         });
 
-        const withdrawable = 100n;
-        const expected = (() => {
-            for (let amount = withdrawable; amount >= 0n; amount -= 1n) {
-                const fee = (amount * 500n + 9999n) / 10000n;
-                const total = amount + fee + 10n;
-                if (total <= withdrawable) {
-                    return amount;
-                }
-            }
-            return 0n;
-        })();
-
-        expect(result.amountNano).toEqual(expected.toString());
-        expect(BigInt(result.totalDebitNano)).toBeLessThanOrEqual(withdrawable);
+        expect(result.amountNano).toEqual('100');
+        expect(result.amountToUserNano).toEqual('100');
+        expect(result.totalDebitNano).toEqual('100');
     });
 
     it('stores payout request without broadcasting', async () => {

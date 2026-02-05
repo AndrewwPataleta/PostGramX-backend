@@ -82,6 +82,7 @@ describe('PayoutExecutionService', () => {
             direction: TransactionDirection.OUT,
             status: TransactionStatus.PENDING,
             amountNano: '1000000000',
+            amountToUserNano: '1000000000',
             serviceFeeNano: '0',
             networkFeeNano: '0',
             totalDebitNano: '1000000000',
@@ -173,5 +174,104 @@ describe('PayoutExecutionService', () => {
         expect(payout?.status).toEqual(TransactionStatus.AWAITING_CONFIRMATION);
         expect(payout?.tonTransferId).toBeTruthy();
         expect(transferRepo.data[0].status).toEqual(TonTransferStatus.PENDING);
+    });
+
+    it('sends the full payout amount to the user', async () => {
+        await transactionRepo.save({
+            id: payoutId,
+            userId,
+            type: TransactionType.PAYOUT,
+            direction: TransactionDirection.OUT,
+            status: TransactionStatus.PENDING,
+            amountNano: '1000000000',
+            amountToUserNano: '1000000000',
+            serviceFeeNano: '0',
+            networkFeeNano: '0',
+            totalDebitNano: '1000000000',
+            feePolicyVersion: 1,
+            receivedNano: '0',
+            currency: 'TON' as any,
+            description: 'Payout request',
+            dealId: null,
+            escrowId: null,
+            channelId: null,
+            sourceRequestId: null,
+            counterpartyUserId: null,
+            depositAddress: null,
+            externalTxHash: null,
+            externalExplorerUrl: null,
+            tonTransferId: null,
+            destinationAddress: tonAddress,
+            idempotencyKey: 'payout-full-amount',
+            errorCode: null,
+            errorMessage: null,
+            metadata: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            confirmedAt: null,
+            completedAt: null,
+        } as TransactionEntity);
+
+        const manager = {
+            getRepository: (entity: any) => {
+                if (entity === TransactionEntity) {
+                    return transactionRepo;
+                }
+                if (entity === TonTransferEntity) {
+                    return transferRepo;
+                }
+                throw new Error('Unknown repository');
+            },
+        };
+
+        const dataSource = {
+            query: jest.fn().mockResolvedValue([{locked: true}]),
+            transaction: jest.fn(async (fn: any) => fn(manager)),
+        } as any;
+
+        const schedulerRegistry = {
+            addCronJob: jest.fn(),
+            deleteCronJob: jest.fn(),
+        } as any;
+
+        const ledgerService = {
+            getWithdrawableBalance: jest.fn().mockResolvedValue({
+                withdrawableNano: '1000000000',
+                creditsNano: '1000000000',
+                debitsNano: '0',
+                reservedNano: '0',
+            }),
+            getReservedPayoutsTotal: jest.fn().mockResolvedValue('0'),
+            updateFeeTransactionsStatus: jest.fn(),
+        };
+
+        const tonHotWalletService = {
+            getBalance: jest.fn().mockResolvedValue(2000000000n),
+            sendTon: jest.fn().mockResolvedValue({txHash: null}),
+        };
+
+        const config = {
+            payoutCronEverySeconds: 30,
+            payoutBatchLimit: 20,
+            payoutDryRun: false,
+            hotWalletAddress: 'EQC-hot',
+        } as any;
+
+        const service = new PayoutExecutionService(
+            schedulerRegistry,
+            dataSource,
+            transactionRepo as any,
+            transferRepo as any,
+            ledgerService as any,
+            tonHotWalletService as any,
+            config,
+        );
+
+        await service.processQueue();
+
+        expect(tonHotWalletService.sendTon).toHaveBeenCalledWith({
+            toAddress: tonAddress,
+            amountNano: 1000000000n,
+        });
     });
 });

@@ -47,6 +47,9 @@ export class TransactionEntity extends BaseEntity {
     amountNano: string;
 
     @Column({type: 'bigint', default: '0'})
+    amountToUserNano: string;
+
+    @Column({type: 'bigint', default: '0'})
     serviceFeeNano: string;
 
     @Column({type: 'bigint', default: '0'})

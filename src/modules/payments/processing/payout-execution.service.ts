@@ -164,11 +164,13 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                         }
                     }
 
-                    const amountNano = BigInt(current.amountNano);
+                    const amountToUserNano = BigInt(
+                        current.amountToUserNano || current.amountNano,
+                    );
                     const totalDebitNano = BigInt(
                         current.totalDebitNano || current.amountNano,
                     );
-                    if (amountNano <= 0n || totalDebitNano <= 0n) {
+                    if (amountToUserNano <= 0n || totalDebitNano <= 0n) {
                         await this.failPayout(txRepo, current, 'Invalid payout amount');
                         return null;
                     }
@@ -210,7 +212,9 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                                 network: current.currency,
                                 fromAddress: this.config.hotWalletAddress ?? '',
                                 toAddress: current.destinationAddress,
-                                amountNano: current.amountNano,
+                                amountNano: (
+                                    current.amountToUserNano ?? current.amountNano
+                                ),
                                 txHash: null,
                                 observedAt: this.config.payoutDryRun ? now : null,
                                 raw: {dryRun: this.config.payoutDryRun},
@@ -283,7 +287,10 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
             );
             const canSpendNano = hotBalanceNano - BigInt(reservedNano);
 
-            if (canSpendNano < BigInt(lockedPayout.amountNano)) {
+            const amountToUserNano = BigInt(
+                lockedPayout.amountToUserNano || lockedPayout.amountNano,
+            );
+            if (canSpendNano < amountToUserNano) {
                 await this.transactionRepository.update(lockedPayout.id, {
                     status: TransactionStatus.BLOCKED_LIQUIDITY,
                     errorCode: 'INSUFFICIENT_LIQUIDITY',
@@ -293,7 +300,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                     `Payout blocked by liquidity`,
                     JSON.stringify({
                         payoutId: lockedPayout.id,
-                        amountNano: lockedPayout.amountNano,
+                        amountNano: (lockedPayout.amountToUserNano ??
+                            lockedPayout.amountNano),
                         hotBalanceNano: hotBalanceNano.toString(),
                         reservedNano,
                     }),
@@ -335,7 +343,7 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
             try {
                 await this.tonHotWalletService.sendTon({
                     toAddress: lockedPayout.destinationAddress ?? '',
-                    amountNano: BigInt(lockedPayout.amountNano),
+                    amountNano: amountToUserNano,
                 });
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -381,7 +389,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                 JSON.stringify({
                     payoutId: lockedPayout.id,
                     tonTransferId: transfer.id,
-                    amountNano: lockedPayout.amountNano,
+                        amountNano: (lockedPayout.amountToUserNano ??
+                            lockedPayout.amountNano),
                     destination: lockedPayout.destinationAddress,
                 }),
             );

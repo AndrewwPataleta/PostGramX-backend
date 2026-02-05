@@ -80,6 +80,8 @@ export class PayoutsService {
                 const withdrawableNano = balance.withdrawableNano;
                 let amountNano = payload.amountNano ?? withdrawableNano;
                 let feeResult: Awaited<ReturnType<FeesService['computePayoutFees']>>;
+                const payoutReceivesFullAmount =
+                    await this.feesService.payoutReceivesFullAmount();
 
                 if (mode === PayoutRequestMode.AMOUNT) {
                     if (!this.isValidAmount(amountNano)) {
@@ -92,20 +94,30 @@ export class PayoutsService {
                         destinationAddress,
                     });
                 } else {
-                    const resolved = await this.resolvePayoutAmountForAll({
-                        withdrawableNano,
-                        currency,
-                        destinationAddress,
-                    });
-                    amountNano = resolved.amountNano;
-                    feeResult = resolved.fees;
-                    if (BigInt(amountNano) > 0n) {
+                    if (payoutReceivesFullAmount) {
+                        amountNano = withdrawableNano;
                         feeResult = await this.feesService.validatePayout({
                             amountNano,
                             withdrawableNano,
                             currency,
                             destinationAddress,
                         });
+                    } else {
+                        const resolved = await this.resolvePayoutAmountForAll({
+                            withdrawableNano,
+                            currency,
+                            destinationAddress,
+                        });
+                        amountNano = resolved.amountNano;
+                        feeResult = resolved.fees;
+                        if (BigInt(amountNano) > 0n) {
+                            feeResult = await this.feesService.validatePayout({
+                                amountNano,
+                                withdrawableNano,
+                                currency,
+                                destinationAddress,
+                            });
+                        }
                     }
                 }
 
@@ -152,6 +164,7 @@ export class PayoutsService {
                     direction: TransactionDirection.OUT,
                     status: TransactionStatus.PENDING,
                     amountNano,
+                    amountToUserNano: amountNano,
                     serviceFeeNano: feeResult.serviceFeeNano,
                     networkFeeNano: feeResult.networkFeeNano,
                     totalDebitNano: feeResult.totalDebitNano,
@@ -223,6 +236,7 @@ export class PayoutsService {
             payoutId: transaction.id,
             status: transaction.status,
             amountNano: transaction.amountNano,
+            amountToUserNano: transaction.amountToUserNano ?? transaction.amountNano,
             serviceFeeNano: transaction.serviceFeeNano,
             networkFeeNano: transaction.networkFeeNano,
             totalDebitNano: transaction.totalDebitNano,

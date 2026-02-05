@@ -44,6 +44,28 @@ export class FeesService {
         const config = await this.feesConfigService.getConfig();
         const amount = BigInt(options.amountNano ?? '0');
 
+        if (config.payoutUserReceivesFullAmount) {
+            return {
+                serviceFeeNano: '0',
+                networkFeeNano: '0',
+                totalDebitNano: amount.toString(),
+                policyVersion: FeesService.POLICY_VERSION,
+                breakdown: {
+                    feesEnabled: false,
+                    serviceFeeMode: config.payoutServiceFeeMode,
+                    serviceFeeBps: config.payoutServiceFeeBps,
+                    serviceFeeFixedNano: config.payoutServiceFeeFixedNano,
+                    serviceFeeMinNano: config.payoutServiceFeeMinNano,
+                    serviceFeeMaxNano: config.payoutServiceFeeMaxNano,
+                    networkFeeMode: config.payoutNetworkFeeMode,
+                    networkFeeFixedNano: config.payoutNetworkFeeFixedNano,
+                    networkFeeMinNano: config.payoutNetworkFeeMinNano,
+                    networkFeeMaxNano: config.payoutNetworkFeeMaxNano,
+                    networkFeeEstimated: false,
+                },
+            };
+        }
+
         if (!config.feesEnabled) {
             return {
                 serviceFeeNano: '0',
@@ -108,11 +130,13 @@ export class FeesService {
         }
 
         const config = await this.feesConfigService.getConfig();
-        const minNet = config.payoutMinNetAmountNano
-            ? BigInt(config.payoutMinNetAmountNano)
-            : null;
-        if (minNet !== null && amount < minNet) {
-            throw new PayoutServiceError(PayoutErrorCode.INVALID_AMOUNT);
+        if (!config.payoutUserReceivesFullAmount) {
+            const minNet = config.payoutMinNetAmountNano
+                ? BigInt(config.payoutMinNetAmountNano)
+                : null;
+            if (minNet !== null && amount < minNet) {
+                throw new PayoutServiceError(PayoutErrorCode.INVALID_AMOUNT);
+            }
         }
 
         const fees = await this.computePayoutFees({
@@ -129,6 +153,11 @@ export class FeesService {
         }
 
         return fees;
+    }
+
+    async payoutReceivesFullAmount(): Promise<boolean> {
+        const config = await this.feesConfigService.getConfig();
+        return config.payoutUserReceivesFullAmount;
     }
 
     private computeServiceFeeNano(

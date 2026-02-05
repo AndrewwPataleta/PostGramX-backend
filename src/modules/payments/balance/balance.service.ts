@@ -11,6 +11,7 @@ import {TransactionType} from '../../../common/constants/payments/transaction-ty
 import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
 import {BalanceServiceError, BalanceErrorCode} from './errors/balance-service.error';
+import {FeesConfigService} from '../fees/fees-config.service';
 
 export type BalanceOverviewResponse = {
     currency: 'TON';
@@ -18,6 +19,9 @@ export type BalanceOverviewResponse = {
     pendingNano: string;
     lifetimeEarnedNano: string;
     lifetimePaidOutNano: string;
+    withdrawableNano: string;
+    payoutReceivesFullAmount: boolean;
+    displayNoteKey?: string;
     lastUpdatedAt: string;
 };
 
@@ -30,6 +34,7 @@ export class BalanceService {
         private readonly escrowRepository: Repository<DealEscrowEntity>,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
+        private readonly feesConfigService: FeesConfigService,
     ) {}
 
     async getOverview(
@@ -194,12 +199,21 @@ export class BalanceService {
             .map((v) => new Date(v as string).getTime())
             .sort((a, b) => b - a)[0];
 
+        const payoutConfig = await this.feesConfigService.getConfig();
+        const payoutReceivesFullAmount =
+            payoutConfig.payoutUserReceivesFullAmount;
+
         return {
             currency,
             availableNano: available.toString(),
             pendingNano: pending.toString(),
             lifetimeEarnedNano: earned.toString(),
             lifetimePaidOutNano: paidOut.toString(),
+            withdrawableNano: available.toString(),
+            payoutReceivesFullAmount,
+            displayNoteKey: payoutReceivesFullAmount
+                ? 'balance.withdraw_full_amount_note'
+                : undefined,
             lastUpdatedAt: lastUpdatedAt
                 ? new Date(lastUpdatedAt).toISOString()
                 : new Date(0).toISOString(),
