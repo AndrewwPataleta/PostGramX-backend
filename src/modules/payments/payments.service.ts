@@ -340,7 +340,7 @@ export class PaymentsService {
         this.logger.log(`Refund queued for deal ${dealId}: ${reason}`);
     }
 
-    async markEscrowPayoutPending(dealId: string): Promise<void> {
+    async markEscrowPaidOut(dealId: string): Promise<void> {
         const now = new Date();
         await this.dataSource.transaction(async (manager) => {
             const escrowRepository = manager.getRepository(DealEscrowEntity);
@@ -354,12 +354,18 @@ export class PaymentsService {
                 return;
             }
 
-            if (escrow.status !== EscrowStatus.PAID_HELD) {
+            if (
+                ![
+                    EscrowStatus.PAID_HELD,
+                    EscrowStatus.PAYOUT_PENDING,
+                ].includes(escrow.status)
+            ) {
                 return;
             }
 
             await escrowRepository.update(escrow.id, {
-                status: EscrowStatus.PAYOUT_PENDING,
+                status: EscrowStatus.PAID_OUT,
+                paidOutAt: now,
             });
 
             await dealRepository.update(dealId, {
