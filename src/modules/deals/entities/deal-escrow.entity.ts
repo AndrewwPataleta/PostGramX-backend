@@ -77,6 +77,12 @@ export class DealEscrowEntity {
     @Column({type: 'timestamptz', nullable: true})
     paidOutAt: Date | null;
 
+    @Column({type: 'text', nullable: true})
+    lastSeenLt: string | null;
+
+    @Column({type: 'text', nullable: true})
+    lastSeenTxHash: string | null;
+
     @CreateDateColumn({type: 'timestamptz'})
     createdAt: Date;
 

@@ -196,6 +196,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                             where: {idempotencyKey},
                         });
                         if (!transfer) {
+                            const now = new Date();
+                            const observedWindowMs = 6 * 60 * 60 * 1000;
                             transfer = transferRepo.create({
                                 transactionId: current.id,
                                 dealId: current.dealId ?? null,
@@ -210,11 +212,20 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                                 toAddress: current.destinationAddress,
                                 amountNano: current.amountNano,
                                 txHash: null,
-                                observedAt: this.config.payoutDryRun ? new Date() : null,
+                                observedAt: this.config.payoutDryRun ? now : null,
                                 raw: {dryRun: this.config.payoutDryRun},
                                 errorMessage: null,
                             });
                             transfer = await transferRepo.save(transfer);
+
+                            await txRepo.update(current.id, {
+                                expectedObservedAfter: new Date(
+                                    now.getTime() - observedWindowMs,
+                                ),
+                                expectedObservedBefore: new Date(
+                                    now.getTime() + observedWindowMs,
+                                ),
+                            });
                         }
 
                         await txRepo.update(current.id, {

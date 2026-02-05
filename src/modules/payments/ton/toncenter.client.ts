@@ -29,7 +29,16 @@ export class TonCenterClient {
         return (data.result ?? data) as T;
     }
 
-    getTransactions(address: string, limit = 10) {
-        return this.jsonRpc<any[]>("getTransactions", { address, limit });
+    getTransactions(
+        address: string,
+        limit = 10,
+        cursor?: {lt: string; hash: string},
+    ) {
+        const params: Record<string, any> = {address, limit};
+        if (cursor?.lt && cursor?.hash) {
+            params.lt = cursor.lt;
+            params.hash = cursor.hash;
+        }
+        return this.jsonRpc<any[]>("getTransactions", params);
     }
 }
