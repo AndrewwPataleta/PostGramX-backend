@@ -35,7 +35,9 @@ export class PayoutsService {
 
     async requestPayout(payload: PayoutRequestPayload) {
         const currency = payload.currency ?? CurrencyCode.TON;
-        const mode = payload.mode ?? PayoutRequestMode.ALL;
+        const mode =
+            payload.mode ??
+            (payload.amountNano ? PayoutRequestMode.AMOUNT : PayoutRequestMode.ALL);
 
         const wallet = await this.userWalletService.getWallet(payload.userId);
         if (!wallet?.tonAddress) {
@@ -44,6 +46,16 @@ export class PayoutsService {
 
         const destinationAddress = wallet.tonAddress;
         let created = false;
+        this.logger.log(
+            `[PAYOUT-REQUEST] start ${JSON.stringify({
+                userId: payload.userId,
+                amountNano: payload.amountNano,
+                currency,
+                mode,
+                destinationAddress,
+                idempotencyKey: payload.idempotencyKey,
+            })}`,
+        );
 
         const transaction = await this.ledgerService.withUserLock(
             payload.userId,
@@ -163,12 +175,15 @@ export class PayoutsService {
                 created = true;
 
                 this.logger.log(
-                    `[PAYOUT-REQUEST] ${JSON.stringify({
+                    `[PAYOUT-REQUEST] created ${JSON.stringify({
                         payoutId: saved.id,
                         userId: payload.userId,
                         amountNano,
                         withdrawableNano,
                         totalDebitNano: feeResult.totalDebitNano,
+                        serviceFeeNano: feeResult.serviceFeeNano,
+                        networkFeeNano: feeResult.networkFeeNano,
+                        feePolicyVersion: feeResult.policyVersion,
                     })}`,
                 );
 
