@@ -23,15 +23,6 @@ async function bootstrap() {
     const bodyLimit = process.env.REQUEST_BODY_LIMIT || '30mb';
     app.use(json({limit: bodyLimit}));
     app.use(urlencoded({extended: true, limit: bodyLimit}));
-    const corsOrigins = (process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || '')
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter((origin) => origin.length > 0);
-
-    app.enableCors({
-        origin: corsOrigins.length > 0 ? corsOrigins : true,
-        credentials: true,
-    });
 
     if (['local', 'stage'].includes(process.env.NODE_ENV || '')) {
         const config = new DocumentBuilder()
