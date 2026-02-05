@@ -122,9 +122,23 @@ export class TonPaymentWatcher {
     async monitorOutgoingTransfers() {
         try {
             const hotWalletAddress = await this.tonHotWalletService.getAddress();
+            const pendingTransfersCount = await this.dataSource
+                .getRepository(TonTransferEntity)
+                .createQueryBuilder('transfer')
+                .where('transfer.type = :type', {
+                    type: TonTransferType.PAYOUT,
+                })
+                .andWhere('transfer.status = :status', {
+                    status: TonTransferStatus.PENDING,
+                })
+                .getCount();
+            const limit = Math.min(
+                100,
+                Math.max(20, pendingTransfersCount * 5),
+            );
             const transactions = await this.ton.getTransactions(
                 hotWalletAddress,
-                20,
+                limit,
             );
 
             for (const entry of transactions) {
@@ -467,7 +481,7 @@ export class TonPaymentWatcher {
 
     private normalizeAddress(address: string): string {
         try {
-            return Address.parse(address).toString();
+            return Address.parse(address).toRawString();
         } catch (error) {
             return address.trim().toLowerCase();
         }
