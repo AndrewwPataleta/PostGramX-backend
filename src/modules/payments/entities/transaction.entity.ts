@@ -22,7 +22,10 @@ import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 @Index('IDX_transactions_status', ['status'])
 @Index('IDX_transactions_type', ['type'])
 @Index('IDX_transactions_source_request_id', ['sourceRequestId'])
-@Index('UQ_transactions_external_tx_hash', ['externalTxHash'], {unique: true})
+@Index('UQ_transactions_external_tx_hash_currency', ['externalTxHash', 'currency'], {
+    unique: true,
+    where: '"externalTxHash" IS NOT NULL',
+})
 @Index('UQ_transactions_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TransactionEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
@@ -117,6 +120,12 @@ export class TransactionEntity extends BaseEntity {
 
     @Column({type: 'timestamptz', nullable: true})
     completedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    expectedObservedAfter: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    expectedObservedBefore: Date | null;
 
     @ManyToOne(() => DealEscrowEntity, {nullable: true})
     @JoinColumn({name: 'escrowId'})

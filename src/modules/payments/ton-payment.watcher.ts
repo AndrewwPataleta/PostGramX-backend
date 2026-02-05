@@ -29,6 +29,7 @@ import {FeesConfigService} from './fees/fees-config.service';
 import {Address} from '@ton/ton';
 import {TelegramMessengerService} from '../telegram/telegram-messenger.service';
 import {User} from '../auth/entities/user.entity';
+import {createHash} from 'crypto';
 
 @Injectable()
 export class TonPaymentWatcher {
@@ -60,6 +61,12 @@ export class TonPaymentWatcher {
 
     @Cron('*/15 * * * * *')
     async monitorIncomingPayments() {
+        const lockAcquired = await this.acquireAdvisoryLock(
+            'ton:incoming-payments',
+        );
+        if (!lockAcquired) {
+            return;
+        }
         try {
 
             const escrows = await this.escrowRepo.find({
@@ -81,14 +88,43 @@ export class TonPaymentWatcher {
                     continue;
                 }
 
-                const transactions = await this.ton.getTransactions(
-                    escrow.depositAddress,
-                    10,
-                );
+                const storedCursor =
+                    escrow.lastSeenLt && escrow.lastSeenTxHash
+                        ? {lt: escrow.lastSeenLt, hash: escrow.lastSeenTxHash}
+                        : null;
+                const {transactions, newestCursor} =
+                    await this.fetchIncomingTransactions(
+                        escrow.depositAddress,
+                        storedCursor,
+                    );
 
+                if (!transactions.length) {
+                    continue;
+                }
+
+                const normalizedDepositAddress = this.normalizeAddress(
+                    escrow.depositAddress,
+                );
                 for (const entry of transactions) {
                     const inMsg = (entry as any).in_msg;
                     if (!inMsg?.value) {
+                        continue;
+                    }
+                    if (!inMsg?.destination) {
+                        continue;
+                    }
+                    const isAborted = Boolean((entry as any)?.aborted);
+                    const isBounced = Boolean(
+                        inMsg?.bounced ?? inMsg?.bounce ?? (entry as any)?.bounced,
+                    );
+                    if (isAborted || isBounced) {
+                        continue;
+                    }
+
+                    const normalizedDestination = this.normalizeAddress(
+                        String(inMsg.destination),
+                    );
+                    if (normalizedDestination !== normalizedDepositAddress) {
                         continue;
                     }
 
@@ -106,7 +142,17 @@ export class TonPaymentWatcher {
                         fromAddress: inMsg.source ?? 'unknown',
                         toAddress: escrow.depositAddress,
                         observedAt,
-                        raw: entry as any,
+                        raw: this.buildMinimalRaw(entry, {
+                            txHash,
+                            direction: 'in',
+                        }),
+                    });
+                }
+
+                if (newestCursor) {
+                    await this.escrowRepo.update(escrow.id, {
+                        lastSeenLt: newestCursor.lt,
+                        lastSeenTxHash: newestCursor.hash,
                     });
                 }
             }
@@ -115,18 +161,26 @@ export class TonPaymentWatcher {
                 'Watcher error',
                 err instanceof Error ? err.stack : String(err),
             );
+        } finally {
+            await this.releaseAdvisoryLock('ton:incoming-payments');
         }
     }
 
     @Cron('*/20 * * * * *')
     async monitorOutgoingTransfers() {
+        const lockAcquired = await this.acquireAdvisoryLock(
+            'ton:outgoing-transfers',
+        );
+        if (!lockAcquired) {
+            return;
+        }
         try {
             const hotWalletAddress = await this.tonHotWalletService.getAddress();
             const pendingTransfersCount = await this.dataSource
                 .getRepository(TonTransferEntity)
                 .createQueryBuilder('transfer')
-                .where('transfer.type = :type', {
-                    type: TonTransferType.PAYOUT,
+                .where('transfer.type IN (:...types)', {
+                    types: [TonTransferType.PAYOUT, TonTransferType.FEE],
                 })
                 .andWhere('transfer.status = :status', {
                     status: TonTransferStatus.PENDING,
@@ -165,7 +219,11 @@ export class TonPaymentWatcher {
                         fromAddress: hotWalletAddress,
                         toAddress: String(msg.destination),
                         observedAt,
-                        raw: entry as any,
+                        raw: this.buildMinimalRaw(entry, {
+                            txHash,
+                            direction: 'out',
+                            outMsg: msg,
+                        }),
                     });
                 }
             }
@@ -176,7 +234,134 @@ export class TonPaymentWatcher {
                 'Outgoing watcher error',
                 err instanceof Error ? err.stack : String(err),
             );
+        } finally {
+            await this.releaseAdvisoryLock('ton:outgoing-transfers');
         }
+    }
+
+    private async fetchIncomingTransactions(
+        address: string,
+        stopCursor: {lt: string; hash: string} | null,
+    ): Promise<{transactions: any[]; newestCursor: {lt: string; hash: string} | null}> {
+        const limit = 50;
+        const transactions: any[] = [];
+        let cursor: {lt: string; hash: string} | null = null;
+        let newestCursor: {lt: string; hash: string} | null = null;
+        let reachedCursor = false;
+
+        do {
+            const batch = await this.ton.getTransactions(
+                address,
+                limit,
+                cursor ?? undefined,
+            );
+            if (!batch.length) {
+                break;
+            }
+
+            for (const entry of batch) {
+                const entryCursor = this.getTransactionCursor(entry);
+                if (!newestCursor && entryCursor) {
+                    newestCursor = entryCursor;
+                }
+                if (
+                    stopCursor &&
+                    entryCursor &&
+                    entryCursor.lt === stopCursor.lt &&
+                    entryCursor.hash === stopCursor.hash
+                ) {
+                    reachedCursor = true;
+                    break;
+                }
+                transactions.push(entry);
+            }
+
+            if (!stopCursor || reachedCursor || batch.length < limit) {
+                break;
+            }
+
+            const lastEntry = batch[batch.length - 1];
+            const lastCursor = this.getTransactionCursor(lastEntry);
+            if (!lastCursor) {
+                break;
+            }
+            cursor = lastCursor;
+        } while (true);
+
+        return {transactions, newestCursor};
+    }
+
+    private getTransactionCursor(
+        entry: Record<string, any>,
+    ): {lt: string; hash: string} | null {
+        const txHash =
+            entry?.transaction_id?.hash ?? entry?.hash ?? entry?.txHash;
+        const lt =
+            entry?.transaction_id?.lt ?? entry?.lt ?? entry?.transaction_id?.lt;
+        if (!txHash || !lt) {
+            return null;
+        }
+        return {lt: String(lt), hash: String(txHash).toLowerCase()};
+    }
+
+    private buildMinimalRaw(
+        entry: Record<string, any>,
+        options: {
+            txHash: string;
+            direction: 'in' | 'out';
+            outMsg?: Record<string, any>;
+        },
+    ): Record<string, unknown> {
+        const inMsg = entry?.in_msg;
+        const outMsgs = Array.isArray(entry?.out_msgs) ? entry.out_msgs : [];
+        const normalizedOutMsgs = options.outMsg
+            ? [options.outMsg]
+            : outMsgs.slice(0, 5);
+        return {
+            txHash: options.txHash,
+            utime: entry?.utime ?? null,
+            lt: entry?.transaction_id?.lt ?? entry?.lt ?? null,
+            aborted: entry?.aborted ?? null,
+            direction: options.direction,
+            in_msg: inMsg
+                ? {
+                      source: inMsg.source ?? null,
+                      destination: inMsg.destination ?? null,
+                      value: inMsg.value ?? null,
+                      bounced: inMsg.bounced ?? inMsg.bounce ?? null,
+                  }
+                : null,
+            out_msgs: normalizedOutMsgs.map((msg: any) => ({
+                source: msg?.source ?? null,
+                destination: msg?.destination ?? null,
+                value: msg?.value ?? null,
+                bounced: msg?.bounced ?? msg?.bounce ?? null,
+            })),
+        };
+    }
+
+    private async acquireAdvisoryLock(key: string): Promise<boolean> {
+        const [key1, key2] = this.buildAdvisoryLockKey(key);
+        const result = await this.dataSource.query(
+            'SELECT pg_try_advisory_lock($1, $2) AS locked',
+            [key1, key2],
+        );
+        return Boolean(result?.[0]?.locked);
+    }
+
+    private async releaseAdvisoryLock(key: string): Promise<void> {
+        const [key1, key2] = this.buildAdvisoryLockKey(key);
+        await this.dataSource.query('SELECT pg_advisory_unlock($1, $2)', [
+            key1,
+            key2,
+        ]);
+    }
+
+    private buildAdvisoryLockKey(key: string): [number, number] {
+        const hash = createHash('sha256').update(key).digest();
+        const part1 = hash.readInt32BE(0);
+        const part2 = hash.readInt32BE(4);
+        return [part1, part2];
     }
 
     private async processTransfer(
@@ -224,7 +409,10 @@ export class TonPaymentWatcher {
             }
 
             const existingTx = await txRepo.findOne({
-                where: {externalTxHash: transfer.txHash},
+                where: {
+                    externalTxHash: transfer.txHash,
+                    currency: lockedEscrow.currency,
+                },
             });
             if (existingTx) {
                 return false;
@@ -250,6 +438,7 @@ export class TonPaymentWatcher {
                     channelId: deal.channelId,
                     depositAddress: lockedEscrow.depositAddress,
                     externalTxHash: transfer.txHash,
+                    idempotencyKey: `deposit:${transfer.txHash}`,
                     description: 'Deposit received',
                     confirmedAt: new Date(),
                     completedAt: new Date(),
@@ -270,7 +459,9 @@ export class TonPaymentWatcher {
                     amountNano: transfer.amountNano,
                     txHash: transfer.txHash,
                     observedAt: transfer.observedAt,
-                    raw: isLate ? {...transfer.raw, late: true} : transfer.raw,
+                    raw: isLate
+                        ? {...transfer.raw, late: true}
+                        : transfer.raw,
                     idempotencyKey: `deposit:${transfer.txHash}`,
                     errorMessage: null,
                 })
@@ -376,54 +567,76 @@ export class TonPaymentWatcher {
         raw: Record<string, unknown>;
     }): Promise<void> {
         let payoutUserId: string | null = null;
+        const matchWindowMs = 6 * 60 * 60 * 1000;
         await this.dataSource.transaction(async (manager) => {
             const transferRepo = manager.getRepository(TonTransferEntity);
             const txRepo = manager.getRepository(TransactionEntity);
 
             let tonTransfer = await transferRepo.findOne({
-                where: {txHash: transfer.txHash},
+                where: {
+                    txHash: transfer.txHash,
+                    network: CurrencyCode.TON,
+                },
             });
 
             if (!tonTransfer) {
                 const normalizedToAddress = this.normalizeAddress(transfer.toAddress);
-                const observedAtMs = transfer.observedAt.getTime();
-                const candidatePayouts = await txRepo
-                    .createQueryBuilder('tx')
-                    .where('tx.type = :type', {
-                        type: TransactionType.PAYOUT,
+                const windowStart = new Date(
+                    transfer.observedAt.getTime() - matchWindowMs,
+                );
+                const windowEnd = new Date(
+                    transfer.observedAt.getTime() + matchWindowMs,
+                );
+                const candidates = await transferRepo
+                    .createQueryBuilder('transfer')
+                    .where('transfer.status = :status', {
+                        status: TonTransferStatus.PENDING,
                     })
-                    .andWhere('tx.direction = :direction', {
-                        direction: TransactionDirection.OUT,
+                    .andWhere('transfer.type IN (:...types)', {
+                        types: [TonTransferType.PAYOUT, TonTransferType.FEE],
                     })
-                    .andWhere('tx.status = :status', {
-                        status: TransactionStatus.AWAITING_CONFIRMATION,
+                    .andWhere('transfer.network = :network', {
+                        network: CurrencyCode.TON,
                     })
-                    .andWhere('tx.createdAt >= :from', {
-                        from: new Date(observedAtMs - 24 * 60 * 60 * 1000),
+                    .andWhere('transfer.amountNano = :amountNano', {
+                        amountNano: transfer.amountNano,
                     })
-                    .orderBy('tx.createdAt', 'DESC')
+                    .andWhere('transfer.createdAt BETWEEN :start AND :end', {
+                        start: windowStart,
+                        end: windowEnd,
+                    })
                     .getMany();
 
-                const payout = candidatePayouts.find((candidate) => {
-                    if (!candidate.destinationAddress) {
+                const matching = candidates.filter((candidate) => {
+                    if (!candidate.toAddress) {
                         return false;
                     }
                     return (
-                        this.normalizeAddress(candidate.destinationAddress) ===
+                        this.normalizeAddress(candidate.toAddress) ===
                         normalizedToAddress
                     );
                 });
 
-                if (payout) {
-                    if (payout.tonTransferId) {
-                        tonTransfer = await transferRepo.findOne({
-                            where: {id: payout.tonTransferId},
-                        });
-                    } else {
-                        tonTransfer = await transferRepo.findOne({
-                            where: {transactionId: payout.id},
-                        });
-                    }
+                if (matching.length > 1) {
+                    this.logger.warn(
+                        `Ambiguous outgoing transfer match`,
+                        JSON.stringify({
+                            txHash: transfer.txHash,
+                            amountNano: transfer.amountNano,
+                            toAddress: transfer.toAddress,
+                            candidates: matching.map((candidate) => ({
+                                id: candidate.id,
+                                type: candidate.type,
+                                transactionId: candidate.transactionId,
+                                createdAt: candidate.createdAt,
+                            })),
+                        }),
+                    );
+                    return;
+                }
+
+                if (matching.length === 1) {
+                    tonTransfer = matching[0];
                 }
             }
 
@@ -528,8 +741,8 @@ export class TonPaymentWatcher {
         const pendingTransfers = await this.dataSource
             .getRepository(TonTransferEntity)
             .createQueryBuilder('transfer')
-            .where('transfer.type = :type', {
-                type: TonTransferType.PAYOUT,
+            .where('transfer.type IN (:...types)', {
+                types: [TonTransferType.PAYOUT, TonTransferType.FEE],
             })
             .andWhere('transfer.status IN (:...statuses)', {
                 statuses: [
@@ -591,24 +804,30 @@ export class TonPaymentWatcher {
                                     status: TransactionStatus.COMPLETED,
                                     completedAt: new Date(),
                                 });
-                                await this.ledgerService.updateFeeTransactionsStatus(
-                                    transfer.transactionId,
-                                    TransactionStatus.COMPLETED,
-                                    manager,
-                                );
-                                const serviceFee = BigInt(
-                                    transaction.serviceFeeNano ?? '0',
-                                );
-                                const networkFee = BigInt(
-                                    transaction.networkFeeNano ?? '0',
-                                );
-                                const totalFee = serviceFee + networkFee;
-                                if (totalFee > 0n) {
-                                    feeTransferContext = {
-                                        payoutId: transaction.id,
-                                        currency: transaction.currency,
-                                        amountNano: totalFee,
-                                    };
+                                if (
+                                    transaction.type === TransactionType.PAYOUT &&
+                                    transaction.direction ===
+                                        TransactionDirection.OUT
+                                ) {
+                                    await this.ledgerService.updateFeeTransactionsStatus(
+                                        transfer.transactionId,
+                                        TransactionStatus.COMPLETED,
+                                        manager,
+                                    );
+                                    const serviceFee = BigInt(
+                                        transaction.serviceFeeNano ?? '0',
+                                    );
+                                    const networkFee = BigInt(
+                                        transaction.networkFeeNano ?? '0',
+                                    );
+                                    const totalFee = serviceFee + networkFee;
+                                    if (totalFee > 0n) {
+                                        feeTransferContext = {
+                                            payoutId: transaction.id,
+                                            currency: transaction.currency,
+                                            amountNano: totalFee,
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -669,11 +888,17 @@ export class TonPaymentWatcher {
                                 errorCode: 'TRANSFER_TIMEOUT',
                                 errorMessage: 'Transfer timeout',
                             });
-                            await this.ledgerService.updateFeeTransactionsStatus(
-                                transfer.transactionId,
-                                TransactionStatus.CANCELED,
-                                manager,
-                            );
+                            if (
+                                transaction.type === TransactionType.PAYOUT &&
+                                transaction.direction ===
+                                    TransactionDirection.OUT
+                            ) {
+                                await this.ledgerService.updateFeeTransactionsStatus(
+                                    transfer.transactionId,
+                                    TransactionStatus.CANCELED,
+                                    manager,
+                                );
+                            }
                         }
                     }
                 });
@@ -737,7 +962,7 @@ export class TonPaymentWatcher {
                     toAddress: config.feeRevenueAddress,
                     amountNano: options.amountNano.toString(),
                     txHash: null,
-                    observedAt: new Date(),
+                    observedAt: null,
                     raw: {reason: 'fee_revenue', payoutId: options.payoutId},
                     errorMessage: null,
                 }),
@@ -750,18 +975,19 @@ export class TonPaymentWatcher {
         }
 
         try {
-            await this.tonHotWalletService.sendTon({
+            const {txHash} = await this.tonHotWalletService.sendTon({
                 toAddress: config.feeRevenueAddress,
                 amountNano: options.amountNano,
             });
             await transferRepo.update(transfer.id, {
-                status: TonTransferStatus.COMPLETED,
-                observedAt: new Date(),
+                status: TonTransferStatus.PENDING,
+                txHash: txHash ?? transfer.txHash,
+                observedAt: transfer.observedAt,
                 errorMessage: null,
             });
             this.logger.log(
                 `[TON-WATCHER] ${JSON.stringify({
-                    event: 'fee_revenue_sent',
+                    event: 'fee_revenue_broadcasted',
                     payoutId: options.payoutId,
                     tonTransferId: transfer.id,
                     amountNano: options.amountNano.toString(),
