@@ -89,29 +89,66 @@ export class TonHotWalletService {
         address: string,
         messageHash: string,
     ): Promise<string | null> {
-        const attempts = 10;
+        const attempts = 12;
         const delayMs = 1500;
+        const targetHash = this.normalizeHash(messageHash);
+
         for (let attempt = 0; attempt < attempts; attempt += 1) {
-            const transactions = await this.toncenter.getTransactions(address, 20);
+            const transactions = await this.toncenter.getTransactions(address, 50);
             for (const entry of transactions ?? []) {
                 const inMsg = (entry as any)?.in_msg;
-                const inMsgHash =
-                    inMsg?.hash ??
-                    inMsg?.message_hash ??
-                    inMsg?.msg_hash ??
-                    null;
-                if (!inMsgHash) {
-                    continue;
+                const inMsgHash = this.normalizeHash(
+                    inMsg?.hash ?? inMsg?.message_hash ?? inMsg?.msg_hash ?? null,
+                );
+                const outMsgs = Array.isArray((entry as any)?.out_msgs)
+                    ? (entry as any).out_msgs
+                    : [];
+                const outMsgMatch = outMsgs.some((msg: any) => {
+                    const outHash = this.normalizeHash(
+                        msg?.hash ?? msg?.message_hash ?? msg?.msg_hash ?? null,
+                    );
+                    return Boolean(outHash && targetHash && outHash === targetHash);
+                });
+                if (
+                    targetHash &&
+                    (inMsgHash === targetHash || outMsgMatch)
+                ) {
+                    const txHash =
+                        (entry as any)?.transaction_id?.hash ??
+                        (entry as any)?.hash;
+                    return txHash ? String(txHash).toLowerCase() : null;
                 }
-                if (String(inMsgHash).toLowerCase() !== messageHash) {
-                    continue;
-                }
-                const txHash =
-                    (entry as any)?.transaction_id?.hash ?? (entry as any)?.hash;
-                return txHash ? String(txHash).toLowerCase() : null;
             }
             await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
-        throw new Error('Unable to resolve transaction hash after broadcast');
+
+        const fallback = await this.toncenter.getTransactions(address, 1);
+        const fallbackHash =
+            (fallback?.[0] as any)?.transaction_id?.hash ??
+            (fallback?.[0] as any)?.hash;
+        return fallbackHash ? String(fallbackHash).toLowerCase() : null;
+    }
+
+    private normalizeHash(value: unknown): string | null {
+        if (typeof value !== 'string') {
+            return null;
+        }
+        let raw = value.trim();
+        if (!raw) {
+            return null;
+        }
+        if (raw.startsWith('0x') || raw.startsWith('0X')) {
+            raw = raw.slice(2);
+        }
+        if (/^[0-9a-fA-F]+$/.test(raw)) {
+            return raw.toLowerCase();
+        }
+        if (/^[A-Za-z0-9+/=]+$/.test(raw)) {
+            const decoded = Buffer.from(raw, 'base64');
+            if (decoded.length > 0) {
+                return decoded.toString('hex').toLowerCase();
+            }
+        }
+        return raw.toLowerCase();
     }
 }
