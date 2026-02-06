@@ -13,6 +13,7 @@ import {ChannelEntity} from '../channels/entities/channel.entity';
 import {DealsNotificationsService} from './deals-notifications.service';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {ChannelRole} from '../channels/types/channel-role.enum';
+import {ChannelModeratorsService} from '../channels/channel-moderators.service';
 import {DealListingSnapshot} from './types/deal-listing-snapshot.type';
 import {mapStageToDealStatus} from './state/deal-status.mapper';
 import {assertTransitionAllowed, DealStateError} from './state/deal-state.machine';
@@ -20,7 +21,8 @@ import {DEALS_CONFIG} from '../../config/deals.config';
 import {User} from '../auth/entities/user.entity';
 import {CreativeStatus} from '../../common/constants/deals/creative-status.constants';
 import {PaymentsService} from '../payments/payments.service';
-import {ChannelAdminRecheckService} from '../channels/guards/channel-admin-recheck.service';
+import {ChannelErrorCode} from '../channels/types/channel-error-code.enum';
+import {ChannelServiceError} from '../channels/errors/channel-service.error';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {formatTon} from '../payments/utils/bigint';
 import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
@@ -54,7 +56,7 @@ export class DealsService {
         private readonly userRepository: Repository<User>,
         private readonly dealsNotificationsService: DealsNotificationsService,
         private readonly paymentsService: PaymentsService,
-        private readonly channelAdminRecheckService: ChannelAdminRecheckService,
+        private readonly channelModeratorsService: ChannelModeratorsService,
     ) {
     }
 
@@ -84,7 +86,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.LISTING_NOT_FOUND);
         }
 
-        if (channel.createdByUserId === userId) {
+        if (channel.ownerUserId === userId) {
             throw new DealServiceError(DealErrorCode.SELF_DEAL_NOT_ALLOWED);
         }
 
@@ -121,7 +123,7 @@ export class DealsService {
                 .andWhere('membership.userId = :userId', {userId})
                 .andWhere('membership.isActive = true')
                 .andWhere('membership.role IN (:...roles)', {
-                    roles: [ChannelRole.OWNER, ChannelRole.MANAGER],
+                    roles: [ChannelRole.OWNER, ChannelRole.MODERATOR],
                 })
                 .getCount()) > 0;
 
@@ -560,6 +562,11 @@ export class DealsService {
             await this.dealsNotificationsService.notifyCreativeApproved(
                 updatedDeal,
             );
+            await this.dealsNotificationsService.notifyDealReviewAction(
+                updatedDeal,
+                userId,
+                'approved',
+            );
         }
 
         return {id: deal.id, stage: DealStage.PAYMENT_AWAITING};
@@ -632,6 +639,11 @@ export class DealsService {
             await this.dealsNotificationsService.notifyScheduleApproved(
                 updatedDeal,
                 updatedEscrow ?? null,
+            );
+            await this.dealsNotificationsService.notifyDealReviewAction(
+                updatedDeal,
+                userId,
+                'approved',
             );
         }
 
@@ -739,6 +751,11 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             await this.dealsNotificationsService.notifyAdvertiser(
                 updatedDeal,
                 'telegram.deal.creative.rejected_closed_advertiser',
+            );
+            await this.dealsNotificationsService.notifyDealReviewAction(
+                updatedDeal,
+                userId,
+                'rejected',
             );
         }
 
@@ -1448,31 +1465,21 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
-        const membership = await this.membershipRepository.findOne({
-            where: {channelId: deal.channelId, userId, isActive: true},
-        });
-
-        if (!membership) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
-        }
-
-        if (![ChannelRole.OWNER, ChannelRole.MANAGER].includes(membership.role)) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
-        }
-
         const user = await this.userRepository.findOne({where: {id: userId}});
-        if (user?.telegramId) {
-            try {
-                await this.channelAdminRecheckService.requireChannelRights({
-                    channelId: deal.channelId,
-                    userId,
-                    telegramId: Number(user.telegramId),
-                    required: {allowManager: true},
-                });
-            } catch (error) {
+        try {
+            await this.channelModeratorsService.requireCanReviewDeals(
+                deal.channelId,
+                userId,
+                user?.telegramId,
+            );
+        } catch (error) {
+            if (
+                error instanceof ChannelServiceError &&
+                error.code === ChannelErrorCode.NOT_ADMIN_ANYMORE
+            ) {
                 await this.cancelDealForAdminRightsLoss(deal);
-                throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
             }
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
         if (!deal.publisherUserId) {

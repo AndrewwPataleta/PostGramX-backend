@@ -4,12 +4,15 @@ import {
     CreateDateColumn,
     Entity,
     Index,
+    JoinColumn,
+    ManyToOne,
     OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import {ChannelStatus} from '../types/channel-status.enum';
 import {ListingEntity} from '../../listings/entities/listing.entity';
+import {User} from '../../auth/entities/user.entity';
 
 @Entity({name: 'channels'})
 @Index('IDX_channels_username', ['username'])
@@ -35,6 +38,13 @@ export class ChannelEntity extends BaseEntity {
 
     @Column({type: 'uuid'})
     createdByUserId: string;
+
+    @Column({type: 'uuid'})
+    ownerUserId: string;
+
+    @ManyToOne(() => User, {nullable: false})
+    @JoinColumn({name: 'ownerUserId'})
+    ownerUser: User;
 
     @Column({type: 'timestamptz', nullable: true})
     verifiedAt: Date | null;
