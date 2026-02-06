@@ -116,6 +116,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                             `Skip broadcast: already has tx hash`,
                             JSON.stringify({
                                 payoutId: current.id,
+                                userId: current.userId,
+                                idempotencyKey: current.idempotencyKey,
                                 externalTxHash: current.externalTxHash,
                             }),
                         );
@@ -131,22 +133,31 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                         return null;
                     }
 
+                    let transfer: TonTransferEntity | null = null;
                     if (current.tonTransferId) {
-                        const existing = await transferRepo.findOne({
+                        transfer = await transferRepo.findOne({
                             where: {id: current.tonTransferId},
                         });
-                        if (existing && existing.status !== TonTransferStatus.FAILED) {
+                        if (
+                            transfer &&
+                            ![
+                                TonTransferStatus.FAILED,
+                                TonTransferStatus.CREATED,
+                            ].includes(transfer.status)
+                        ) {
                             this.logger.log(
                                 `Skip broadcast: already broadcasted`,
                                 JSON.stringify({
                                     payoutId: current.id,
-                                    tonTransferId: existing.id,
-                                    status: existing.status,
+                                    userId: current.userId,
+                                    idempotencyKey: current.idempotencyKey,
+                                    tonTransferId: transfer.id,
+                                    status: transfer.status,
                                 }),
                             );
                             return null;
                         }
-                        if (existing && existing.status === TonTransferStatus.FAILED) {
+                        if (transfer && transfer.status === TonTransferStatus.FAILED) {
                             await this.failPayout(
                                 txRepo,
                                 current,
@@ -154,7 +165,7 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                             );
                             return null;
                         }
-                        if (!existing) {
+                        if (!transfer) {
                             await this.failPayout(
                                 txRepo,
                                 current,
@@ -191,7 +202,6 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                         return null;
                     }
 
-                    let transfer: TonTransferEntity | null = null;
                     if (!current.tonTransferId) {
                         const idempotencyKey = `payout:${current.id}`;
                         transfer = await transferRepo.findOne({
@@ -208,7 +218,7 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                                 type: TonTransferType.PAYOUT,
                                 status: this.config.payoutDryRun
                                     ? TonTransferStatus.SIMULATED
-                                    : TonTransferStatus.PENDING,
+                                    : TonTransferStatus.CREATED,
                                 network: current.currency,
                                 fromAddress: this.config.hotWalletAddress ?? '',
                                 toAddress: current.destinationAddress,
@@ -274,6 +284,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                     `Skip broadcast: already broadcasted`,
                     JSON.stringify({
                         payoutId: lockedPayout.id,
+                        userId: lockedPayout.userId,
+                        idempotencyKey: lockedPayout.idempotencyKey,
                         tonTransferId: lockedPayout.tonTransferId,
                         externalTxHash: lockedPayout.externalTxHash,
                     }),
@@ -300,6 +312,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                     `Payout blocked by liquidity`,
                     JSON.stringify({
                         payoutId: lockedPayout.id,
+                        userId: lockedPayout.userId,
+                        idempotencyKey: lockedPayout.idempotencyKey,
                         amountNano: (lockedPayout.amountToUserNano ??
                             lockedPayout.amountNano),
                         hotBalanceNano: hotBalanceNano.toString(),
@@ -332,6 +346,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                     `Payout simulated`,
                     JSON.stringify({
                         payoutId: lockedPayout.id,
+                        userId: lockedPayout.userId,
+                        idempotencyKey: lockedPayout.idempotencyKey,
                         tonTransferId: transfer.id,
                         amountNano: lockedPayout.amountNano,
                         destination: lockedPayout.destinationAddress,
@@ -341,9 +357,20 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
             }
 
             try {
-                await this.tonHotWalletService.sendTon({
+                const {txHash} = await this.tonHotWalletService.sendTon({
                     toAddress: lockedPayout.destinationAddress ?? '',
                     amountNano: amountToUserNano,
+                });
+                if (!txHash) {
+                    throw new Error('Missing tx hash after broadcast');
+                }
+                await this.transferRepository.update(transfer.id, {
+                    status: TonTransferStatus.BROADCASTED,
+                    txHash,
+                    errorMessage: null,
+                });
+                await this.transactionRepository.update(lockedPayout.id, {
+                    externalTxHash: txHash,
                 });
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -368,6 +395,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                     `Payout broadcast failed`,
                     JSON.stringify({
                         payoutId: lockedPayout.id,
+                        userId: lockedPayout.userId,
+                        idempotencyKey: lockedPayout.idempotencyKey,
                         tonTransferId: transfer.id,
                         error: message,
                     }),
@@ -388,6 +417,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                 `Payout broadcasted`,
                 JSON.stringify({
                     payoutId: lockedPayout.id,
+                    userId: lockedPayout.userId,
+                    idempotencyKey: lockedPayout.idempotencyKey,
                     tonTransferId: transfer.id,
                         amountNano: (lockedPayout.amountToUserNano ??
                             lockedPayout.amountNano),
@@ -416,6 +447,8 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
             `Payout failed`,
             JSON.stringify({
                 payoutId: payout.id,
+                userId: payout.userId,
+                idempotencyKey: payout.idempotencyKey,
                 reason,
             }),
         );

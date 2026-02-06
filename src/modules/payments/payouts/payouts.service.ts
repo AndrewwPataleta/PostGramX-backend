@@ -12,6 +12,10 @@ import {LedgerService} from '../ledger/ledger.service';
 import {FeesService} from '../fees/fees.service';
 import {PayoutRequestMode} from './dto/payout-request.dto';
 import {PayoutServiceError, PayoutErrorCode} from './errors/payout-service.error';
+import {TonTransferEntity} from '../entities/ton-transfer.entity';
+import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
+import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
+import {TonHotWalletService} from '../ton/ton-hot-wallet.service';
 
 type PayoutRequestPayload = {
     userId: string;
@@ -29,11 +33,14 @@ export class PayoutsService {
         private readonly ledgerService: LedgerService,
         private readonly userWalletService: UserWalletService,
         private readonly feesService: FeesService,
+        private readonly tonHotWalletService: TonHotWalletService,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
+        @InjectRepository(TonTransferEntity)
+        private readonly transferRepository: Repository<TonTransferEntity>,
     ) {}
 
-    async requestPayout(payload: PayoutRequestPayload) {
+    async requestWithdrawal(payload: PayoutRequestPayload) {
         const currency = payload.currency ?? CurrencyCode.TON;
         const mode =
             payload.mode ??
@@ -45,6 +52,7 @@ export class PayoutsService {
         }
 
         const destinationAddress = wallet.tonAddress;
+        this.tonHotWalletService.validateDestinationAddress(destinationAddress);
         let created = false;
         this.logger.log(
             `[PAYOUT-REQUEST] start ${JSON.stringify({
@@ -61,6 +69,7 @@ export class PayoutsService {
             payload.userId,
             async (manager) => {
                 const txRepo = manager.getRepository(TransactionEntity);
+                const transferRepo = manager.getRepository(TonTransferEntity);
 
                 if (payload.idempotencyKey) {
                     const existing = await txRepo.findOne({
@@ -179,6 +188,32 @@ export class PayoutsService {
                 });
 
                 const saved = await txRepo.save(createdTx);
+                const transferIdempotencyKey = `withdraw:${saved.id}`;
+                let transfer = await transferRepo.findOne({
+                    where: {transactionId: saved.id},
+                });
+                if (!transfer) {
+                    const fromAddress = await this.tonHotWalletService.getAddress();
+                    transfer = await transferRepo.save(
+                        transferRepo.create({
+                            transactionId: saved.id,
+                            dealId: saved.dealId ?? null,
+                            escrowWalletId: null,
+                            idempotencyKey: transferIdempotencyKey,
+                            type: TonTransferType.PAYOUT,
+                            status: TonTransferStatus.CREATED,
+                            network: saved.currency,
+                            fromAddress,
+                            toAddress: saved.destinationAddress ?? '',
+                            amountNano: saved.amountToUserNano ?? saved.amountNano,
+                            txHash: null,
+                            observedAt: null,
+                            raw: {reason: 'withdrawal_request'},
+                            errorMessage: null,
+                        }),
+                    );
+                }
+                await txRepo.update(saved.id, {tonTransferId: transfer.id});
                 await this.createFeeTransactions({
                     manager,
                     payout: saved,
@@ -190,6 +225,7 @@ export class PayoutsService {
                 this.logger.log(
                     `[PAYOUT-REQUEST] created ${JSON.stringify({
                         payoutId: saved.id,
+                        tonTransferId: transfer.id,
                         userId: payload.userId,
                         amountNano,
                         withdrawableNano,
@@ -197,6 +233,7 @@ export class PayoutsService {
                         serviceFeeNano: feeResult.serviceFeeNano,
                         networkFeeNano: feeResult.networkFeeNano,
                         feePolicyVersion: feeResult.policyVersion,
+                        idempotencyKey,
                     })}`,
                 );
 
@@ -213,6 +250,10 @@ export class PayoutsService {
         });
 
         return this.toResponse(updated ?? transaction);
+    }
+
+    async requestPayout(payload: PayoutRequestPayload) {
+        return this.requestWithdrawal(payload);
     }
 
     private isValidAmount(value: string): boolean {

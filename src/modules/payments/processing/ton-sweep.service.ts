@@ -162,7 +162,7 @@ export class TonSweepService {
                             type: TonTransferType.SWEEP_TO_HOT,
                             status: this.config.payoutDryRun
                                 ? TonTransferStatus.SIMULATED
-                                : TonTransferStatus.PENDING,
+                                : TonTransferStatus.CREATED,
                             network: params.wallet.network,
                             fromAddress: params.wallet.address,
                             toAddress: this.config.hotWalletAddress ?? '',
