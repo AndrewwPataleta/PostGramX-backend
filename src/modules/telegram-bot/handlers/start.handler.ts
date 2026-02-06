@@ -1,6 +1,6 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {TELEGRAM_MINI_APP_ROUTES} from '../telegram-bot.constants';
+import {TELEGRAM_SUPPORT_URL_PLACEHOLDER} from '../telegram-bot.constants';
 import {TelegramInlineButtonSpec} from "../../telegram/telegram-messenger.service";
 
 @Injectable()
@@ -9,21 +9,17 @@ export class StartHandler {
 
     getButtons(): TelegramInlineButtonSpec[][] {
         const openMiniAppUrl = this.buildMiniAppUrl();
-        const marketplaceUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.marketplace);
-        const dealsUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.deals);
-        const channelsUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.channels);
+        const supportUrl = this.buildSupportUrl();
 
         return [
             [
                 {textKey: 'telegram.common.open_mini_app', url: openMiniAppUrl},
             ],
             [
-                {textKey: 'telegram.common.marketplace', url: marketplaceUrl},
-                {textKey: 'telegram.common.my_deals', url: dealsUrl},
+                {textKey: 'telegram.common.about_escrow', callbackData: 'about_escrow'},
             ],
             [
-                {textKey: 'telegram.common.my_channels', url: channelsUrl},
-                {textKey: 'telegram.common.help', callbackData: 'help'},
+                {textKey: 'telegram.common.support', url: supportUrl},
             ],
         ];
     }
@@ -68,5 +64,22 @@ export class StartHandler {
         } catch (error) {
             return null;
         }
+    }
+
+    private buildSupportUrl(): string {
+        const configured = this.configService.get<string>('TELEGRAM_SUPPORT_URL');
+        const resolved = configured?.trim() || TELEGRAM_SUPPORT_URL_PLACEHOLDER;
+        return this.normalizeTelegramLink(resolved);
+    }
+
+    private normalizeTelegramLink(value: string): string {
+        const trimmed = value.trim();
+        if (trimmed.startsWith('@')) {
+            return `https://t.me/${trimmed.slice(1)}`;
+        }
+        if (!trimmed.includes('://')) {
+            return `https://t.me/${trimmed}`;
+        }
+        return this.ensureHttpsUrl(trimmed) ?? 'https://t.me';
     }
 }

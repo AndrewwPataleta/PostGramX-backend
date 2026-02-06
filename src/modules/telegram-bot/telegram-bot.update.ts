@@ -98,6 +98,18 @@ export class TelegramBotUpdate {
                 );
                 return;
             }
+            if (data === 'about_escrow') {
+                await context.answerCbQuery();
+                const telegramId = context.from?.id;
+                if (!telegramId) {
+                    return;
+                }
+                await this.telegramMessengerService.sendText(
+                    telegramId,
+                    'telegram.about_escrow.message',
+                );
+                return;
+            }
 
             if (data?.startsWith('approve_creative:')) {
                 const dealId = data.replace('approve_creative:', '').trim();
