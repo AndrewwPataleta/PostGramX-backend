@@ -13,7 +13,7 @@ export class HelpHandler {
 
     getButtons(): TelegramInlineButtonSpec[][] {
         const openMiniAppUrl = this.buildMiniAppUrl(TELEGRAM_MINI_APP_ROUTES.marketplace);
-        const supportUrl = TELEGRAM_SUPPORT_URL_PLACEHOLDER;
+        const supportUrl = this.buildSupportUrl();
 
         return [
             [{textKey: 'telegram.common.open_mini_app', url: openMiniAppUrl}],
@@ -61,5 +61,22 @@ export class HelpHandler {
         } catch (error) {
             return null;
         }
+    }
+
+    private buildSupportUrl(): string {
+        const configured = this.configService.get<string>('TELEGRAM_SUPPORT_URL');
+        const resolved = configured?.trim() || TELEGRAM_SUPPORT_URL_PLACEHOLDER;
+        return this.normalizeTelegramLink(resolved);
+    }
+
+    private normalizeTelegramLink(value: string): string {
+        const trimmed = value.trim();
+        if (trimmed.startsWith('@')) {
+            return `https://t.me/${trimmed.slice(1)}`;
+        }
+        if (!trimmed.includes('://')) {
+            return `https://t.me/${trimmed}`;
+        }
+        return this.ensureHttpsUrl(trimmed) ?? 'https://t.me';
     }
 }
