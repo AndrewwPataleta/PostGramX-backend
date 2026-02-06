@@ -342,6 +342,77 @@ export class DealsNotificationsService {
         );
     }
 
+    async notifyDealReviewAction(
+        deal: DealEntity,
+        actorUserId: string,
+        action: 'approved' | 'rejected',
+    ): Promise<void> {
+        if (!deal.channelId) {
+            this.logger.warn(
+                `Skipping review notification: missing channelId for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            this.logger.warn(
+                `Skipping review notification: channel not found for deal ${deal.id}`,
+            );
+            return;
+        }
+
+        const recipients =
+            await this.participantsService.getNotificationRecipients(
+                deal.channelId,
+            );
+        if (recipients.length === 0) {
+            this.logger.log(
+                `No recipients found for review notification: dealId=${deal.id} channelId=${deal.channelId}`,
+            );
+            return;
+        }
+
+        const actor = await this.userRepository.findOne({
+            where: {id: actorUserId},
+        });
+        const adminName = this.resolveDisplayName(actor);
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+        const messageKey =
+            action === 'approved'
+                ? 'telegram.deal.admin_review.approved'
+                : 'telegram.deal.admin_review.rejected';
+        const messageArgs = {
+            adminName,
+            channel: channelLabel,
+            dealId: deal.id.slice(0, 8),
+        };
+
+        await this.runWithConcurrency(
+            recipients,
+            NOTIFICATION_CONCURRENCY,
+            async (recipient) => {
+                try {
+                    await this.telegramMessengerService.sendText(
+                        recipient.telegramId as string,
+                        messageKey,
+                        messageArgs,
+                    );
+                } catch (error) {
+                    const errorMessage =
+                        error instanceof Error ? error.message : String(error);
+                    this.logger.warn(
+                        `Failed to send review notification: dealId=${deal.id} recipient=${recipient.id} error=${errorMessage}`,
+                    );
+                }
+            },
+        );
+    }
+
     async notifyAdvertiser(
         deal: DealEntity,
         messageKey: string,
@@ -1053,6 +1124,23 @@ export class DealsNotificationsService {
                 },
             ],
         ];
+    }
+
+    private resolveDisplayName(user?: User | null): string {
+        if (!user) {
+            return 'Admin';
+        }
+        const fullName = [user.firstName, user.lastName]
+            .filter((value) => Boolean(value))
+            .join(' ')
+            .trim();
+        if (fullName) {
+            return fullName;
+        }
+        if (user.username) {
+            return user.username;
+        }
+        return 'Admin';
     }
 
     private async runWithConcurrency<T>(

@@ -59,7 +59,7 @@ export class ListingsService {
             );
         }
 
-        if (channel.createdByUserId !== userId) {
+        if (channel.ownerUserId !== userId) {
             throw new ListingServiceError(
                 ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS,
             );
@@ -229,14 +229,14 @@ export class ListingsService {
             );
         }
 
-        const isOwner = listing.channel?.createdByUserId === userId;
+        const isOwner = listing.channel?.ownerUserId === userId;
         const membership = await this.membershipRepository.findOne({
             where: {
                 channelId: listing.channelId,
                 userId,
                 isActive: true,
                 isManuallyDisabled: false,
-                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+                role: In([ChannelRole.OWNER, ChannelRole.MODERATOR]),
             },
         });
 

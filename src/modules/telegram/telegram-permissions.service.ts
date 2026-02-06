@@ -64,7 +64,7 @@ export class TelegramPermissionsService {
             return {ok: false, reason: 'USER_NOT_ADMIN'};
         }
 
-        if (![ChannelRole.OWNER, ChannelRole.MANAGER].includes(membership.role)) {
+        if (![ChannelRole.OWNER, ChannelRole.MODERATOR].includes(membership.role)) {
             return {ok: false, reason: 'USER_NOT_ADMIN'};
         }
 

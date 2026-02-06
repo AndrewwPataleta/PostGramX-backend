@@ -48,6 +48,9 @@ export class ChannelMembershipEntity {
     @Column({default: false})
     isManuallyDisabled: boolean;
 
+    @Column({default: true})
+    canReviewDeals: boolean;
+
     @Column({type: 'timestamptz', nullable: true})
     lastRecheckAt: Date | null;
 

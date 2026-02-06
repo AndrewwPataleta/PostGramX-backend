@@ -67,15 +67,16 @@ export class MembershipsAutoLinkService {
             const existing = membershipMap.get(admin.channelId);
             const shouldBeOwner =
                 admin.telegramRole === TelegramAdminRole.CREATOR &&
-                channel.createdByUserId === userId;
+                (channel.ownerUserId ?? channel.createdByUserId) === userId;
 
             if (!existing) {
                 const created = this.membershipRepository.create({
                     channelId: admin.channelId,
                     userId,
-                    role: shouldBeOwner ? ChannelRole.OWNER : ChannelRole.MANAGER,
+                    role: shouldBeOwner ? ChannelRole.OWNER : ChannelRole.MODERATOR,
                     isActive: true,
                     isManuallyDisabled: false,
+                    canReviewDeals: true,
                 });
                 toSave.push(created);
                 updatedCount += 1;

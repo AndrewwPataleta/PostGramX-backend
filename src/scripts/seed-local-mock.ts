@@ -86,6 +86,7 @@ async function seedLocalMock() {
                     username: channelData.username,
                     title: channelData.title,
                     createdByUserId: mockUser.id,
+                    ownerUserId: mockUser.id,
                     status: ChannelStatus.VERIFIED,
                     subscribersCount: channelData.subscribersCount,
                     avgViews: channelData.avgViews,

@@ -35,11 +35,12 @@ export class ChannelParticipantsService {
             where: {
                 channelId,
                 isActive: true,
-                role: In([ChannelRole.OWNER, ChannelRole.MANAGER]),
+                isManuallyDisabled: false,
+                role: In([ChannelRole.OWNER, ChannelRole.MODERATOR]),
             },
         });
 
-        const userIds = new Set<string>([channel.createdByUserId]);
+        const userIds = new Set<string>([channel.ownerUserId]);
         for (const membership of memberships) {
             userIds.add(membership.userId);
         }

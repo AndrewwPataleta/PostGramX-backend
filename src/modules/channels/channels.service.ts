@@ -119,8 +119,11 @@ export class ChannelsService {
             where: {username: normalizedUsername},
         });
 
-        if (channel && channel.createdByUserId !== userId) {
-            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
+        if (channel) {
+            const ownerId = channel.ownerUserId ?? channel.createdByUserId;
+            if (ownerId !== userId) {
+                throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
+            }
         }
 
         if (!channel) {
@@ -132,9 +135,13 @@ export class ChannelsService {
                 // avatarUrl: channelPreview.avatarUrl,
                 status: ChannelStatus.PENDING_VERIFY,
                 createdByUserId: userId,
+                ownerUserId: userId,
             });
         } else {
             channel.status = ChannelStatus.PENDING_VERIFY;
+            if (!channel.ownerUserId && channel.createdByUserId === userId) {
+                channel.ownerUserId = userId;
+            }
         }
 
         await this.channelRepository.save(channel);
@@ -161,6 +168,9 @@ export class ChannelsService {
             throw new ChannelServiceError(
                 ChannelErrorCode.CHANNEL_NOT_FOUND,
             );
+        }
+        if (channel.ownerUserId && channel.ownerUserId !== userId) {
+            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
         }
 
         try {
@@ -190,6 +200,9 @@ export class ChannelsService {
             channel.status = ChannelStatus.VERIFIED;
             channel.verifiedAt = new Date();
             channel.lastCheckedAt = new Date();
+            if (!channel.ownerUserId) {
+                channel.ownerUserId = userId;
+            }
             const subscribers = this.normalizeSubscribersCount(
                 publicChat.members_count,
             );
@@ -507,7 +520,7 @@ export class ChannelsService {
             throw new ForbiddenException('Access denied.');
         }
 
-        if (![ChannelRole.OWNER, ChannelRole.MANAGER].includes(membership.role)) {
+        if (![ChannelRole.OWNER, ChannelRole.MODERATOR].includes(membership.role)) {
             throw new ForbiddenException('Access denied.');
         }
 
@@ -601,6 +614,7 @@ export class ChannelsService {
                 channelId,
                 userId,
                 role,
+                canReviewDeals: true,
             });
         }
 

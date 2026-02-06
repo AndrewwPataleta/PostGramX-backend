@@ -87,6 +87,21 @@ export class ChannelAdminRecheckService {
             throw error;
         }
 
+        if (required.mustBeCreator && admin.status !== 'creator') {
+            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
+        }
+
+        if (
+            required.rights &&
+            required.rights.length > 0 &&
+            admin.status !== 'creator'
+        ) {
+            const hasAllRights = required.rights.every((right) => admin[right]);
+            if (!hasAllRights) {
+                throw new ChannelServiceError(ChannelErrorCode.MISSING_RIGHTS);
+            }
+        }
+
         membership.lastRecheckAt = new Date();
         membership.telegramAdminStatus =
             admin.status === 'creator'

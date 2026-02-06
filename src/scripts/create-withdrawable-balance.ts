@@ -90,6 +90,7 @@ async function ensurePublisherChannel(channelRepository, userId) {
             username: baseUsername,
             title: `Withdrawal Channel ${baseUsername}`,
             createdByUserId: userId,
+            ownerUserId: userId,
             status: ChannelStatus.VERIFIED,
             subscribersCount: 1,
             avgViews: 1,

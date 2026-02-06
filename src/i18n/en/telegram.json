@@ -121,6 +121,10 @@
       "admin": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: advertiser completes payment in the Mini App.\nPayment deadline: {paymentDeadline}",
       "advertiser": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: complete payment in the Mini App.\nPayment deadline: {paymentDeadline}"
     },
+    "admin_review": {
+      "approved": "Admin {adminName} approved deal {dealId}.\nChannel: {channel}",
+      "rejected": "Admin {adminName} rejected deal {dealId}.\nChannel: {channel}"
+    },
     "request_changes": {
       "failed": "Failed to process the change request. Please try again in the Mini App."
     }
