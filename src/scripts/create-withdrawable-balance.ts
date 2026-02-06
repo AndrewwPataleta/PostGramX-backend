@@ -39,7 +39,7 @@ function printUsage() {
             '  NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/create-withdrawable-balance.ts <userId> [amountNano]',
             '',
             'Example:',
-            '  NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/create-withdrawable-balance.ts 6d9f2f04-1b45-4b35-9f8c-1a2b3c4d5e6f 2500000000',
+            '  NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/create-withdrawable-balance.ts 94131fb5-79b1-468d-bd13-1bf6b1ce43b6 2500000000',
         ].join('\n'),
     );
 }

@@ -12,7 +12,7 @@ const sslConfig = isProdLike
       rejectUnauthorized: false,
       ca: fs
         .readFileSync(
-          path.join(__dirname, '..', 'certs', 'PostgramX-database-cert.crt'),
+          path.join(__dirname, '..', 'certs', 'postgramx-ca-certificate.crt'),
         )
         .toString(),
     }
