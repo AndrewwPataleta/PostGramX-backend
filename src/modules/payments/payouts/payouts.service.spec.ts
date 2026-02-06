@@ -9,6 +9,8 @@ import {TransactionType} from '../../../common/constants/payments/transaction-ty
 import {randomUUID} from 'crypto';
 import {FeesConfigService} from '../fees/fees-config.service';
 import {FeesService} from '../fees/fees.service';
+import {TonTransferEntity} from '../entities/ton-transfer.entity';
+import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
 
 class InMemoryRepository<T extends {id?: string}> {
     data: T[] = [];
@@ -56,6 +58,7 @@ describe('PayoutsService', () => {
     const userId = 'user-1';
     const destinationAddress = 'EQC-test';
     let transactionRepo: InMemoryRepository<TransactionEntity>;
+    let transferRepo: InMemoryRepository<TonTransferEntity>;
     let ledgerService: any;
     let userWalletService: any;
     let tonHotWalletService: any;
@@ -64,6 +67,7 @@ describe('PayoutsService', () => {
 
     beforeEach(() => {
         transactionRepo = new InMemoryRepository<TransactionEntity>();
+        transferRepo = new InMemoryRepository<TonTransferEntity>();
 
         userWalletService = {
             getWallet: jest.fn().mockResolvedValue({tonAddress: destinationAddress}),
@@ -72,7 +76,8 @@ describe('PayoutsService', () => {
         tonHotWalletService = {
             getBalance: jest.fn().mockResolvedValue(1000n),
             getAddress: jest.fn().mockResolvedValue('EQC-hot'),
-            sendTon: jest.fn().mockResolvedValue({txHash: null}),
+            sendTon: jest.fn().mockResolvedValue({txHash: 'tx-hash'}),
+            validateDestinationAddress: jest.fn(),
         };
 
         const baseCredits = 100n;
@@ -167,7 +172,9 @@ describe('PayoutsService', () => {
             ledgerService,
             userWalletService,
             feesService,
+            tonHotWalletService,
             transactionRepo as any,
+            transferRepo as any,
         );
 
     it('rejects payout when balance is insufficient', async () => {
@@ -181,7 +188,7 @@ describe('PayoutsService', () => {
         const service = createService();
 
         await expect(
-            service.requestPayout({
+            service.requestWithdrawal({
                 userId,
                 amountNano: '1',
                 currency: CurrencyCode.TON,
@@ -200,7 +207,7 @@ describe('PayoutsService', () => {
     it('returns existing payout for same idempotency key', async () => {
         const service = createService();
 
-        const first = await service.requestPayout({
+        const first = await service.requestWithdrawal({
             userId,
             amountNano: '10',
             currency: CurrencyCode.TON,
@@ -208,7 +215,7 @@ describe('PayoutsService', () => {
             idempotencyKey: 'idempotent-key',
         });
 
-        const second = await service.requestPayout({
+        const second = await service.requestWithdrawal({
             userId,
             amountNano: '10',
             currency: CurrencyCode.TON,
@@ -225,6 +232,9 @@ describe('PayoutsService', () => {
         expect(
             transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
         ).toHaveLength(1);
+        expect(transferRepo.data).toHaveLength(1);
+        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.CREATED);
+        expect(transferRepo.data[0].transactionId).toEqual(first.payoutId);
         expect(
             transactionRepo.data.filter((tx) =>
                 [TransactionType.FEE, TransactionType.NETWORK_FEE].includes(
@@ -237,7 +247,7 @@ describe('PayoutsService', () => {
     it('prevents overdraw on concurrent requests', async () => {
         const service = createService();
 
-        await service.requestPayout({
+        await service.requestWithdrawal({
             userId,
             amountNano: '70',
             currency: CurrencyCode.TON,
@@ -246,7 +256,7 @@ describe('PayoutsService', () => {
         });
 
         await expect(
-            service.requestPayout({
+            service.requestWithdrawal({
                 userId,
                 amountNano: '70',
                 currency: CurrencyCode.TON,
@@ -263,7 +273,7 @@ describe('PayoutsService', () => {
     it('calculates ALL-mode payout with full amount', async () => {
         const service = createService();
 
-        const result = await service.requestPayout({
+        const result = await service.requestWithdrawal({
             userId,
             currency: CurrencyCode.TON,
             mode: PayoutRequestMode.ALL,
@@ -291,7 +301,7 @@ describe('PayoutsService', () => {
         );
 
         const service = createService();
-        const result = await service.requestPayout({
+        const result = await service.requestWithdrawal({
             userId,
             currency: CurrencyCode.TON,
             mode: PayoutRequestMode.ALL,
@@ -305,7 +315,7 @@ describe('PayoutsService', () => {
     it('stores payout request without broadcasting', async () => {
         const service = createService();
 
-        const result = await service.requestPayout({
+        const result = await service.requestWithdrawal({
             userId,
             amountNano: '10',
             currency: CurrencyCode.TON,
@@ -314,5 +324,8 @@ describe('PayoutsService', () => {
 
         expect(result.status).toEqual(TransactionStatus.PENDING);
         expect(tonHotWalletService.sendTon).not.toHaveBeenCalled();
+        expect(
+            transactionRepo.data.filter((tx) => tx.type === TransactionType.PAYOUT),
+        ).toHaveLength(1);
     });
 });

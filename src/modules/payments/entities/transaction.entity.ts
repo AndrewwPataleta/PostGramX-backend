@@ -26,7 +26,10 @@ import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
     unique: true,
     where: '"externalTxHash" IS NOT NULL',
 })
-@Index('UQ_transactions_idempotency_key', ['idempotencyKey'], {unique: true})
+@Index('UQ_transactions_idempotency_key', ['idempotencyKey'], {
+    unique: true,
+    where: '"idempotencyKey" IS NOT NULL',
+})
 export class TransactionEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;

@@ -13,12 +13,17 @@ import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer
 import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
 
 @Entity({name: 'ton_transfers'})
-@Index('UQ_ton_transfers_tx_hash_network', ['txHash', 'network'], {unique: true})
-@Index('UQ_ton_transfers_idempotency', ['idempotencyKey'], {unique: true})
+@Index('UQ_ton_transfers_tx_hash_network', ['txHash', 'network'], {
+    unique: true,
+    where: '"txHash" IS NOT NULL',
+})
+@Index('UQ_ton_transfers_idempotency_key', ['idempotencyKey'], {
+    unique: true,
+    where: '"idempotencyKey" IS NOT NULL',
+})
 @Index('IDX_ton_transfers_to_address', ['toAddress'])
 @Index('IDX_ton_transfers_transaction_id', ['transactionId'])
 @Index('UQ_ton_transfers_transaction_id', ['transactionId'], {unique: true})
-@Index('UQ_ton_transfers_idempotency_key', ['idempotencyKey'], {unique: true})
 export class TonTransferEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -38,7 +43,7 @@ export class TonTransferEntity {
     @Column({
         type: 'enum',
         enum: TonTransferStatus,
-        default: TonTransferStatus.PENDING,
+        default: TonTransferStatus.CREATED,
     })
     status: TonTransferStatus;
 

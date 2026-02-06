@@ -145,7 +145,7 @@ describe('PayoutExecutionService', () => {
 
         const tonHotWalletService = {
             getBalance: jest.fn().mockResolvedValue(2000000000n),
-            sendTon: jest.fn().mockResolvedValue({txHash: null}),
+            sendTon: jest.fn().mockResolvedValue({txHash: 'tx-hash'}),
         };
 
         const config = {
@@ -173,7 +173,10 @@ describe('PayoutExecutionService', () => {
         const payout = await transactionRepo.findOne({where: {id: payoutId}});
         expect(payout?.status).toEqual(TransactionStatus.AWAITING_CONFIRMATION);
         expect(payout?.tonTransferId).toBeTruthy();
-        expect(transferRepo.data[0].status).toEqual(TonTransferStatus.PENDING);
+        expect(transferRepo.data[0].status).toEqual(
+            TonTransferStatus.BROADCASTED,
+        );
+        expect(transferRepo.data[0].txHash).toEqual('tx-hash');
     });
 
     it('sends the full payout amount to the user', async () => {
@@ -247,7 +250,7 @@ describe('PayoutExecutionService', () => {
 
         const tonHotWalletService = {
             getBalance: jest.fn().mockResolvedValue(2000000000n),
-            sendTon: jest.fn().mockResolvedValue({txHash: null}),
+            sendTon: jest.fn().mockResolvedValue({txHash: 'tx-hash'}),
         };
 
         const config = {

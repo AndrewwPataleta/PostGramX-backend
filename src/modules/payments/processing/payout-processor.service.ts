@@ -455,7 +455,7 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                     : TonTransferType.REFUND,
             status: this.config.payoutDryRun
                 ? TonTransferStatus.SIMULATED
-                : TonTransferStatus.PENDING,
+                : TonTransferStatus.CREATED,
             network: options.currency as any,
             fromAddress: this.config.hotWalletAddress ?? '',
             toAddress: options.toAddress,
@@ -651,6 +651,9 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                 status,
                 externalTxHash: txHash ?? existing.externalTxHash,
                 errorCode,
+                idempotencyKey:
+                    existing.idempotencyKey ??
+                    `${options.kind}:${options.requestId}`,
                 completedAt:
                     status === TransactionStatus.COMPLETED
                         ? new Date()
@@ -676,6 +679,7 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
                 externalTxHash: txHash,
                 errorCode,
                 sourceRequestId: options.requestId,
+                idempotencyKey: `${options.kind}:${options.requestId}`,
                 completedAt:
                     status === TransactionStatus.COMPLETED
                         ? new Date()

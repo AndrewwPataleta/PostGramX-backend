@@ -2,11 +2,13 @@ import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {Address, internal, TonClient, WalletContractV4} from '@ton/ton';
 import {mnemonicToPrivateKey} from '@ton/crypto';
+import {TonCenterClient} from './toncenter.client';
 
 @Injectable()
 export class TonHotWalletService {
     private readonly client: TonClient;
     private readonly mnemonic: string[];
+    private readonly toncenter: TonCenterClient;
 
     constructor(private readonly configService: ConfigService) {
         const endpoint = this.configService.get<string>('TONCENTER_RPC');
@@ -15,6 +17,10 @@ export class TonHotWalletService {
             throw new Error('TONCENTER_RPC is not configured');
         }
         this.client = new TonClient({endpoint, apiKey});
+        this.toncenter = new TonCenterClient({
+            endpoint,
+            apiKey: apiKey ?? '',
+        });
 
         const mnemonic = this.configService.get<string>('HOT_WALLET_MNEMONIC');
         if (!mnemonic) {
@@ -57,7 +63,7 @@ export class TonHotWalletService {
         );
 
         const seqno = await contract.getSeqno();
-        await contract.sendTransfer({
+        const transfer = contract.createTransfer({
             seqno,
             secretKey: keyPair.secretKey,
             messages: [
@@ -68,7 +74,44 @@ export class TonHotWalletService {
                 }),
             ],
         });
+        const messageHash = transfer.hash().toString('hex').toLowerCase();
+        await this.client.sendExternalMessage(contract, transfer);
 
-        return {txHash: null};
+        const txHash = await this.waitForTransactionHash(
+            contract.address.toString(),
+            messageHash,
+        );
+
+        return {txHash};
+    }
+
+    private async waitForTransactionHash(
+        address: string,
+        messageHash: string,
+    ): Promise<string | null> {
+        const attempts = 10;
+        const delayMs = 1500;
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+            const transactions = await this.toncenter.getTransactions(address, 20);
+            for (const entry of transactions ?? []) {
+                const inMsg = (entry as any)?.in_msg;
+                const inMsgHash =
+                    inMsg?.hash ??
+                    inMsg?.message_hash ??
+                    inMsg?.msg_hash ??
+                    null;
+                if (!inMsgHash) {
+                    continue;
+                }
+                if (String(inMsgHash).toLowerCase() !== messageHash) {
+                    continue;
+                }
+                const txHash =
+                    (entry as any)?.transaction_id?.hash ?? (entry as any)?.hash;
+                return txHash ? String(txHash).toLowerCase() : null;
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+        throw new Error('Unable to resolve transaction hash after broadcast');
     }
 }
