@@ -210,14 +210,23 @@ export class TonPaymentWatcher {
                 const txHash = String(txHashRaw).toLowerCase();
                 const observedAt = new Date(Number((entry as any).utime) * 1000);
 
-                await this.processOutgoingTransfer({
-                    txHash,
-                    observedAt,
-                    raw: this.buildMinimalRaw(entry, {
+                for (const msg of outMsgs) {
+                    if (!msg?.destination || !msg?.value) {
+                        continue;
+                    }
+                    await this.processOutgoingTransfer({
                         txHash,
-                        direction: 'out',
-                    }),
-                });
+                        amountNano: String(msg.value),
+                        toAddress: String(msg.destination),
+                        fromAddress: hotWalletAddress,
+                        observedAt,
+                        raw: this.buildMinimalRaw(entry, {
+                            txHash,
+                            direction: 'out',
+                            outMsg: msg,
+                        }),
+                    });
+                }
             }
 
             await this.finalizeOutgoingTransfers();
@@ -552,6 +561,9 @@ export class TonPaymentWatcher {
 
     private async processOutgoingTransfer(transfer: {
         txHash: string;
+        amountNano: string;
+        toAddress: string;
+        fromAddress: string;
         observedAt: Date;
         raw: Record<string, unknown>;
     }): Promise<void> {
@@ -560,21 +572,89 @@ export class TonPaymentWatcher {
             const transferRepo = manager.getRepository(TonTransferEntity);
             const txRepo = manager.getRepository(TransactionEntity);
 
-            const tonTransfer = await transferRepo.findOne({
-                where: {
-                    txHash: transfer.txHash,
-                    network: CurrencyCode.TON,
-                },
-            });
+            let tonTransfer: TonTransferEntity | null = null;
+            if (transfer.txHash) {
+                tonTransfer = await transferRepo.findOne({
+                    where: {
+                        txHash: transfer.txHash,
+                        network: CurrencyCode.TON,
+                    },
+                });
+            }
 
             if (!tonTransfer) {
-                this.logger.log(
-                    `[TON-WATCHER] ${JSON.stringify({
-                        event: 'outgoing_unknown_tx',
-                        txHash: transfer.txHash,
-                    })}`,
+                const observedAt = transfer.observedAt.getTime();
+                const windowStart = new Date(observedAt - 2 * 60 * 60 * 1000);
+                const windowEnd = new Date(observedAt + 2 * 60 * 60 * 1000);
+                const candidateTransfers = await transferRepo
+                    .createQueryBuilder('transfer')
+                    .where('transfer.type IN (:...types)', {
+                        types: [TonTransferType.PAYOUT, TonTransferType.FEE],
+                    })
+                    .andWhere('transfer.status IN (:...statuses)', {
+                        statuses: [
+                            TonTransferStatus.CREATED,
+                            TonTransferStatus.BROADCASTED,
+                        ],
+                    })
+                    .andWhere('transfer.network = :network', {
+                        network: CurrencyCode.TON,
+                    })
+                    .andWhere('transfer.createdAt BETWEEN :start AND :end', {
+                        start: windowStart,
+                        end: windowEnd,
+                    })
+                    .getMany();
+
+                const normalizedToAddress = this.normalizeAddress(
+                    transfer.toAddress,
                 );
-                return;
+                const chainAmount = BigInt(transfer.amountNano);
+                const toleranceNano = BigInt(
+                    process.env.TON_OUTGOING_MATCH_TOLERANCE_NANO ?? '200000',
+                );
+                const matches = candidateTransfers.filter((candidate) => {
+                    if (!candidate.toAddress) {
+                        return false;
+                    }
+                    const candidateTo = this.normalizeAddress(candidate.toAddress);
+                    if (candidateTo !== normalizedToAddress) {
+                        return false;
+                    }
+                    const candidateAmount = BigInt(candidate.amountNano ?? '0');
+                    const diff =
+                        candidateAmount > chainAmount
+                            ? candidateAmount - chainAmount
+                            : chainAmount - candidateAmount;
+                    return diff <= toleranceNano;
+                });
+
+                if (matches.length > 1) {
+                    this.logger.warn(
+                        `[TON-WATCHER] ${JSON.stringify({
+                            event: 'ambiguous_outgoing_match',
+                            txHash: transfer.txHash,
+                            toAddress: transfer.toAddress,
+                            amountNano: transfer.amountNano,
+                            matches: matches.map((match) => match.id),
+                        })}`,
+                    );
+                    return;
+                }
+
+                if (matches.length === 0) {
+                    this.logger.log(
+                        `[TON-WATCHER] ${JSON.stringify({
+                            event: 'outgoing_unknown_tx',
+                            txHash: transfer.txHash,
+                            toAddress: transfer.toAddress,
+                            amountNano: transfer.amountNano,
+                        })}`,
+                    );
+                    return;
+                }
+
+                tonTransfer = matches[0];
             }
 
             if (
@@ -638,7 +718,7 @@ export class TonPaymentWatcher {
                     event: 'outgoing_confirmed',
                     tonTransferId: tonTransfer.id,
                     transactionId: tonTransfer.transactionId,
-                    txHash: transfer.txHash,
+                    txHash: tonTransfer.txHash ?? transfer.txHash,
                     idempotencyKey: tonTransfer.idempotencyKey,
                 })}`,
             );
@@ -684,6 +764,7 @@ export class TonPaymentWatcher {
             })
             .andWhere('transfer.status IN (:...statuses)', {
                 statuses: [
+                    TonTransferStatus.CREATED,
                     TonTransferStatus.BROADCASTED,
                     TonTransferStatus.CONFIRMED,
                 ],
@@ -928,11 +1009,20 @@ export class TonPaymentWatcher {
                 amountNano: options.amountNano,
             });
             if (!txHash) {
-                throw new Error('Missing tx hash after fee broadcast');
+                this.logger.warn(
+                    `[TON-WATCHER] ${JSON.stringify({
+                        event: 'fee_revenue_missing_tx_hash',
+                        payoutId: options.payoutId,
+                        tonTransferId: transfer.id,
+                        amountNano: options.amountNano.toString(),
+                        toAddress: config.feeRevenueAddress,
+                        idempotencyKey: transfer.idempotencyKey,
+                    })}`,
+                );
             }
             await transferRepo.update(transfer.id, {
                 status: TonTransferStatus.BROADCASTED,
-                txHash,
+                txHash: txHash ?? null,
                 observedAt: transfer.observedAt,
                 errorMessage: null,
             });
@@ -943,7 +1033,7 @@ export class TonPaymentWatcher {
                     tonTransferId: transfer.id,
                     amountNano: options.amountNano.toString(),
                     toAddress: config.feeRevenueAddress,
-                    txHash,
+                    txHash: txHash ?? null,
                     idempotencyKey: transfer.idempotencyKey,
                 })}`,
             );
