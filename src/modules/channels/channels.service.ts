@@ -168,6 +168,19 @@ export class ChannelsService {
             this.throwMappedError(error);
         }
 
+        const existingChannel = await this.channelRepository.findOne({
+            where: {username: normalizedUsername},
+        });
+
+        if (
+            existingChannel?.ownerUserId === userId &&
+            existingChannel.status === ChannelStatus.VERIFIED
+        ) {
+            throw new ChannelServiceError(
+                ChannelErrorCode.CHANNEL_ALREADY_LINKED,
+            );
+        }
+
         const preflight = await this.preflightVerify(
             normalizedUsername,
             telegramUserId,
