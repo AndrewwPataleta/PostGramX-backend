@@ -44,6 +44,7 @@ import {
     ListingListItem,
     mapListingToListItem,
 } from '../listings/types/listing-list-item.type';
+import {buildChannelPreview} from '../listings/utils/channel-preview';
 
 @Injectable()
 export class ChannelsService {
@@ -390,8 +391,28 @@ export class ChannelsService {
                     telegramAdminStatus: membership.telegramAdminStatus,
                     lastRecheckAt: membership.lastRecheckAt,
                 },
+                preview: {
+                    listingCount: 0,
+                    subsCount: channel.subscribersCount ?? null,
+                    listingFrom: null,
+                },
             };
         });
+
+        if (items.length > 0) {
+            const channelIds = items.map((item) => item.id);
+            const previews = await buildChannelPreview(
+                this.listingRepository,
+                channelIds,
+                'owner',
+            );
+
+            for (const item of items) {
+                const preview = previews.get(item.id);
+                item.preview.listingCount = preview?.listingCount ?? 0;
+                item.preview.listingFrom = preview?.listingFrom ?? null;
+            }
+        }
 
         if (filters.includeListings && items.length > 0) {
             await this.attachListingsToChannels(items, {

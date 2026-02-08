@@ -10,12 +10,15 @@ import {
     MarketplaceChannelsResponse,
 } from './types/marketplace-channel-item.type';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
+import {buildChannelPreview} from '../listings/utils/channel-preview';
 
 @Injectable()
 export class MarketplaceService {
     constructor(
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
+        @InjectRepository(ListingEntity)
+        private readonly listingRepository: Repository<ListingEntity>,
     ) {}
 
     async listChannels(
@@ -143,7 +146,27 @@ export class MarketplaceService {
             minPriceNano: row.minPriceNano ?? '0',
             currency: CurrencyCode.TON,
             tags: this.normalizeAggregatedTags(row.listingTags),
+            preview: {
+                listingCount: 0,
+                subsCount: row.subscribers === null ? null : Number(row.subscribers),
+                listingFrom: null,
+            },
         }));
+
+        if (items.length > 0) {
+            const channelIds = items.map((item) => item.id);
+            const previews = await buildChannelPreview(
+                this.listingRepository,
+                channelIds,
+                'marketplace',
+            );
+
+            for (const item of items) {
+                const preview = previews.get(item.id);
+                item.preview.listingCount = preview?.listingCount ?? 0;
+                item.preview.listingFrom = preview?.listingFrom ?? null;
+            }
+        }
 
         return {
             items,

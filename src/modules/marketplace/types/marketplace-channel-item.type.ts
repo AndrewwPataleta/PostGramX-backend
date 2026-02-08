@@ -12,6 +12,11 @@ export type MarketplaceChannelItem = {
     minPriceNano: string;
     currency: CurrencyCode;
     tags: string[];
+    preview: {
+        listingCount: number;
+        subsCount: number | null;
+        listingFrom: string | null;
+    };
 };
 
 export type MarketplaceChannelsResponse = {
