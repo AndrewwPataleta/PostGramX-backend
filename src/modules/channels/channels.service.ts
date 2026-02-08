@@ -21,6 +21,7 @@ import {
     ChannelDisabledResult,
     ChannelLinkResult,
     ChannelListResponse,
+    ChannelPauseResult,
     ChannelPreview,
     ChannelUnlinkResult,
     ChannelVerifyResult,
@@ -44,6 +45,9 @@ import {
     ListingListItem,
     mapListingToListItem,
 } from '../listings/types/listing-list-item.type';
+import {User} from '../auth/entities/user.entity';
+import {TelegramMessengerService} from '../telegram/telegram-messenger.service';
+import {ChannelModeratorsService} from './channel-moderators.service';
 
 @Injectable()
 export class ChannelsService {
@@ -58,9 +62,13 @@ export class ChannelsService {
         private readonly telegramAdminRepository: Repository<ChannelTelegramAdminEntity>,
         @InjectRepository(ListingEntity)
         private readonly listingRepository: Repository<ListingEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
         private readonly telegramChatService: TelegramChatService,
         private readonly telegramAdminsSyncService: TelegramAdminsSyncService,
         private readonly channelAdminRecheckService: ChannelAdminRecheckService,
+        private readonly telegramMessengerService: TelegramMessengerService,
+        private readonly channelModeratorsService: ChannelModeratorsService,
     ) {}
 
     async previewChannel(usernameOrLink: string): Promise<ChannelPreview> {
@@ -310,6 +318,8 @@ export class ChannelsService {
                 'channel.subscribersCount',
                 'channel.avgViews',
                 'channel.isDisabled',
+                'channel.isPaused',
+                'channel.pausedAt',
                 'channel.verifiedAt',
                 'channel.lastCheckedAt',
                 'channel.updatedAt',
@@ -393,6 +403,8 @@ export class ChannelsService {
                 subscribers: channel.subscribersCount,
                 avgViews: channel.avgViews,
                 isDisabled: channel.isDisabled,
+                isPaused: channel.isPaused,
+                pausedAt: channel.pausedAt,
                 verifiedAt: channel.verifiedAt,
                 lastCheckedAt: channel.lastCheckedAt,
                 membership: {
@@ -453,6 +465,8 @@ export class ChannelsService {
             subscribers: channel.subscribersCount,
             avgViews: channel.avgViews,
             isDisabled: channel.isDisabled,
+            isPaused: channel.isPaused,
+            pausedAt: channel.pausedAt,
             verifiedAt: channel.verifiedAt,
             lastCheckedAt: channel.lastCheckedAt,
             languageStats: channel.languageStats,
@@ -550,6 +564,59 @@ export class ChannelsService {
         await this.channelRepository.save(channel);
 
         return {channelId: channel.id, isDisabled: channel.isDisabled};
+    }
+
+    async updatePausedStatus(
+        userId: string,
+        channelId: string,
+        paused: boolean,
+        telegramUserId?: string | number | null,
+    ): Promise<ChannelPauseResult> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            throw new NotFoundException('Channel not found.');
+        }
+
+        await this.channelModeratorsService.requireCanReviewDeals(
+            channelId,
+            userId,
+            telegramUserId,
+        );
+
+        if (channel.isPaused === paused) {
+            return {
+                channelId: channel.id,
+                isPaused: channel.isPaused,
+                pausedAt: channel.pausedAt,
+            };
+        }
+
+        channel.isPaused = paused;
+        channel.pausedAt = paused ? new Date() : null;
+        channel.pausedByUserId = paused ? userId : null;
+        await this.channelRepository.save(channel);
+
+        this.logger.log(
+            `Channel pause updated: ${JSON.stringify({
+                channelId: channel.id,
+                pausedByUserId: userId,
+                isPaused: channel.isPaused,
+                timestamp: channel.pausedAt?.toISOString() ?? null,
+            })}`,
+        );
+
+        if (paused) {
+            await this.notifyOwnerIfPausedByModerator(channel, userId);
+        }
+
+        return {
+            channelId: channel.id,
+            isPaused: channel.isPaused,
+            pausedAt: channel.pausedAt,
+        };
     }
 
     async unlinkChannel(
@@ -775,6 +842,56 @@ export class ChannelsService {
         for (const item of items) {
             item.listings = grouped.get(item.id) ?? [];
         }
+    }
+
+    private async notifyOwnerIfPausedByModerator(
+        channel: ChannelEntity,
+        pausedByUserId: string,
+    ): Promise<void> {
+        const ownerId = channel.ownerUserId ?? channel.createdByUserId;
+        if (!ownerId || ownerId === pausedByUserId) {
+            return;
+        }
+
+        const [owner, moderator] = await Promise.all([
+            this.userRepository.findOne({where: {id: ownerId}}),
+            this.userRepository.findOne({where: {id: pausedByUserId}}),
+        ]);
+
+        if (!owner?.telegramId) {
+            return;
+        }
+
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+        const moderatorLabel = this.resolveDisplayName(moderator);
+
+        await this.telegramMessengerService.sendText(
+            owner.telegramId,
+            'telegram.channels.paused_by_moderator.body',
+            {
+                channel: channelLabel,
+                moderator: moderatorLabel,
+            },
+        );
+    }
+
+    private resolveDisplayName(user?: User | null): string {
+        if (!user) {
+            return 'Unknown';
+        }
+        const fullName = [user.firstName, user.lastName]
+            .filter((value) => Boolean(value))
+            .join(' ')
+            .trim();
+        if (fullName) {
+            return fullName;
+        }
+        if (user.username) {
+            return user.username;
+        }
+        return 'Unknown';
     }
 
 }

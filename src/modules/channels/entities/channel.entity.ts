@@ -61,6 +61,15 @@ export class ChannelEntity extends BaseEntity {
     @Column({default: false})
     isDisabled: boolean;
 
+    @Column({default: false})
+    isPaused: boolean;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pausedAt: Date | null;
+
+    @Column({type: 'uuid', nullable: true})
+    pausedByUserId: string | null;
+
     @Column({type: 'jsonb', nullable: true})
     languageStats: Record<string, unknown> | null;
 

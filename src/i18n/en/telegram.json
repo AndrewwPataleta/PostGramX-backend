@@ -133,6 +133,12 @@
       "failed": "Failed to process the change request. Please try again in the Mini App."
     }
   },
+  "channels": {
+    "paused_by_moderator": {
+      "title": "Channel paused",
+      "body": "Channel {channel} was paused by {moderator}."
+    }
+  },
   "payment": {
     "expired": "<b>Payment window expired</b>; funds cannot be applied automatically. Contact support.",
     "payout_confirmed": "<b>Withdrawal completed</b>.\nPlease check your wallet.\nIf you have any questions, contact support."

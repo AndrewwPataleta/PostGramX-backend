@@ -20,7 +20,7 @@ export class MarketplaceService {
 
     async listChannels(
         filters: MarketplaceListChannelsDataDto,
-        userId: string,
+        _userId: string,
     ): Promise<MarketplaceChannelsResponse> {
         const page = filters.page ?? 1;
         const limit = Math.min(filters.limit ?? 20, 50);
@@ -38,7 +38,7 @@ export class MarketplaceService {
                 'listing.channelId = channel.id AND listing.isActive = true',
             )
             .where('channel.isDisabled = :isDisabled', {isDisabled: false})
-            .andWhere('channel.ownerUserId != :userId', {userId});
+            .andWhere('channel.isPaused = :isPaused', {isPaused: false});
 
         if (verifiedOnly) {
             baseQuery.andWhere('channel.status = :status', {

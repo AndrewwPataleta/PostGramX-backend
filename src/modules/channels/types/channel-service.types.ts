@@ -41,6 +41,8 @@ export type ChannelListItem = {
     subscribers: number | null;
     avgViews: number | null;
     isDisabled: boolean;
+    isPaused: boolean;
+    pausedAt: Date | null;
     verifiedAt: Date | null;
     lastCheckedAt: Date | null;
     membership: {
@@ -70,6 +72,8 @@ export type ChannelDetails = {
     subscribers: number | null;
     avgViews: number | null;
     isDisabled: boolean;
+    isPaused: boolean;
+    pausedAt: Date | null;
     verifiedAt: Date | null;
     lastCheckedAt: Date | null;
     languageStats: Record<string, unknown> | null;
@@ -84,6 +88,12 @@ export type ChannelDetails = {
 export type ChannelDisabledResult = {
     channelId: string;
     isDisabled: boolean;
+};
+
+export type ChannelPauseResult = {
+    channelId: string;
+    isPaused: boolean;
+    pausedAt: Date | null;
 };
 
 export type ChannelUnlinkResult = {

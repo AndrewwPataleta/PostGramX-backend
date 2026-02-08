@@ -13,6 +13,7 @@ import {ChannelDetailsDto} from './dto/channel-details.dto';
 import {ListChannelAdminsDto} from './dto/list-channel-admins.dto';
 import {SyncChannelAdminsDto} from './dto/sync-channel-admins.dto';
 import {UpdateChannelDisabledDto} from './dto/update-channel-disabled.dto';
+import {UpdateChannelPauseDto} from './dto/update-channel-pause.dto';
 import {UnlinkChannelDto} from './dto/unlink-channel.dto';
 import {
     mapChannelErrorToMessageKey,
@@ -199,6 +200,34 @@ export class ChannelsController {
             user.id,
             id,
             dto.data.disabled,
+        );
+    }
+
+    @Post(':id/pause')
+    @ApiOperation({summary: 'Pause or unpause a channel in marketplace'})
+    @ApiBody({
+        schema: {
+            example: {
+                platformType: PlatformType.TELEGRAM,
+                authType: AuthType.TELEGRAM,
+                token: '<initData>',
+                data: {
+                    paused: true,
+                },
+            },
+        },
+    })
+    async updatePauseStatus(
+        @Param('id') id: string,
+        @Body(dtoValidationPipe) dto: UpdateChannelPauseDto,
+        @Req() req: Request,
+    ) {
+        const user = assertUser(req);
+        return this.channelsService.updatePausedStatus(
+            user.id,
+            id,
+            dto.data.paused,
+            user.telegramId,
         );
     }
 }
