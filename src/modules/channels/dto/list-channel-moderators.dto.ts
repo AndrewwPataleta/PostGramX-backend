@@ -1,6 +1,6 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
-import {IsUUID} from 'class-validator';
+import {IsDefined, IsUUID, ValidateNested} from 'class-validator';
 
 class ListChannelModeratorsDataDto {
     @ApiProperty()
@@ -10,6 +10,8 @@ class ListChannelModeratorsDataDto {
 
 export class ListChannelModeratorsDto {
     @ApiProperty({type: () => ListChannelModeratorsDataDto})
+    @IsDefined()
+    @ValidateNested()
     @Type(() => ListChannelModeratorsDataDto)
     data: ListChannelModeratorsDataDto;
 }
