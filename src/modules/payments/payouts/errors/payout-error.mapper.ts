@@ -10,6 +10,8 @@ export function mapPayoutErrorToStatus(code: PayoutErrorCode): number {
             return 400;
         case PayoutErrorCode.INSUFFICIENT_LIQUIDITY:
             return 409;
+        case PayoutErrorCode.BLOCKED_LIQUIDITY:
+            return 409;
         case PayoutErrorCode.PAYOUT_ALREADY_IN_PROGRESS:
             return 409;
         case PayoutErrorCode.INTERNAL_ERROR:
@@ -27,6 +29,8 @@ export function mapPayoutErrorToMessageKey(code: PayoutErrorCode): string {
         case PayoutErrorCode.INSUFFICIENT_BALANCE:
             return 'payments.errors.insufficient_funds';
         case PayoutErrorCode.INSUFFICIENT_LIQUIDITY:
+            return 'payments.errors.insufficient_liquidity';
+        case PayoutErrorCode.BLOCKED_LIQUIDITY:
             return 'payments.errors.insufficient_liquidity';
         case PayoutErrorCode.PAYOUT_ALREADY_IN_PROGRESS:
             return 'payments.errors.payout_already_in_progress';

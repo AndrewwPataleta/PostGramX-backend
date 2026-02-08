@@ -7,7 +7,8 @@ import {
 import {CronJob} from 'cron';
 import {SchedulerRegistry} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
-import {DataSource, In, Repository} from 'typeorm';
+import {ConfigService} from '@nestjs/config';
+import {DataSource, In, QueryFailedError, Repository} from 'typeorm';
 import {TransactionEntity} from '../entities/transaction.entity';
 import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
@@ -20,6 +21,11 @@ import {LedgerService} from '../ledger/ledger.service';
 import {PaymentsProcessingConfigService} from './payments-processing-config.service';
 import {withAdvisoryLock} from './advisory-lock';
 import {ensureTransitionAllowed} from '../payouts/payout-state';
+import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
+import {TelegramSenderService} from '../../telegram/telegram-sender.service';
+import {User} from '../../auth/entities/user.entity';
+import {NotificationLogEntity} from '../entities/notification-log.entity';
+import {formatTon} from '../utils/bigint';
 
 @Injectable()
 export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
@@ -34,9 +40,16 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
         private readonly transactionRepository: Repository<TransactionEntity>,
         @InjectRepository(TonTransferEntity)
         private readonly transferRepository: Repository<TonTransferEntity>,
+        @InjectRepository(NotificationLogEntity)
+        private readonly notificationLogRepository: Repository<NotificationLogEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
         private readonly ledgerService: LedgerService,
         private readonly tonHotWalletService: TonHotWalletService,
         private readonly config: PaymentsProcessingConfigService,
+        private readonly telegramMessengerService: TelegramMessengerService,
+        private readonly telegramSenderService: TelegramSenderService,
+        private readonly configService: ConfigService,
     ) {}
 
     onModuleInit(): void {
@@ -303,23 +316,12 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                 lockedPayout.amountToUserNano || lockedPayout.amountNano,
             );
             if (canSpendNano < amountToUserNano) {
-                await this.transactionRepository.update(lockedPayout.id, {
-                    status: TransactionStatus.BLOCKED_LIQUIDITY,
-                    errorCode: 'INSUFFICIENT_LIQUIDITY',
-                    errorMessage: 'Insufficient hot wallet liquidity',
+                await this.handleBlockedLiquidity({
+                    payout: lockedPayout,
+                    amountNano: amountToUserNano.toString(),
+                    hotBalanceNano: hotBalanceNano.toString(),
+                    reservedNano,
                 });
-                this.logger.warn(
-                    `Payout blocked by liquidity`,
-                    JSON.stringify({
-                        payoutId: lockedPayout.id,
-                        userId: lockedPayout.userId,
-                        idempotencyKey: lockedPayout.idempotencyKey,
-                        amountNano: (lockedPayout.amountToUserNano ??
-                            lockedPayout.amountNano),
-                        hotBalanceNano: hotBalanceNano.toString(),
-                        reservedNano,
-                    }),
-                );
                 return;
             }
 
@@ -426,6 +428,248 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
                 }),
             );
         });
+    }
+
+    private async handleBlockedLiquidity(options: {
+        payout: TransactionEntity;
+        amountNano: string;
+        hotBalanceNano: string;
+        reservedNano: string;
+    }): Promise<void> {
+        const {payout} = options;
+        const now = new Date();
+        const result = await this.dataSource.transaction(async (manager) => {
+            const txRepo = manager.getRepository(TransactionEntity);
+            const transferRepo = manager.getRepository(TonTransferEntity);
+            const locked = await txRepo.findOne({
+                where: {id: payout.id},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!locked) {
+                return null;
+            }
+
+            const alreadyBlocked =
+                locked.errorCode === 'BLOCKED_LIQUIDITY' &&
+                [TransactionStatus.CANCELED, TransactionStatus.FAILED].includes(
+                    locked.status,
+                );
+
+            if (!alreadyBlocked) {
+                if (
+                    ![
+                        TransactionStatus.PENDING,
+                        TransactionStatus.BLOCKED_LIQUIDITY,
+                    ].includes(locked.status)
+                ) {
+                    return {payout: locked, shouldNotify: false};
+                }
+
+                ensureTransitionAllowed(
+                    locked.status,
+                    TransactionStatus.CANCELED,
+                );
+                await txRepo.update(locked.id, {
+                    status: TransactionStatus.CANCELED,
+                    errorCode: 'BLOCKED_LIQUIDITY',
+                    errorMessage: 'Insufficient hot wallet liquidity',
+                    completedAt: now,
+                });
+                await this.ledgerService.updateFeeTransactionsStatus(
+                    locked.id,
+                    TransactionStatus.CANCELED,
+                    manager,
+                );
+
+                if (locked.tonTransferId) {
+                    await transferRepo.update(
+                        {
+                            id: locked.tonTransferId,
+                            status: In([
+                                TonTransferStatus.CREATED,
+                                TonTransferStatus.FAILED,
+                                TonTransferStatus.SIMULATED,
+                            ]),
+                        },
+                        {
+                            status: TonTransferStatus.FAILED,
+                            errorMessage: 'Insufficient hot wallet liquidity',
+                        },
+                    );
+                }
+
+                locked.status = TransactionStatus.CANCELED;
+                locked.errorCode = 'BLOCKED_LIQUIDITY';
+                locked.errorMessage = 'Insufficient hot wallet liquidity';
+            }
+
+            return {payout: locked, shouldNotify: true};
+        });
+
+        this.logger.warn(
+            `Payout blocked by liquidity`,
+            JSON.stringify({
+                event: 'payout_blocked_liquidity',
+                payoutId: payout.id,
+                userId: payout.userId,
+                amountNano: options.amountNano,
+                currency: payout.currency,
+                hotBalanceNano: options.hotBalanceNano,
+                reservedNano: options.reservedNano,
+            }),
+        );
+
+        if (!result?.shouldNotify) {
+            return;
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {id: payout.userId},
+        });
+
+        await this.sendAdminBlockedLiquidityAlert(result.payout, user, options);
+        await this.sendUserBlockedLiquidityMessage(result.payout, user);
+    }
+
+    private async sendAdminBlockedLiquidityAlert(
+        payout: TransactionEntity,
+        user: User | null,
+        options: {amountNano: string},
+    ): Promise<void> {
+        const chatId = this.configService.get<string>('ADMIN_ALERTS_CHAT_ID');
+        if (!chatId) {
+            this.logger.warn(
+                `Admin alerts chat ID missing for blocked liquidity`,
+            );
+            return;
+        }
+
+        const idempotencyKey = `adminAlert:payoutBlockedLiquidity:${payout.id}`;
+        const reserved = await this.reserveNotification(idempotencyKey);
+        if (!reserved) {
+            return;
+        }
+
+        const userReference = user?.telegramId
+            ? `tg://user?id=${user.telegramId}`
+            : payout.userId;
+
+        const timestamp = new Date().toISOString();
+        const amountTon = formatTon(options.amountNano);
+        const profileUrl = this.buildUserProfileUrl(payout.userId);
+
+        const lines = [
+            'Event: Payout blocked: insufficient liquidity',
+            `User: ${userReference}`,
+            `Payout request id: ${payout.id}`,
+            `Amount requested (TON): ${amountTon}`,
+            `Amount nano: ${options.amountNano}`,
+            `Currency: ${payout.currency}`,
+            `Timestamp: ${timestamp}`,
+        ];
+
+        if (profileUrl) {
+            lines.push(`User profile: ${profileUrl}`);
+        }
+
+        const threadId = this.getAdminAlertsThreadId();
+        await this.telegramSenderService.sendMessage(chatId, lines.join('\n'), {
+            threadId,
+        });
+    }
+
+    private async sendUserBlockedLiquidityMessage(
+        payout: TransactionEntity,
+        user: User | null,
+    ): Promise<void> {
+        if (!user?.telegramId) {
+            return;
+        }
+
+        const idempotencyKey = `userMsg:payoutBlockedLiquidity:${payout.id}`;
+        const reserved = await this.reserveNotification(idempotencyKey);
+        if (!reserved) {
+            return;
+        }
+
+        const supportUrl = this.getSupportUrl();
+        if (!supportUrl) {
+            this.logger.warn(
+                `Support URL missing for payout blocked liquidity`,
+                JSON.stringify({
+                    event: 'payout_blocked_liquidity',
+                    payoutId: payout.id,
+                    userId: payout.userId,
+                }),
+            );
+        }
+
+        await this.telegramMessengerService.sendText(
+            user.telegramId,
+            'telegram.payout.blocked_liquidity.user_message',
+        );
+
+        if (supportUrl) {
+            await this.telegramMessengerService.sendText(
+                user.telegramId,
+                'telegram.payout.blocked_liquidity.support_cta',
+                {supportUrl},
+            );
+        }
+    }
+
+    private async reserveNotification(idempotencyKey: string): Promise<boolean> {
+        try {
+            await this.notificationLogRepository.insert({idempotencyKey});
+            return true;
+        } catch (error) {
+            if (
+                error instanceof QueryFailedError &&
+                typeof (error as {code?: string}).code === 'string' &&
+                (error as {code: string}).code === '23505'
+            ) {
+                return false;
+            }
+            throw error;
+        }
+    }
+
+    private getSupportUrl(): string | null {
+        return (
+            this.configService.get<string>('SUPPORT_URL') ??
+            this.configService.get<string>('SUPPORT_TELEGRAM_URL') ??
+            null
+        );
+    }
+
+    private getAdminAlertsThreadId(): number | null {
+        const raw = this.configService.get<string>('ADMIN_ALERTS_THREAD_ID');
+        if (!raw) {
+            return null;
+        }
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return null;
+        }
+        return parsed;
+    }
+
+    private buildUserProfileUrl(userId: string): string | null {
+        const baseUrl = this.configService.get<string>('APP_PUBLIC_URL');
+        if (!baseUrl) {
+            return null;
+        }
+        try {
+            const url = new URL(baseUrl);
+            const basePath = url.pathname.endsWith('/')
+                ? url.pathname.slice(0, -1)
+                : url.pathname;
+            url.pathname = `${basePath}/users/${userId}`;
+            return url.toString();
+        } catch (error) {
+            return null;
+        }
     }
 
     private async failPayout(

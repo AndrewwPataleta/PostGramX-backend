@@ -10,6 +10,7 @@ import {TransactionEntity} from './entities/transaction.entity';
 import {PayoutRequestEntity} from './entities/payout-request.entity';
 import {RefundRequestEntity} from './entities/refund-request.entity';
 import {UserWalletEntity} from './entities/user-wallet.entity';
+import {NotificationLogEntity} from './entities/notification-log.entity';
 import {EscrowController} from './escrow/escrow.controller';
 import {EscrowService} from './escrow/escrow.service';
 import {WalletsModule} from './wallets/wallets.module';
@@ -60,6 +61,7 @@ import {PaymentsConfigSeedService} from './payments-config-seed.service';
             PayoutRequestEntity,
             RefundRequestEntity,
             UserWalletEntity,
+            NotificationLogEntity,
             User,
         ]),
         forwardRef(() => DealsModule),

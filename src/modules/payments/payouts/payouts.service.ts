@@ -150,6 +150,12 @@ export class PayoutsService {
                     );
                 }
 
+                await this.ensureHotWalletLiquidity(
+                    amountNano,
+                    currency,
+                    manager,
+                );
+
                 const idempotencyKey =
                     payload.idempotencyKey ??
                     this.buildIdempotencyKey({
@@ -338,6 +344,22 @@ export class PayoutsService {
         }
 
         return {amountNano: low.toString(), fees: bestFees};
+    }
+
+    private async ensureHotWalletLiquidity(
+        amountNano: string,
+        currency: CurrencyCode,
+        manager: EntityManager,
+    ): Promise<void> {
+        const hotBalanceNano = await this.tonHotWalletService.getBalance();
+        const reservedNano = await this.ledgerService.getReservedPayoutsTotal(
+            currency,
+            manager,
+        );
+        const canSpendNano = hotBalanceNano - BigInt(reservedNano);
+        if (canSpendNano < BigInt(amountNano)) {
+            throw new PayoutServiceError(PayoutErrorCode.BLOCKED_LIQUIDITY);
+        }
     }
 
     private async createFeeTransactions(options: {
