@@ -1,4 +1,4 @@
-import {Body, Controller, Post, Req} from '@nestjs/common';
+import {BadRequestException, Body, Controller, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
 import {dtoValidationPipe} from '../../common/pipes/dto-validation.pipe';
@@ -36,11 +36,19 @@ export class ChannelModeratorsController {
         @Req() req: Request,
     ) {
         const user = assertUser(req);
+        const payload = dto.data ?? dto;
+        if (
+            !payload.channelId ||
+            !payload.userId ||
+            payload.canReviewDeals === undefined
+        ) {
+            throw new BadRequestException('Invalid request payload.');
+        }
         return this.channelModeratorsService.setReviewEnabled(
-            dto.data.channelId,
+            payload.channelId,
             user.id,
-            dto.data.userId,
-            dto.data.canReviewDeals,
+            payload.userId,
+            payload.canReviewDeals,
         );
     }
 }
