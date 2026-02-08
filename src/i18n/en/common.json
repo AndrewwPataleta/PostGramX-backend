@@ -84,6 +84,7 @@
       "user_not_member": "User is not a member of the channel.",
       "membership_disabled": "Channel access is disabled for this user.",
       "membership_inactive": "Channel membership is inactive.",
+      "not_admin": "User is not an administrator of the channel.",
       "not_admin_anymore": "User is no longer an administrator of the channel.",
       "missing_rights": "User lacks required administrator rights.",
       "user_not_creator": "User is not the channel creator."
