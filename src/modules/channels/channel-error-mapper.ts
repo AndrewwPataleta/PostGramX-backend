@@ -21,6 +21,8 @@ export const mapChannelErrorToStatus = (
         case ChannelErrorCode.MISSING_RIGHTS:
         case ChannelErrorCode.USER_NOT_CREATOR:
             return HttpStatus.FORBIDDEN;
+        case ChannelErrorCode.CHANNEL_ALREADY_LINKED:
+            return HttpStatus.CONFLICT;
         case ChannelErrorCode.NOT_A_CHANNEL:
         case ChannelErrorCode.CHANNEL_PRIVATE_OR_NO_USERNAME:
             return HttpStatus.BAD_REQUEST;
@@ -63,6 +65,8 @@ export const mapChannelErrorToMessageKey = (
             return 'channels.errors.missing_rights';
         case ChannelErrorCode.USER_NOT_CREATOR:
             return 'channels.errors.user_not_creator';
+        case ChannelErrorCode.CHANNEL_ALREADY_LINKED:
+            return 'channels.errors.channel_already_linked';
         default:
             return 'channels.errors.channel_not_found';
     }

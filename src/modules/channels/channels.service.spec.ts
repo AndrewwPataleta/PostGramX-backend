@@ -151,6 +151,43 @@ describe('ChannelsService verifyChannel', () => {
         expect(membershipRepository.save).not.toHaveBeenCalled();
     });
 
+    it('rejects verify when channel is already linked', async () => {
+        channelRepository.data.push({
+            id: 'channel-1',
+            username: normalizedUsername,
+            title: 'Existing',
+            status: ChannelStatus.VERIFIED,
+            createdByUserId: userId,
+            ownerUserId: userId,
+            telegramChatId: '123',
+            avatarUrl: null as any,
+            verifiedAt: new Date('2024-01-01T00:00:00.000Z'),
+            lastCheckedAt: new Date('2024-01-01T00:00:00.000Z'),
+            subscribersCount: 100,
+            avgViews: null,
+            isDisabled: false,
+            languageStats: null,
+            createdAt: new Date('2024-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            listings: [],
+        });
+
+        const service = buildService();
+
+        await expect(
+            service.verifyChannel(normalizedUsername, userId, telegramUserId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                code: ChannelErrorCode.CHANNEL_ALREADY_LINKED,
+            }),
+        );
+
+        expect(
+            telegramChatService.getChatAdministratorsByUsername,
+        ).not.toHaveBeenCalled();
+        expect(channelRepository.manager.transaction).not.toHaveBeenCalled();
+    });
+
     it('creates channel and membership on successful verify', async () => {
         const userAdmin = {
             status: 'administrator',
