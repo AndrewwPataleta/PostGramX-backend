@@ -136,5 +136,11 @@
   "payment": {
     "expired": "<b>Payment window expired</b>; funds cannot be applied automatically. Contact support.",
     "payout_confirmed": "<b>Withdrawal completed</b>.\nPlease check your wallet.\nIf you have any questions, contact support."
+  },
+  "payout": {
+    "blocked_liquidity": {
+      "user_message": "<b>Withdrawal failed</b> due to a temporary liquidity issue.\nFunds were returned to your balance.",
+      "support_cta": "Contact support: {supportUrl}"
+    }
   }
 }

@@ -22,6 +22,7 @@ import {TransactionEntity} from '../modules/payments/entities/transaction.entity
 import {PayoutRequestEntity} from '../modules/payments/entities/payout-request.entity';
 import {RefundRequestEntity} from '../modules/payments/entities/refund-request.entity';
 import {UserWalletEntity} from '../modules/payments/entities/user-wallet.entity';
+import {NotificationLogEntity} from '../modules/payments/entities/notification-log.entity';
 import {User} from '../modules/auth/entities/user.entity';
 
 export const typeOrmEntities = [
@@ -43,6 +44,7 @@ export const typeOrmEntities = [
     PayoutRequestEntity,
     RefundRequestEntity,
     UserWalletEntity,
+    NotificationLogEntity,
 ];
 
 const getSslConfig = (
