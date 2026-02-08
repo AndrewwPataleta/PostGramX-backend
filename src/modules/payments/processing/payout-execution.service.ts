@@ -626,8 +626,7 @@ export class PayoutExecutionService implements OnModuleInit, OnModuleDestroy {
         } catch (error) {
             if (
                 error instanceof QueryFailedError &&
-                typeof (error as {code?: string}).code === 'string' &&
-                (error as {code: string}).code === '23505'
+                typeof (error as {code?: string}).code === 'string'
             ) {
                 return false;
             }
