@@ -2,7 +2,12 @@ import {BadRequestException, Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 import {ChannelEntity} from '../channels/entities/channel.entity';
+import {
+    ChannelMembershipEntity,
+    TelegramAdminStatus,
+} from '../channels/entities/channel-membership.entity';
 import {ChannelStatus} from '../channels/types/channel-status.enum';
+import {ChannelRole} from '../channels/types/channel-role.enum';
 import {ListingEntity} from '../listings/entities/listing.entity';
 import {MarketplaceListChannelsDataDto} from './dto/marketplace-list-channels.dto';
 import {
@@ -32,15 +37,32 @@ export class MarketplaceService {
         const order =
             filters.order ?? (sort === 'price_min' ? 'asc' : 'desc');
         const verifiedOnly = filters.verifiedOnly ?? true;
+        const adminRoles = [ChannelRole.OWNER, ChannelRole.MODERATOR];
+        const adminStatuses = [
+            TelegramAdminStatus.CREATOR,
+            TelegramAdminStatus.ADMINISTRATOR,
+        ];
 
         const baseQuery = this.channelRepository
             .createQueryBuilder('channel')
+            .leftJoin(
+                ChannelMembershipEntity,
+                'adminMembership',
+                'adminMembership.channelId = channel.id AND adminMembership.userId = :userId AND adminMembership.isActive = true AND adminMembership.isManuallyDisabled = false AND (adminMembership.role IN (:...adminRoles) OR adminMembership.telegramAdminStatus IN (:...adminStatuses))',
+                {
+                    userId,
+                    adminRoles,
+                    adminStatuses,
+                },
+            )
             .innerJoin(
                 ListingEntity,
                 'listing',
                 'listing.channelId = channel.id AND listing.isActive = true',
             )
-            .where('channel.isDisabled = :isDisabled', {isDisabled: false});
+            .where('channel.isDisabled = :isDisabled', {isDisabled: false})
+            .andWhere('channel.ownerUserId != :userId', {userId})
+            .andWhere('adminMembership.id IS NULL');
 
         if (verifiedOnly) {
             baseQuery.andWhere('channel.status = :status', {
