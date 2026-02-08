@@ -1,6 +1,11 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
-import {IsBoolean, IsUUID} from 'class-validator';
+import {
+    IsBoolean,
+    IsOptional,
+    IsUUID,
+    ValidateNested,
+} from 'class-validator';
 
 class SetReviewEnabledDataDto {
     @ApiProperty()
@@ -17,7 +22,23 @@ class SetReviewEnabledDataDto {
 }
 
 export class SetReviewEnabledDto {
-    @ApiProperty({type: () => SetReviewEnabledDataDto})
+    @ApiProperty({type: () => SetReviewEnabledDataDto, required: false})
+    @ValidateNested()
     @Type(() => SetReviewEnabledDataDto)
-    data: SetReviewEnabledDataDto;
+    data?: SetReviewEnabledDataDto;
+
+    @ApiProperty({required: false})
+    @IsUUID()
+    @IsOptional()
+    channelId?: string;
+
+    @ApiProperty({required: false})
+    @IsUUID()
+    @IsOptional()
+    userId?: string;
+
+    @ApiProperty({required: false})
+    @IsBoolean()
+    @IsOptional()
+    canReviewDeals?: boolean;
 }
