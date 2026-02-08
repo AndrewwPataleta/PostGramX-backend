@@ -7,7 +7,6 @@ import {assertUser, handleMappedError} from '../../core/controller-utils';
 import {ChannelsService} from './channels.service';
 import {ChannelServiceError} from './errors/channel-service.error';
 import {PreviewChannelDto} from './dto/preview-channel.dto';
-import {LinkChannelDto} from './dto/link-channel.dto';
 import {VerifyChannelDto} from './dto/verify-channel.dto';
 import {ListChannelsDto} from './dto/list-channels.dto';
 import {ChannelDetailsDto} from './dto/channel-details.dto';
@@ -50,32 +49,8 @@ export class ChannelsController {
         }
     }
 
-    @Post('link')
-    @ApiOperation({summary: 'Link a channel to the current user'})
-    @ApiBody({type: LinkChannelDto})
-    async link(
-        @Body(dtoValidationPipe) dto: LinkChannelDto,
-        @Req() req: Request,
-        @I18n() i18n: I18nContext,
-    ) {
-        const user = assertUser(req);
-
-        try {
-            return await this.channelsService.linkChannel(
-                dto.data.username,
-                user.id,
-            );
-        } catch (error) {
-            await handleMappedError(error, i18n, {
-                errorType: ChannelServiceError,
-                mapStatus: mapChannelErrorToStatus,
-                mapMessageKey: mapChannelErrorToMessageKey,
-            });
-        }
-    }
-
     @Post('verify')
-    @ApiOperation({summary: 'Verify a linked channel'})
+    @ApiOperation({summary: 'Verify a channel by username'})
     @ApiBody({type: VerifyChannelDto})
     async verify(
         @Body(dtoValidationPipe) dto: VerifyChannelDto,
@@ -86,7 +61,7 @@ export class ChannelsController {
 
         try {
             return await this.channelsService.verifyChannel(
-                dto.data.id,
+                dto.data.username,
                 user.id,
                 user.telegramId,
             );

@@ -6,7 +6,7 @@ class VerifyChannelDataDto {
     @ApiProperty()
     @IsString()
     @IsNotEmpty()
-    id: string;
+    username: string;
 }
 
 export class VerifyChannelDto {

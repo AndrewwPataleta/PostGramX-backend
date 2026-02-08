@@ -152,7 +152,7 @@ export class ChannelsService {
     }
 
     async verifyChannel(
-        channelId: string,
+        username: string,
         userId: string,
         telegramUserId?: string | null,
     ): Promise<ChannelVerifyResult> {
@@ -160,22 +160,44 @@ export class ChannelsService {
             throw new ChannelServiceError(ChannelErrorCode.USER_NOT_ADMIN);
         }
 
-        const channel = await this.channelRepository.findOne({
-            where: {id: channelId},
+        let normalizedUsername = username;
+        try {
+            normalizedUsername =
+                this.telegramChatService.normalizeUsernameOrLink(username);
+        } catch (error) {
+            this.throwMappedError(error);
+        }
+
+        let channel = await this.channelRepository.findOne({
+            where: {username: normalizedUsername},
         });
 
-        if (!channel) {
-            throw new ChannelServiceError(
-                ChannelErrorCode.CHANNEL_NOT_FOUND,
-            );
+        if (channel) {
+            if (channel.ownerUserId && channel.ownerUserId !== userId) {
+                throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
+            }
+            if (channel.status !== ChannelStatus.VERIFIED) {
+                channel.status = ChannelStatus.PENDING_VERIFY;
+            }
+            if (!channel.ownerUserId) {
+                channel.ownerUserId = userId;
+            }
+        } else {
+            channel = this.channelRepository.create({
+                username: normalizedUsername,
+                title: normalizedUsername,
+                status: ChannelStatus.PENDING_VERIFY,
+                createdByUserId: userId,
+                ownerUserId: userId,
+            });
         }
-        if (channel.ownerUserId && channel.ownerUserId !== userId) {
-            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
-        }
+
+        await this.channelRepository.save(channel);
+        await this.upsertMembership(channel.id, userId, ChannelRole.OWNER);
 
         try {
             await this.channelAdminRecheckService.requireChannelRights({
-                channelId,
+                channelId: channel.id,
                 userId,
                 telegramId: Number(telegramUserId),
                 required: {mustBeCreator: true},
