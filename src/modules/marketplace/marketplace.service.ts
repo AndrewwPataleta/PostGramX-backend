@@ -37,8 +37,7 @@ export class MarketplaceService {
                 'listing',
                 'listing.channelId = channel.id AND listing.isActive = true',
             )
-            .where('channel.isDisabled = :isDisabled', {isDisabled: false})
-            .andWhere('channel.ownerUserId != :userId', {userId});
+            .where('channel.isDisabled = :isDisabled', {isDisabled: false});
 
         if (verifiedOnly) {
             baseQuery.andWhere('channel.status = :status', {
