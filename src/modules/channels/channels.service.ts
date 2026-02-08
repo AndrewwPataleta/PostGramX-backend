@@ -29,9 +29,9 @@ import {
     TelegramChatService,
     TelegramChatServiceError,
     TelegramChatErrorCode,
+    TelegramChatFullInfo,
     TelegramChatMember,
 } from '../telegram/telegram-chat.service';
-import {mapChannelErrorToMessageKey} from './channel-error-mapper';
 import {ChannelTelegramAdminEntity} from './entities/channel-telegram-admin.entity';
 import {
     TelegramAdminsSyncService,
@@ -157,7 +157,7 @@ export class ChannelsService {
         telegramUserId?: string | null,
     ): Promise<ChannelVerifyResult> {
         if (!telegramUserId) {
-            throw new ChannelServiceError(ChannelErrorCode.USER_NOT_ADMIN);
+            throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN);
         }
 
         let normalizedUsername = username;
@@ -168,118 +168,95 @@ export class ChannelsService {
             this.throwMappedError(error);
         }
 
-        let channel = await this.channelRepository.findOne({
-            where: {username: normalizedUsername},
-        });
+        const preflight = await this.preflightVerify(
+            normalizedUsername,
+            telegramUserId,
+        );
+        const permissionsSnapshot = {
+            user: this.buildAdminSnapshot(preflight.userAdmin),
+            bot: this.buildAdminSnapshot(preflight.botAdmin),
+        };
+        const now = new Date();
 
-        if (channel) {
-            if (channel.ownerUserId && channel.ownerUserId !== userId) {
-                throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
-            }
-            if (channel.status !== ChannelStatus.VERIFIED) {
-                channel.status = ChannelStatus.PENDING_VERIFY;
-            }
-            if (!channel.ownerUserId) {
-                channel.ownerUserId = userId;
-            }
-        } else {
-            channel = this.channelRepository.create({
-                username: normalizedUsername,
-                title: normalizedUsername,
-                status: ChannelStatus.PENDING_VERIFY,
-                createdByUserId: userId,
-                ownerUserId: userId,
-            });
-        }
+        const channel = await this.channelRepository.manager.transaction(
+            async (manager) => {
+                const channelRepository = manager.getRepository(ChannelEntity);
+                const membershipRepository =
+                    manager.getRepository(ChannelMembershipEntity);
 
-        await this.channelRepository.save(channel);
-        await this.upsertMembership(channel.id, userId, ChannelRole.OWNER);
+                let channel = await channelRepository.findOne({
+                    where: {username: normalizedUsername},
+                });
 
+                if (channel) {
+                    if (channel.ownerUserId && channel.ownerUserId !== userId) {
+                        throw new ChannelServiceError(
+                            ChannelErrorCode.USER_NOT_CREATOR,
+                        );
+                    }
+                    if (!channel.ownerUserId) {
+                        channel.ownerUserId = userId;
+                    }
+                } else {
+                    channel = channelRepository.create({
+                        username: normalizedUsername,
+                        title: normalizedUsername,
+                        createdByUserId: userId,
+                        ownerUserId: userId,
+                    });
+                }
+
+                channel.title = preflight.publicChat.title ?? channel.title;
+                channel.telegramChatId = String(preflight.publicChat.id);
+                channel.status = ChannelStatus.VERIFIED;
+                channel.verifiedAt = now;
+                channel.lastCheckedAt = now;
+                if (!channel.ownerUserId) {
+                    channel.ownerUserId = userId;
+                }
+                const subscribers = this.normalizeSubscribersCount(
+                    preflight.publicChat.members_count,
+                );
+                if (subscribers !== null) {
+                    channel.subscribersCount = subscribers;
+                }
+
+                channel = await channelRepository.save(channel);
+
+                await this.upsertMembership(
+                    channel.id,
+                    userId,
+                    ChannelRole.OWNER,
+                    preflight.userAdmin,
+                    permissionsSnapshot,
+                    membershipRepository,
+                );
+
+                return channel;
+            },
+        );
+
+        let adminsSync: 'ok' | 'failed' | undefined;
         try {
-            await this.channelAdminRecheckService.requireChannelRights({
-                channelId: channel.id,
-                userId,
-                telegramId: Number(telegramUserId),
-                required: {mustBeCreator: true},
-            });
-
-            const chat = await this.telegramChatService.getChatByUsername(
-                channel.username,
-            );
-            const publicChat = this.telegramChatService.assertPublicChannel(chat);
-            const admins =
-                await this.telegramChatService.getChatAdministratorsByUsername(
-                    channel.username,
-                );
-
-            const userAdmin = this.findUserAdmin(admins, telegramUserId);
-            const {botAdmin} = await this.telegramChatService.extractBotAdmin(
-                admins,
-            );
-
-            channel.title = publicChat.title ?? channel.title;
-            channel.telegramChatId = String(publicChat.id);
-            channel.status = ChannelStatus.VERIFIED;
-            channel.verifiedAt = new Date();
-            channel.lastCheckedAt = new Date();
-            if (!channel.ownerUserId) {
-                channel.ownerUserId = userId;
-            }
-            const subscribers = this.normalizeSubscribersCount(
-                publicChat.members_count,
-            );
-            if (subscribers !== null) {
-                channel.subscribersCount = subscribers;
-            }
-
-            await this.channelRepository.save(channel);
-
-            const permissionsSnapshot = {
-                user: this.buildAdminSnapshot(userAdmin),
-                bot: this.buildAdminSnapshot(botAdmin),
-            };
-
-            await this.upsertMembership(
-                channel.id,
-                userId,
-                ChannelRole.OWNER,
-                userAdmin,
-                permissionsSnapshot,
-            );
-
-            let adminsSync: 'ok' | 'failed' | undefined;
-            try {
-                await this.telegramAdminsSyncService.syncChannelAdmins(channel.id);
-                adminsSync = 'ok';
-            } catch (error) {
-                adminsSync = 'failed';
-                this.logger.warn(
-                    `Failed to sync Telegram admins for channel ${channel.id}: ${String(
-                        error,
-                    )}`,
-                );
-            }
-
-            return {
-                channelId: channel.id,
-                status: channel.status,
-                role: ChannelRole.OWNER,
-                verifiedAt: channel.verifiedAt?.toISOString(),
-                permissions: permissionsSnapshot,
-                adminsSync,
-            };
+            await this.telegramAdminsSyncService.syncChannelAdmins(channel.id);
+            adminsSync = 'ok';
         } catch (error) {
-            const mapped = this.mapError(error);
-            if (mapped) {
-                await this.markChannelFailed(
-                    channel,
-                    mapped.code,
-                    mapChannelErrorToMessageKey(mapped.code),
-                );
-                throw mapped;
-            }
-            throw error;
+            adminsSync = 'failed';
+            this.logger.warn(
+                `Failed to sync Telegram admins for channel ${channel.id}: ${String(
+                    error,
+                )}`,
+            );
         }
+
+        return {
+            channelId: channel.id,
+            status: channel.status,
+            role: ChannelRole.OWNER,
+            verifiedAt: channel.verifiedAt?.toISOString(),
+            permissions: permissionsSnapshot,
+            adminsSync,
+        };
     }
 
     async listForUser(
@@ -591,18 +568,41 @@ export class ChannelsService {
         );
 
         if (!userAdmin) {
-            throw new ChannelServiceError(
-                ChannelErrorCode.USER_NOT_ADMIN,
-            );
+            throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN);
         }
 
         if (!['creator', 'administrator'].includes(userAdmin.status)) {
-            throw new ChannelServiceError(
-                ChannelErrorCode.USER_NOT_ADMIN,
-            );
+            throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN);
         }
 
         return userAdmin;
+    }
+
+    private async preflightVerify(
+        normalizedUsername: string,
+        telegramUserId: string,
+    ): Promise<{
+        publicChat: TelegramChatFullInfo;
+        userAdmin: TelegramChatMember;
+        botAdmin: TelegramChatMember;
+    }> {
+        try {
+            const chat = await this.telegramChatService.getChatByUsername(
+                normalizedUsername,
+            );
+            const publicChat = this.telegramChatService.assertPublicChannel(chat);
+            const admins =
+                await this.telegramChatService.getChatAdministratorsByUsername(
+                    normalizedUsername,
+                );
+            const userAdmin = this.findUserAdmin(admins, telegramUserId);
+            const {botAdmin} = await this.telegramChatService.extractBotAdmin(
+                admins,
+            );
+            return {publicChat, userAdmin, botAdmin};
+        } catch (error) {
+            this.throwMappedError(error);
+        }
     }
 
     private buildAdminSnapshot(admin: TelegramChatMember) {
@@ -626,13 +626,15 @@ export class ChannelsService {
         role: ChannelRole,
         userAdmin?: TelegramChatMember,
         permissionsSnapshot?: Record<string, unknown>,
+        membershipRepository: Repository<ChannelMembershipEntity> = this
+            .membershipRepository,
     ) {
-        let membership = await this.membershipRepository.findOne({
+        let membership = await membershipRepository.findOne({
             where: {channelId, userId},
         });
 
         if (!membership) {
-            membership = this.membershipRepository.create({
+            membership = membershipRepository.create({
                 channelId,
                 userId,
                 role,
@@ -657,7 +659,7 @@ export class ChannelsService {
             membership.permissionsSnapshot = permissionsSnapshot;
         }
 
-        await this.membershipRepository.save(membership);
+        await membershipRepository.save(membership);
     }
 
     private normalizeSubscribersCount(value: unknown): number | null {

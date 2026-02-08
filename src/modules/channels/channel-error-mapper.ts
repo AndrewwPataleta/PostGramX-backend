@@ -16,6 +16,7 @@ export const mapChannelErrorToStatus = (
         case ChannelErrorCode.USER_NOT_MEMBER:
         case ChannelErrorCode.MEMBERSHIP_DISABLED:
         case ChannelErrorCode.MEMBERSHIP_INACTIVE:
+        case ChannelErrorCode.NOT_ADMIN:
         case ChannelErrorCode.NOT_ADMIN_ANYMORE:
         case ChannelErrorCode.MISSING_RIGHTS:
         case ChannelErrorCode.USER_NOT_CREATOR:
@@ -54,6 +55,8 @@ export const mapChannelErrorToMessageKey = (
             return 'channels.errors.membership_disabled';
         case ChannelErrorCode.MEMBERSHIP_INACTIVE:
             return 'channels.errors.membership_inactive';
+        case ChannelErrorCode.NOT_ADMIN:
+            return 'channels.errors.not_admin';
         case ChannelErrorCode.NOT_ADMIN_ANYMORE:
             return 'channels.errors.not_admin_anymore';
         case ChannelErrorCode.MISSING_RIGHTS:
