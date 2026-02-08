@@ -48,6 +48,11 @@ export type ChannelListItem = {
         telegramAdminStatus: TelegramAdminStatus | null;
         lastRecheckAt: Date | null;
     };
+    preview: {
+        listingCount: number;
+        subsCount: number | null;
+        listingFrom: string | null;
+    };
     listings?: ListingListItem[];
 };
 
