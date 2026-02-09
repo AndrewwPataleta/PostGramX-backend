@@ -26,9 +26,11 @@ export class DealsDeepLinkService {
             }
         }
 
-        const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME');
-        const miniAppShortName = this.configService.get<string>(
-            'TELEGRAM_MINIAPP_SHORT_NAME',
+        const botUsername = this.normalizeBotUsername(
+            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
+        );
+        const miniAppShortName = this.normalizeBotUsername(
+            this.configService.get<string>('TELEGRAM_MINIAPP_SHORT_NAME'),
         );
         const startParam = `deal_${dealId}`;
 
@@ -41,5 +43,13 @@ export class DealsDeepLinkService {
         }
 
         return 'https://t.me';
+    }
+
+    private normalizeBotUsername(value?: string | null): string | undefined {
+        if (!value) {
+            return undefined;
+        }
+        const trimmed = value.trim();
+        return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
     }
 }
