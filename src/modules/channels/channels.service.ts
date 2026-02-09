@@ -74,21 +74,9 @@ export class ChannelsService {
                 normalizedUsername,
             );
             const publicChat = this.telegramChatService.assertPublicChannel(chat);
-            const subscribers = this.normalizeSubscribersCount(
-                publicChat.members_count,
+            const chatUpdate = await this.mapTelegramChatToChannelUpdate(
+                publicChat,
             );
-
-            let avatarUrl: string | null = null;
-            if (publicChat.photo?.big_file_id) {
-                const file = await this.telegramChatService.getFile(
-                    publicChat.photo.big_file_id,
-                );
-                if (file.file_path) {
-                    avatarUrl = this.telegramChatService.buildFileUrl(
-                        file.file_path,
-                    );
-                }
-            }
 
             return {
                 normalizedUsername,
@@ -98,8 +86,8 @@ export class ChannelsService {
                 type: 'channel',
                 isPublic: true,
                 nextStep: 'ADD_BOT_AS_ADMIN',
-                subscribers,
-                avatarUrl,
+                subscribers: chatUpdate.subscribersCount,
+                avatarUrl: chatUpdate.avatarUrl,
                 description: publicChat.description ?? null,
             };
         } catch (error) {
@@ -228,11 +216,14 @@ export class ChannelsService {
                 if (!channel.ownerUserId) {
                     channel.ownerUserId = userId;
                 }
-                const subscribers = this.normalizeSubscribersCount(
-                    preflight.publicChat.members_count,
+                const chatUpdate = await this.mapTelegramChatToChannelUpdate(
+                    preflight.publicChat,
                 );
-                if (subscribers !== null) {
-                    channel.subscribersCount = subscribers;
+                if (chatUpdate.subscribersCount !== null) {
+                    channel.subscribersCount = chatUpdate.subscribersCount;
+                }
+                if (chatUpdate.avatarUrl) {
+                    channel.avatarUrl = chatUpdate.avatarUrl;
                 }
 
                 channel = await channelRepository.save(channel);
@@ -298,6 +289,7 @@ export class ChannelsService {
                 'channel.title',
                 'channel.status',
                 'channel.telegramChatId',
+                'channel.avatarUrl',
                 'channel.subscribersCount',
                 'channel.avgViews',
                 'channel.isDisabled',
@@ -381,6 +373,7 @@ export class ChannelsService {
                 title: channel.title,
                 status: channel.status,
                 telegramChatId: channel.telegramChatId,
+                avatarUrl: channel.avatarUrl ?? null,
                 subscribers: channel.subscribersCount,
                 avgViews: channel.avgViews,
                 isDisabled: channel.isDisabled,
@@ -706,6 +699,35 @@ export class ChannelsService {
         }
 
         return Math.trunc(value);
+    }
+
+    private async mapTelegramChatToChannelUpdate(
+        chat: TelegramChatFullInfo,
+    ): Promise<{subscribersCount: number | null; avatarUrl: string | null}> {
+        let subscribersCount = this.normalizeSubscribersCount(
+            chat.members_count,
+        );
+
+        if (subscribersCount === null) {
+            const memberCount = await this.telegramChatService.getChatMemberCount(
+                chat.username ?? chat.id,
+            );
+            subscribersCount = this.normalizeSubscribersCount(memberCount);
+        }
+
+        let avatarUrl: string | null = null;
+        if (chat.photo?.big_file_id) {
+            const file = await this.telegramChatService.getFile(
+                chat.photo.big_file_id,
+            );
+            if (file.file_path) {
+                avatarUrl = this.telegramChatService.buildFileUrl(
+                    file.file_path,
+                );
+            }
+        }
+
+        return {subscribersCount, avatarUrl};
     }
 
     private mapError(error: unknown): ChannelServiceError | null {

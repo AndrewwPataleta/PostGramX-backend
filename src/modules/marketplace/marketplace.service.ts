@@ -121,6 +121,7 @@ export class MarketplaceService {
                 'channel.username AS username',
                 'channel.status AS status',
                 'channel.subscribersCount AS subscribers',
+                'channel.avatarUrl AS avatarUrl',
                 'channel.updatedAt AS updatedAt',
             ])
             .addSelect('COUNT(listing.id)', 'placementsCount')
@@ -161,7 +162,7 @@ export class MarketplaceService {
             name: row.name,
             username: row.username,
             about: null,
-            avatarUrl: null,
+            avatarUrl: row.avatarUrl ?? null,
             verified: row.status === ChannelStatus.VERIFIED,
             subscribers: row.subscribers === null ? null : Number(row.subscribers),
             placementsCount: Number(row.placementsCount ?? 0),
