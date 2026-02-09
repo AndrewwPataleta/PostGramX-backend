@@ -16,7 +16,12 @@ export class HelpHandler {
         const supportUrl = this.buildSupportUrl();
 
         return [
-            [{textKey: 'telegram.common.open_mini_app', url: openMiniAppUrl}],
+            [
+                {
+                    textKey: 'telegram.common.open_mini_app',
+                    webAppUrl: openMiniAppUrl,
+                },
+            ],
             [{textKey: 'telegram.common.support', url: supportUrl}],
         ];
     }
@@ -24,12 +29,11 @@ export class HelpHandler {
     private buildMiniAppUrl(route?: string): string {
         const baseUrl =
             this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
-            this.configService.get<string>('TELEGRAM_MINI_APP_URL');
-        const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME');
-
-        if (route && botUsername) {
-            return `https://t.me/${botUsername}?startapp=${route}`;
-        }
+            this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
+            this.configService.get<string>('MINI_APP_URL');
+        const botUsername = this.normalizeBotUsername(
+            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
+        );
 
         if (baseUrl) {
             const safeBase = this.ensureHttpsUrl(baseUrl);
@@ -39,7 +43,7 @@ export class HelpHandler {
             try {
                 const url = new URL(safeBase);
                 if (route) {
-                    url.searchParams.set('startapp', route);
+                    url.pathname = `${url.pathname.replace(/\/$/, '')}/${route}`;
                 }
                 return url.toString();
             } catch (error) {
@@ -48,7 +52,9 @@ export class HelpHandler {
         }
 
         if (botUsername) {
-            return `https://t.me/${botUsername}`;
+            return route
+                ? `https://t.me/${botUsername}?startapp=${route}`
+                : `https://t.me/${botUsername}`;
         }
 
         return 'https://t.me';
@@ -61,6 +67,14 @@ export class HelpHandler {
         } catch (error) {
             return null;
         }
+    }
+
+    private normalizeBotUsername(value?: string | null): string | undefined {
+        if (!value) {
+            return undefined;
+        }
+        const trimmed = value.trim();
+        return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
     }
 
     private buildSupportUrl(): string {

@@ -180,19 +180,18 @@ export class TelegramMessengerService {
     buildMiniAppUrl(route?: string): string {
         const baseUrl =
             this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
-            this.configService.get<string>('TELEGRAM_MINI_APP_URL');
-        const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME');
-
-        if (route && botUsername) {
-            return `https://t.me/${botUsername}?startapp=${route}`;
-        }
+            this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
+            this.configService.get<string>('MINI_APP_URL');
+        const botUsername = this.normalizeBotUsername(
+            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
+        );
 
         if (baseUrl) {
             const normalized = this.ensureHttpsUrl(baseUrl);
             if (route && normalized) {
                 try {
                     const url = new URL(normalized);
-                    url.searchParams.set('startapp', route);
+                    url.pathname = `${url.pathname.replace(/\/$/, '')}/${route}`;
                     return url.toString();
                 } catch (error) {
                     return normalized;
@@ -202,7 +201,9 @@ export class TelegramMessengerService {
         }
 
         if (botUsername) {
-            return `https://t.me/${botUsername}`;
+            return route
+                ? `https://t.me/${botUsername}?startapp=${route}`
+                : `https://t.me/${botUsername}`;
         }
 
         return 'https://t.me';
@@ -343,5 +344,13 @@ export class TelegramMessengerService {
         } catch (error) {
             return null;
         }
+    }
+
+    private normalizeBotUsername(value?: string | null): string | undefined {
+        if (!value) {
+            return undefined;
+        }
+        const trimmed = value.trim();
+        return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
     }
 }
