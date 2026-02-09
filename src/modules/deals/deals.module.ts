@@ -20,6 +20,9 @@ import {User} from '../auth/entities/user.entity';
 import {DealsBotHandler} from './deals-bot.handler';
 import {TransactionEntity} from '../payments/entities/transaction.entity';
 import {TelegramModule} from '../telegram/telegram.module';
+import {DealPinnedVisibilityWatcherService} from './services/deal-pinned-visibility-watcher.service';
+import {DealCancelAndRefundService} from './services/deal-cancel-refund.service';
+import {RefundRequestEntity} from '../payments/entities/refund-request.entity';
 
 @Module({
     imports: [
@@ -33,6 +36,7 @@ import {TelegramModule} from '../telegram/telegram.module';
             ChannelMembershipEntity,
             User,
             TransactionEntity,
+            RefundRequestEntity,
         ]),
         forwardRef(() => ChannelsModule),
         forwardRef(() => TelegramModule),
@@ -46,6 +50,8 @@ import {TelegramModule} from '../telegram/telegram.module';
         DealsDeepLinkService,
         DealsTimeoutsService,
         DealPostMonitorService,
+        DealPinnedVisibilityWatcherService,
+        DealCancelAndRefundService,
         DealsBotHandler,
     ],
     exports: [

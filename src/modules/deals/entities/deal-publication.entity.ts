@@ -9,11 +9,16 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
+import {PinVisibilityStatus} from '../../../common/constants/deals/pin-visibility-status.constants';
 import {DealEntity} from './deal.entity';
 
 @Entity({name: 'deal_publications'})
 @Index('IDX_deal_publications_status', ['status'])
 @Index('IDX_deal_publications_must_remain', ['mustRemainUntil'])
+@Index('IDX_deal_publications_pin_visibility', [
+    'pinVisibilityStatus',
+    'pinMissingLastCheckedAt',
+])
 @Index('UQ_deal_publications_deal_id', ['dealId'], {unique: true})
 export class DealPublicationEntity {
     @PrimaryGeneratedColumn('uuid')
@@ -36,8 +41,49 @@ export class DealPublicationEntity {
     @Column({type: 'timestamptz', nullable: true})
     publishedAt: Date | null;
 
+    @Column({type: 'text', nullable: true})
+    telegramChatId: string | null;
+
+    @Column({type: 'bigint', nullable: true})
+    telegramMessageId: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    postedAt: Date | null;
+
     @Column({type: 'timestamptz', nullable: true})
     mustRemainUntil: Date | null;
+
+    @Column({
+        type: 'enum',
+        enum: PinVisibilityStatus,
+        enumName: 'deal_publications_pin_visibility_enum',
+        default: PinVisibilityStatus.NOT_REQUIRED,
+    })
+    pinVisibilityStatus: PinVisibilityStatus;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinMonitoringEndsAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinMissingFirstSeenAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinMissingLastCheckedAt: Date | null;
+
+    @Column({type: 'int', default: 0})
+    pinMissingCount: number;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinMissingWarningSentAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinMissingFinalizedAt: Date | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    pinPermissionWarningSentAt: Date | null;
+
+    @Column({type: 'text', nullable: true})
+    pinLastErrorCode: string | null;
 
     @Column({type: 'timestamptz', nullable: true})
     verifiedAt: Date | null;

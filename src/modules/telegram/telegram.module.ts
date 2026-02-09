@@ -14,6 +14,7 @@ import {TelegramPermissionsService} from './telegram-permissions.service';
 import {ChannelMembershipEntity} from '../channels/entities/channel-membership.entity';
 import {TelegramSenderService} from './telegram-sender.service';
 import {TelegramApiService} from '../../core/telegram-api.service';
+import {TelegramChannelPinsService} from './telegram-channel-pins.service';
 
 @Module({
     exports: [
@@ -25,6 +26,7 @@ import {TelegramApiService} from '../../core/telegram-api.service';
         TelegramPermissionsService,
         TelegramSenderService,
         TelegramApiService,
+        TelegramChannelPinsService,
     ],
     imports: [
         AppI18nModule,
@@ -45,6 +47,7 @@ import {TelegramApiService} from '../../core/telegram-api.service';
         TelegramPermissionsService,
         TelegramSenderService,
         TelegramApiService,
+        TelegramChannelPinsService,
     ],
 })
 export class TelegramModule {}
