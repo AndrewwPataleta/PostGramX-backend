@@ -64,4 +64,59 @@ export class ChannelParticipantsService {
 
         return Array.from(unique.values());
     }
+
+    async getDealReviewers(
+        channelId: string,
+        includeAllReviewers: boolean,
+    ): Promise<User[]> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: channelId},
+        });
+
+        if (!channel) {
+            this.logger.warn(
+                `Channel not found while resolving reviewers: channelId=${channelId}`,
+            );
+            return [];
+        }
+
+        const membershipWhere: Record<string, any> = {
+            channelId,
+            isActive: true,
+            isManuallyDisabled: false,
+            role: In([ChannelRole.OWNER, ChannelRole.MODERATOR]),
+        };
+
+        if (!includeAllReviewers) {
+            membershipWhere.canReviewDeals = true;
+        }
+
+        const memberships = await this.membershipRepository.find({
+            where: membershipWhere,
+        });
+
+        const userIds = new Set<string>([channel.ownerUserId]);
+        for (const membership of memberships) {
+            userIds.add(membership.userId);
+        }
+
+        const ids = Array.from(userIds).filter(Boolean);
+        if (ids.length === 0) {
+            return [];
+        }
+
+        const users = await this.userRepository.find({
+            where: {id: In(ids)},
+        });
+
+        const unique = new Map<string, User>();
+        for (const user of users) {
+            if (!user.telegramId) {
+                continue;
+            }
+            unique.set(user.id, user);
+        }
+
+        return Array.from(unique.values());
+    }
 }

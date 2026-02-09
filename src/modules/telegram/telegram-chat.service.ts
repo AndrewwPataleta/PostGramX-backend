@@ -42,6 +42,11 @@ export interface TelegramChatFullInfo extends TelegramChat {
     invite_link?: string;
     photo?: TelegramChatPhoto;
     members_count?: number;
+    pinned_message?: TelegramPinnedMessage;
+}
+
+export interface TelegramPinnedMessage {
+    message_id: number;
 }
 
 export interface TelegramUser {
@@ -116,6 +121,12 @@ export class TelegramChatService {
     async getChatByUsername(username: string): Promise<TelegramChatFullInfo> {
         return this.request<TelegramChatFullInfo>('getChat', {
             chat_id: `@${username}`,
+        });
+    }
+
+    async getChat(chatId: string | number): Promise<TelegramChatFullInfo> {
+        return this.request<TelegramChatFullInfo>('getChat', {
+            chat_id: this.normalizeChatId(chatId),
         });
     }
 

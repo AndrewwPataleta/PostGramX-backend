@@ -27,6 +27,7 @@ import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.cons
 import {formatTon} from '../payments/utils/bigint';
 import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
 import {PAYMENTS_CONFIG} from '../../config/payments.config';
+import {PinVisibilityStatus} from '../../common/constants/deals/pin-visibility-status.constants';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -1238,6 +1239,46 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         ]);
 
         return this.buildDealItem(deal, creative, escrow, publication);
+    }
+
+    async getPinVisibility(userId: string, dealId: string) {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+        });
+
+        if (!deal) {
+            throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+        }
+
+        const isAdvertiser = deal.advertiserUserId === userId;
+        const isPublisher = deal.publisherUserId
+            ? deal.publisherUserId === userId
+            : (await this.membershipRepository.findOne({
+                  where: {channelId: deal.channelId, userId},
+              })) !== null;
+
+        if (!isAdvertiser && !isPublisher) {
+            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
+        }
+
+        const publication = await this.publicationRepository.findOne({
+            where: {dealId: deal.id},
+        });
+
+        const visibilityDurationHours =
+            (deal.listingSnapshot as {visibilityDurationHours?: number})
+                ?.visibilityDurationHours ?? 0;
+
+        return {
+            required: visibilityDurationHours !== 0,
+            status:
+                publication?.pinVisibilityStatus ??
+                PinVisibilityStatus.NOT_REQUIRED,
+            missingCount: publication?.pinMissingCount ?? 0,
+            firstSeenAt: publication?.pinMissingFirstSeenAt ?? null,
+            lastCheckedAt: publication?.pinMissingLastCheckedAt ?? null,
+            warningSentAt: publication?.pinMissingWarningSentAt ?? null,
+        };
     }
 
     private async fetchDealsGroup(

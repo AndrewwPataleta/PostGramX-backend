@@ -12,6 +12,7 @@ import {DealStatus} from '../../../common/constants/deals/deal-status.constants'
 import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.constants';
 import {CreativeStatus} from '../../../common/constants/deals/creative-status.constants';
 import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
+import {PinVisibilityStatus} from '../../../common/constants/deals/pin-visibility-status.constants';
 import {TelegramPosterService} from './telegram-poster.service';
 import {PaymentsService} from '../../payments/payments.service';
 import {DealsNotificationsService} from '../../deals/deals-notifications.service';
@@ -157,12 +158,28 @@ export class DealPostingWorker {
             const mustRemainUntil = windowHours
                 ? new Date(publishedAt.getTime() + windowHours * 60 * 60 * 1000)
                 : null;
+            const visibilityHours = listingSnapshot.visibilityDurationHours ?? 0;
+            const pinMonitoringEndsAt =
+                visibilityHours > 0
+                    ? new Date(
+                          publishedAt.getTime() + visibilityHours * 60 * 60 * 1000,
+                      )
+                    : null;
+            const pinVisibilityStatus =
+                visibilityHours > 0
+                    ? PinVisibilityStatus.MONITORING
+                    : PinVisibilityStatus.NOT_REQUIRED;
 
             await this.upsertPublication(deal.id, {
                 status: PublicationStatus.POSTED,
                 publishedMessageId: String(result.message_id),
                 publishedAt,
                 mustRemainUntil,
+                telegramChatId: channel.telegramChatId ?? channel.username ?? null,
+                telegramMessageId: String(result.message_id),
+                postedAt: publishedAt,
+                pinVisibilityStatus,
+                pinMonitoringEndsAt,
             });
 
             if (DEALS_CONFIG.AUTO_DEAL_COMPLETE) {

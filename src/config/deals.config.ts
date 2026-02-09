@@ -88,3 +88,20 @@ logger.log(
 );
 
 export const DEAL_TIMEOUTS_CRON = `*/${DEALS_CONFIG.CRON_INTERVAL_MINUTES} * * * *`;
+
+export const PIN_VISIBILITY_CONFIG = {
+    CRON: process.env.PIN_CHECK_CRON ?? '0 * * * *',
+    MISSING_GRACE_CHECKS: parseNumber(
+        process.env.PIN_MISSING_GRACE_CHECKS,
+        1,
+    ),
+    BATCH_LIMIT: parseNumber(process.env.PIN_CHECK_BATCH_LIMIT, 50),
+    MIN_POST_AGE_MINUTES: parseNumber(
+        process.env.PIN_CHECK_MIN_POST_AGE_MINUTES,
+        10,
+    ),
+    ALERTS_TO_ALL_REVIEWERS: parseBoolean(
+        process.env.PIN_ALERTS_TO_ALL_REVIEWERS,
+        true,
+    ),
+};

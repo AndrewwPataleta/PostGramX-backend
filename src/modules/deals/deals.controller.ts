@@ -1,4 +1,4 @@
-import {Body, Controller, ForbiddenException, Param, Post, Req} from '@nestjs/common';
+import {Body, Controller, ForbiddenException, Get, Param, Post, Req} from '@nestjs/common';
 import {ApiBody, ApiOperation, ApiTags} from '@nestjs/swagger';
 import {Request} from 'express';
 import {I18n, I18nContext} from 'nestjs-i18n';
@@ -147,6 +147,26 @@ export class DealsController {
 
         try {
             return await this.dealsService.getDeal(user.id, dto.data.id);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Get(':id/pin-visibility')
+    @ApiOperation({summary: 'Get pin visibility status for a deal'})
+    async getPinVisibility(
+        @Param('id') dealId: string,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.getPinVisibility(user.id, dealId);
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: DealServiceError,

@@ -26,6 +26,8 @@ export class DealsNotificationsService {
     private readonly logger = new Logger(DealsNotificationsService.name);
 
     constructor(
+        @InjectRepository(DealEntity)
+        private readonly dealRepository: Repository<DealEntity>,
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(User)
@@ -38,6 +40,157 @@ export class DealsNotificationsService {
         @Inject(forwardRef(() => TelegramMessengerService))
         private readonly telegramMessengerService: TelegramMessengerService,
     ) {
+    }
+
+    async notifyPinMissingWarning(
+        dealId: string,
+        includeAllReviewers: boolean,
+    ): Promise<void> {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+        if (!deal) {
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            return;
+        }
+
+        const recipients = await this.participantsService.getDealReviewers(
+            deal.channelId,
+            includeAllReviewers,
+        );
+        if (recipients.length === 0) {
+            return;
+        }
+
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+        const messageArgs = {
+            channel: channelLabel,
+            dealId: deal.id.slice(0, 8),
+        };
+
+        await this.runWithConcurrency(
+            recipients,
+            NOTIFICATION_CONCURRENCY,
+            async (recipient) => {
+                try {
+                    await this.telegramMessengerService.sendText(
+                        recipient.telegramId as string,
+                        'telegram.deal.pin_missing_warning',
+                        messageArgs,
+                    );
+                } catch (error) {
+                    const errorMessage =
+                        error instanceof Error ? error.message : String(error);
+                    this.logger.warn(
+                        `Failed to send pin warning: dealId=${deal.id} recipient=${recipient.id} error=${errorMessage}`,
+                    );
+                }
+            },
+        );
+    }
+
+    async notifyPinMissingFinalized(
+        dealId: string,
+        includeAllReviewers: boolean,
+    ): Promise<void> {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+        if (!deal) {
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            return;
+        }
+
+        const recipients = await this.participantsService.getDealReviewers(
+            deal.channelId,
+            includeAllReviewers,
+        );
+
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+        const messageArgs = {
+            channel: channelLabel,
+            dealId: deal.id.slice(0, 8),
+        };
+
+        if (recipients.length > 0) {
+            await this.runWithConcurrency(
+                recipients,
+                NOTIFICATION_CONCURRENCY,
+                async (recipient) => {
+                    try {
+                        await this.telegramMessengerService.sendText(
+                            recipient.telegramId as string,
+                            'telegram.deal.pin_missing_finalized',
+                            messageArgs,
+                        );
+                    } catch (error) {
+                        const errorMessage =
+                            error instanceof Error
+                                ? error.message
+                                : String(error);
+                        this.logger.warn(
+                            `Failed to send pin finalized: dealId=${deal.id} recipient=${recipient.id} error=${errorMessage}`,
+                        );
+                    }
+                },
+            );
+        }
+
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        if (advertiser?.telegramId) {
+            await this.telegramMessengerService.sendText(
+                advertiser.telegramId,
+                'telegram.deal.pin_missing_finalized',
+                messageArgs,
+            );
+        }
+    }
+
+    async notifyPinCheckUnavailable(dealId: string): Promise<void> {
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
+        if (!deal) {
+            return;
+        }
+
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        if (!channel) {
+            return;
+        }
+
+        const owner = await this.userRepository.findOne({
+            where: {id: channel.ownerUserId},
+        });
+        if (!owner?.telegramId) {
+            return;
+        }
+
+        const channelLabel = channel.username
+            ? `@${channel.username}`
+            : channel.title;
+        await this.telegramMessengerService.sendText(
+            owner.telegramId,
+            'telegram.deal.pin_check_unavailable',
+            {
+                channel: channelLabel,
+                dealId: deal.id.slice(0, 8),
+            },
+        );
     }
 
     async notifyCreativeRequired(

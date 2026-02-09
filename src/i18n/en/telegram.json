@@ -101,6 +101,9 @@
       "published": "<b>Post published</b>. We will verify delivery.\nThe post must remain until {mustRemainUntil}.\nWe will monitor the conditions and the post.\nIf the post is deleted earlier, we will refund the funds to your wallet.",
       "delivery_confirmed": "<b>Delivery confirmed</b>. Funds released."
     },
+    "pin_missing_warning": "<b>Pinned post missing</b>\nChannel: {channel}\nDeal: <code>{dealId}</code>\nPlease repin the post before the next check to avoid auto-cancel and refund.",
+    "pin_missing_finalized": "<b>Deal canceled</b>: pinned post missing.\nChannel: {channel}\nDeal: <code>{dealId}</code>\nRefund initiated.",
+    "pin_check_unavailable": "<b>Pin check unavailable</b>\nChannel: {channel}\nDeal: <code>{dealId}</code>\nThe bot cannot read pinned posts. Please restore admin rights and re-verify.",
     "buttons": {
       "approve": "Approve",
       "confirm": "Confirm",
