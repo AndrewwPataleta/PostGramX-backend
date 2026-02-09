@@ -24,6 +24,8 @@ import {RefundRequestEntity} from '../modules/payments/entities/refund-request.e
 import {UserWalletEntity} from '../modules/payments/entities/user-wallet.entity';
 import {NotificationLogEntity} from '../modules/payments/entities/notification-log.entity';
 import {User} from '../modules/auth/entities/user.entity';
+import {ChannelAnalyticsEntity} from '../modules/telegram-mtproto-analytics/entities/channel-analytics.entity';
+import {TelegramMtprotoSessionEntity} from '../modules/telegram-mtproto-analytics/entities/telegram-mtproto-session.entity';
 
 export const typeOrmEntities = [
     User,
@@ -45,6 +47,8 @@ export const typeOrmEntities = [
     RefundRequestEntity,
     UserWalletEntity,
     NotificationLogEntity,
+    ChannelAnalyticsEntity,
+    TelegramMtprotoSessionEntity,
 ];
 
 const getSslConfig = (
