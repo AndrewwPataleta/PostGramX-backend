@@ -8,38 +8,51 @@ export class StartHandler {
     constructor(private readonly configService: ConfigService) {}
 
     getButtons(): TelegramInlineButtonSpec[][] {
-        const openMiniAppUrl = this.buildMiniAppUrl();
+        const miniAppButton = this.buildMiniAppButton();
         const supportUrl = this.buildSupportUrl();
 
-        return [
-            [
-                {
-                    textKey: 'telegram.common.open_mini_app',
-                    webAppUrl: openMiniAppUrl,
-                },
-            ],
-            [
-                {textKey: 'telegram.common.about_escrow', callbackData: 'about_escrow'},
-            ],
-            [
-                {textKey: 'telegram.common.support', url: supportUrl},
-            ],
-        ];
+        const buttons: TelegramInlineButtonSpec[][] = [];
+
+        if (miniAppButton) {
+            buttons.push([miniAppButton]);
+        }
+
+        buttons.push([{textKey: 'telegram.common.about_escrow', callbackData: 'about_escrow'}]);
+        buttons.push([{textKey: 'telegram.common.support', url: supportUrl}]);
+
+        return buttons;
     }
 
-    private buildMiniAppUrl(route?: string): string {
+    private buildMiniAppButton(route?: string): TelegramInlineButtonSpec | null {
+        const webAppUrl = this.buildMiniAppWebAppUrl(route);
+        if (webAppUrl) {
+            return {
+                textKey: 'telegram.common.open_mini_app',
+                webAppUrl,
+            };
+        }
+
+        const fallbackUrl = this.buildMiniAppFallbackUrl(route);
+        if (fallbackUrl) {
+            return {
+                textKey: 'telegram.common.open_mini_app',
+                url: fallbackUrl,
+            };
+        }
+
+        return null;
+    }
+
+    private buildMiniAppWebAppUrl(route?: string): string | null {
         const baseUrl =
             this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
             this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
             this.configService.get<string>('MINI_APP_URL');
-        const botUsername = this.normalizeBotUsername(
-            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
-        );
 
         if (baseUrl) {
             const safeBase = this.ensureHttpsUrl(baseUrl);
             if (!safeBase) {
-                return 'https://t.me';
+                return null;
             }
             try {
                 const url = new URL(safeBase);
@@ -48,9 +61,17 @@ export class StartHandler {
                 }
                 return url.toString();
             } catch (error) {
-                return safeBase;
+                return null;
             }
         }
+
+        return null;
+    }
+
+    private buildMiniAppFallbackUrl(route?: string): string | null {
+        const botUsername = this.normalizeBotUsername(
+            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
+        );
 
         if (botUsername) {
             return route
@@ -58,7 +79,7 @@ export class StartHandler {
                 : `https://t.me/${botUsername}`;
         }
 
-        return 'https://t.me';
+        return null;
     }
 
     private ensureHttpsUrl(value: string): string | null {
