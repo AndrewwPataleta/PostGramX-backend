@@ -38,6 +38,7 @@ export type ChannelListItem = {
     title: string;
     status: ChannelStatus;
     telegramChatId: string | null;
+    avatarUrl: string | null;
     subscribers: number | null;
     avgViews: number | null;
     isDisabled: boolean;
