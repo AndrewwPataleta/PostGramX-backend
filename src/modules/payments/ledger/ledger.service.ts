@@ -58,6 +58,26 @@ export class LedgerService {
             })
             .getRawOne<{earnedNano: string | null}>();
 
+
+        const refundCreditsRow = await repo
+            .createQueryBuilder('transaction')
+            .select(
+                'COALESCE(SUM(transaction.amountNano), 0)::bigint',
+                'refundCreditsNano',
+            )
+            .where('transaction.userId = :userId', {userId})
+            .andWhere('transaction.currency = :currency', {currency})
+            .andWhere('transaction.direction = :dirIn', {
+                dirIn: TransactionDirection.IN,
+            })
+            .andWhere('transaction.status = :completed', {
+                completed: TransactionStatus.COMPLETED,
+            })
+            .andWhere('transaction.type = :refundType', {
+                refundType: TransactionType.REFUND,
+            })
+            .getRawOne<{refundCreditsNano: string | null}>();
+
         const paidOutRow = await repo
             .createQueryBuilder('transaction')
             .select(
@@ -136,7 +156,10 @@ export class LedgerService {
             })
             .getRawOne<{pendingNano: string | null}>();
 
-        const creditsNano = earnedRow?.earnedNano ?? '0';
+        const creditsNano = (
+            BigInt(earnedRow?.earnedNano ?? '0') +
+            BigInt(refundCreditsRow?.refundCreditsNano ?? '0')
+        ).toString();
         const debitsNano = paidOutRow?.debitsNano ?? '0';
         const reservedNano = (
             BigInt(pendingTxRow?.reservedNano ?? '0') +

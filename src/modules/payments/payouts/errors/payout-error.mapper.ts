@@ -14,6 +14,8 @@ export function mapPayoutErrorToStatus(code: PayoutErrorCode): number {
             return 409;
         case PayoutErrorCode.PAYOUT_ALREADY_IN_PROGRESS:
             return 409;
+        case PayoutErrorCode.DAILY_WITHDRAW_LIMIT:
+            return 429;
         case PayoutErrorCode.INTERNAL_ERROR:
         default:
             return 500;
@@ -34,6 +36,8 @@ export function mapPayoutErrorToMessageKey(code: PayoutErrorCode): string {
             return 'payments.errors.insufficient_liquidity';
         case PayoutErrorCode.PAYOUT_ALREADY_IN_PROGRESS:
             return 'payments.errors.payout_already_in_progress';
+        case PayoutErrorCode.DAILY_WITHDRAW_LIMIT:
+            return 'payments.errors.daily_withdraw_limit';
         case PayoutErrorCode.INTERNAL_ERROR:
         default:
             return 'payments.errors.internal_error';

@@ -1,6 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {createHash} from 'crypto';
+import {ConfigService} from '@nestjs/config';
 import {EntityManager, Repository} from 'typeorm';
 import {CurrencyCode} from '../../../common/constants/currency/currency.constants';
 import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
@@ -16,6 +17,10 @@ import {TonTransferEntity} from '../entities/ton-transfer.entity';
 import {TonTransferStatus} from '../../../common/constants/payments/ton-transfer-status.constants';
 import {TonTransferType} from '../../../common/constants/payments/ton-transfer-type.constants';
 import {TonHotWalletService} from '../ton/ton-hot-wallet.service';
+import {User} from '../../auth/entities/user.entity';
+import {TelegramMessengerService} from '../../telegram/telegram-messenger.service';
+import {TelegramSenderService} from '../../telegram/telegram-sender.service';
+import {TelegramI18nService} from '../../telegram/i18n/telegram-i18n.service';
 
 type PayoutRequestPayload = {
     userId: string;
@@ -27,17 +32,24 @@ type PayoutRequestPayload = {
 
 @Injectable()
 export class PayoutsService {
-        private readonly logger = new Logger(PayoutsService.name);
+    private readonly logger = new Logger(PayoutsService.name);
+    private static readonly DAILY_LIMIT = 2;
 
     constructor(
         private readonly ledgerService: LedgerService,
         private readonly userWalletService: UserWalletService,
         private readonly feesService: FeesService,
         private readonly tonHotWalletService: TonHotWalletService,
+        private readonly configService: ConfigService,
+        private readonly telegramMessengerService: TelegramMessengerService,
+        private readonly telegramSenderService: TelegramSenderService,
+        private readonly telegramI18nService: TelegramI18nService,
         @InjectRepository(TransactionEntity)
         private readonly transactionRepository: Repository<TransactionEntity>,
         @InjectRepository(TonTransferEntity)
         private readonly transferRepository: Repository<TonTransferEntity>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
     ) {}
 
     async requestWithdrawal(payload: PayoutRequestPayload) {
@@ -79,6 +91,11 @@ export class PayoutsService {
                         return existing;
                     }
                 }
+
+                await this.assertDailyLimitNotReached(
+                    payload.userId,
+                    txRepo,
+                );
 
                 const balance = await this.ledgerService.getWithdrawableBalance(
                     payload.userId,
@@ -276,6 +293,79 @@ export class PayoutsService {
     }): string {
         const raw = `${options.userId}:${options.destinationAddress}:${options.amountNano}:payout`;
         return createHash('sha256').update(raw).digest('hex');
+    }
+
+    private async assertDailyLimitNotReached(
+        userId: string,
+        txRepo: Repository<TransactionEntity>,
+    ): Promise<void> {
+        const start = new Date();
+        start.setUTCHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 1);
+
+        const todayAttempts = await txRepo
+            .createQueryBuilder('tx')
+            .where('tx.userId = :userId', {userId})
+            .andWhere('tx.type = :type', {type: TransactionType.PAYOUT})
+            .andWhere('tx.createdAt >= :start AND tx.createdAt < :end', {
+                start,
+                end,
+            })
+            .andWhere('tx.status IN (:...statuses)', {
+                statuses: [
+                    TransactionStatus.PENDING,
+                    TransactionStatus.AWAITING_CONFIRMATION,
+                    TransactionStatus.CONFIRMED,
+                    TransactionStatus.COMPLETED,
+                ],
+            })
+            .getCount();
+
+        if (todayAttempts < PayoutsService.DAILY_LIMIT) {
+            return;
+        }
+
+        await this.notifyDailyLimitReached(userId);
+        throw new PayoutServiceError(PayoutErrorCode.DAILY_WITHDRAW_LIMIT);
+    }
+
+    private async notifyDailyLimitReached(userId: string): Promise<void> {
+        const user = await this.userRepository.findOne({where: {id: userId}});
+        const username = user?.username ? `@${user.username}` : '-';
+
+        if (user?.telegramId) {
+            await this.telegramMessengerService.sendText(
+                user.telegramId,
+                'telegram.payout.daily_limit_reached',
+                {
+                    limit: String(PayoutsService.DAILY_LIMIT),
+                },
+                {
+                    lang: this.telegramI18nService.resolveLanguageForUser(user),
+                },
+            );
+        }
+
+        const adminChatId = this.configService.get<string>('ADMIN_ALERTS_CHAT_ID');
+        if (!adminChatId) {
+            return;
+        }
+
+        const lang = this.telegramI18nService.resolveLanguageForUser(user, 'en');
+        const text = this.telegramI18nService.t(
+            lang,
+            'telegram.admin.daily_withdraw_limit',
+            {
+                userId,
+                username,
+                limit: String(PayoutsService.DAILY_LIMIT),
+                eventType: 'DAILY_WITHDRAW_LIMIT',
+            },
+        );
+        await this.telegramSenderService.sendMessage(adminChatId, text, {
+            parseMode: 'HTML',
+        });
     }
 
     private toResponse(transaction: TransactionEntity) {

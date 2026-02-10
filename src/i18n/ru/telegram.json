@@ -131,7 +131,9 @@
     },
     "request_changes": {
       "failed": "Не удалось обработать запрос на изменения. Попробуйте снова в мини-приложении."
-    }
+    },
+    "canceled_refund_available": "<b>Сделка отменена</b>\n<b>Возврат доступен</b>\n<b>Сумма</b> - {amountTon} TON\nВы можете вывести средства в Mini App",
+    "canceled_no_payment": "<b>Сделка отменена</b>\nОплата не поступила"
   },
   "payment": {
     "expired": "<b>Срок оплаты истек</b>; средства не могут быть применены автоматически. Обратитесь в поддержку.",
@@ -141,6 +143,11 @@
     "blocked_liquidity": {
       "user_message": "<b>Вывод не выполнен</b> из-за временной нехватки ликвидности.\nСредства возвращены на ваш баланс.",
       "support_cta": "Связаться с поддержкой: {supportUrl}"
-    }
+    },
+    "daily_limit_reached": "<b>Лимит выводов достигнут</b>\nЛимит - {limit} запроса в день\nПопробуйте завтра"
+  },
+  "admin": {
+    "daily_withdraw_limit": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Лимит</b> - {limit} запроса в день",
+    "refund_credited": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Сумма TON</b> - {amountTon}\n<b>Сумма nano</b> - {amountNano}\n<b>Deal ID</b> - {dealId}"
   }
 }

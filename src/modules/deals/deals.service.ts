@@ -1,6 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import {InjectRepository} from '@nestjs/typeorm';
-import {Brackets, DataSource, In, Repository} from 'typeorm';
+import {Brackets, DataSource, EntityManager, In, Repository} from 'typeorm';
 import {DealEntity} from './entities/deal.entity';
 import {DealCreativeEntity} from './entities/deal-creative.entity';
 import {DealEscrowEntity} from './entities/deal-escrow.entity';
@@ -25,6 +26,12 @@ import {ChannelErrorCode} from '../channels/types/channel-error-code.enum';
 import {ChannelServiceError} from '../channels/errors/channel-service.error';
 import {EscrowStatus} from '../../common/constants/deals/deal-escrow-status.constants';
 import {formatTon} from '../payments/utils/bigint';
+import {TransactionEntity} from '../payments/entities/transaction.entity';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
+import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
+import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
+import {TelegramSenderService} from '../telegram/telegram-sender.service';
+import {TelegramI18nService} from '../telegram/i18n/telegram-i18n.service';
 import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
 import {PAYMENTS_CONFIG} from '../../config/payments.config';
 import {PinVisibilityStatus} from '../../common/constants/deals/pin-visibility-status.constants';
@@ -58,6 +65,9 @@ export class DealsService {
         private readonly dealsNotificationsService: DealsNotificationsService,
         private readonly paymentsService: PaymentsService,
         private readonly channelModeratorsService: ChannelModeratorsService,
+        private readonly telegramSenderService: TelegramSenderService,
+        private readonly telegramI18nService: TelegramI18nService,
+        private readonly configService: ConfigService,
     ) {
     }
 
@@ -1218,36 +1228,160 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         const now = new Date();
         const stage = DealStage.FINALIZED;
+        const cancelReason = reason ?? 'CANCELED';
+        let refundedAmountNano = 0n;
 
-        let shouldRefund = false;
         await this.dataSource.transaction(async (manager) => {
             const dealRepo = manager.getRepository(DealEntity);
             const escrowRepo = manager.getRepository(DealEscrowEntity);
 
-            await dealRepo.update(deal.id, {
+            const lockedEscrow = await escrowRepo.findOne({
+                where: {dealId: deal.id},
+                lock: {mode: 'pessimistic_write'},
+            });
+            const lockedDeal = await dealRepo.findOne({
+                where: {id: deal.id},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!lockedDeal) {
+                throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+            }
+
+            const alreadyCanceled =
+                lockedDeal.status === DealStatus.CANCELED &&
+                lockedDeal.stage === DealStage.FINALIZED;
+            if (!alreadyCanceled) {
+                this.ensureTransitionAllowed(lockedDeal.stage, stage);
+            }
+
+            await dealRepo.update(lockedDeal.id, {
                 status: DealStatus.CANCELED,
                 stage,
-                cancelReason: reason ?? 'CANCELED',
+                cancelReason,
                 ...this.buildActivityUpdate(now),
             });
 
-            const escrow = await escrowRepo.findOne({where: {dealId: deal.id}});
             if (
-                escrow &&
-                [
-                    EscrowStatus.PAID_HELD,
-                    EscrowStatus.PAID_PARTIAL,
-                ].includes(escrow.status)
+                !lockedEscrow ||
+                ![EscrowStatus.PAID_HELD, EscrowStatus.PAID_PARTIAL].includes(
+                    lockedEscrow.status,
+                )
             ) {
-                shouldRefund = true;
+                return;
             }
+
+            const amountNano = BigInt(lockedEscrow.paidNano ?? '0');
+            if (amountNano <= 0n) {
+                await escrowRepo.update(lockedEscrow.id, {
+                    status: EscrowStatus.REFUNDED,
+                });
+                return;
+            }
+
+            refundedAmountNano = await this.creditAdvertiserFromCanceledDeal(
+                manager,
+                lockedDeal,
+                lockedEscrow,
+                amountNano,
+                cancelReason,
+            );
         });
 
-        if (shouldRefund) {
-            await this.paymentsService.refundEscrow(deal.id, reason ?? 'CANCELED');
+        if (refundedAmountNano > 0n) {
+            await this.notifyAdminAboutRefundCredit(deal, refundedAmountNano);
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'telegram.deal.canceled_refund_available',
+                {
+                    amountTon: formatTon(refundedAmountNano.toString()),
+                },
+            );
+        } else {
+            await this.dealsNotificationsService.notifyAdvertiser(
+                deal,
+                'telegram.deal.canceled_no_payment',
+            );
         }
 
         return {id: deal.id, stage};
+    }
+
+
+    private async creditAdvertiserFromCanceledDeal(
+        manager: EntityManager,
+        deal: DealEntity,
+        escrow: DealEscrowEntity,
+        amountNano: bigint,
+        reason: string,
+    ): Promise<bigint> {
+        const txRepo = manager.getRepository(TransactionEntity);
+        const escrowRepo = manager.getRepository(DealEscrowEntity);
+        const dealRepo = manager.getRepository(DealEntity);
+        const idempotencyKey = `refund:deal:${deal.id}`;
+
+        const existing = await txRepo.findOne({where: {idempotencyKey}});
+        if (existing) {
+            return BigInt(existing.amountNano);
+        }
+
+        await txRepo.save(
+            txRepo.create({
+                userId: deal.advertiserUserId,
+                type: TransactionType.REFUND,
+                direction: TransactionDirection.IN,
+                status: TransactionStatus.COMPLETED,
+                amountNano: amountNano.toString(),
+                amountToUserNano: amountNano.toString(),
+                totalDebitNano: '0',
+                currency: escrow.currency,
+                description: 'Deal canceled refund credit',
+                dealId: deal.id,
+                escrowId: escrow.id,
+                idempotencyKey,
+                metadata: {
+                    eventType: 'DEAL_REFUND_CREDITED',
+                    reason,
+                    refundableAmountNano: amountNano.toString(),
+                },
+                completedAt: new Date(),
+            }),
+        );
+
+        await escrowRepo.update(escrow.id, {
+            status: EscrowStatus.REFUNDED,
+            refundedAt: new Date(),
+        });
+        await dealRepo.update(deal.id, {lastActivityAt: new Date()});
+
+        return amountNano;
+    }
+
+    private async notifyAdminAboutRefundCredit(
+        deal: DealEntity,
+        amountNano: bigint,
+    ): Promise<void> {
+        const adminChatId = this.configService.get<string>('ADMIN_ALERTS_CHAT_ID');
+        if (!adminChatId) {
+            return;
+        }
+
+        const advertiser = await this.userRepository.findOne({
+            where: {id: deal.advertiserUserId},
+        });
+        const username = advertiser?.username ? `@${advertiser.username}` : '-';
+        const text = this.telegramI18nService.t('en', 'telegram.admin.refund_credited', {
+            userId: deal.advertiserUserId,
+            username,
+            amountTon: formatTon(amountNano.toString()),
+            amountNano: amountNano.toString(),
+            dealId: deal.id,
+            eventType: 'DEAL_REFUND_CREDITED',
+        });
+
+        await this.telegramSenderService.sendMessage(adminChatId, text, {
+            parseMode: 'HTML',
+        });
     }
 
     async listDeals(

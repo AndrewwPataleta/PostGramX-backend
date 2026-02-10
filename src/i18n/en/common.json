@@ -110,7 +110,8 @@
       "internal_error": "Payout request failed. Please try again later.",
       "invalid_destination": "Destination address is invalid.",
       "withdraw_minimum": "Withdrawal amount is below the minimum allowed.",
-      "withdraw_failed": "Withdrawal failed. Please try again later."
+      "withdraw_failed": "Withdrawal failed. Please try again later.",
+      "daily_withdraw_limit": "Daily withdrawal limit reached. Try again tomorrow."
     },
     "transactions": {
       "types": {
@@ -127,12 +128,12 @@
         "pending": "Pending",
         "partial": "Partially confirmed",
         "awaiting_confirmation": "Awaiting confirmation",
-      "confirmed": "Confirmed",
-      "completed": "Completed",
-      "blocked_liquidity": "Blocked by liquidity",
-      "refunded": "Refunded",
-      "failed": "Failed",
-      "canceled": "Canceled"
+        "confirmed": "Confirmed",
+        "completed": "Completed",
+        "blocked_liquidity": "Blocked by liquidity",
+        "refunded": "Refunded",
+        "failed": "Failed",
+        "canceled": "Canceled"
       },
       "reasons": {
         "bot_not_admin": "Bot is not an administrator of the channel.",
