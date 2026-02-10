@@ -851,13 +851,14 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         });
 
         const commentText = trimmedComment || '-';
+        const messageArgs = await this.buildChangeRequestMessageArgs(
+            deal,
+            commentText,
+        );
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
             'telegram.deal.creative.changes_requested_advertiser',
-            {
-                dealId: deal.id.slice(0, 8),
-                comment: commentText,
-            },
+            messageArgs,
         );
 
         return {id: deal.id, stage: DealStage.CREATIVE_AWAITING_FOR_CHANGES};
@@ -879,13 +880,14 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         });
 
         const commentText = trimmedComment || '-';
+        const messageArgs = await this.buildChangeRequestMessageArgs(
+            deal,
+            commentText,
+        );
         await this.dealsNotificationsService.notifyAdvertiser(
             deal,
             'telegram.deal.schedule.changes_requested_advertiser',
-            {
-                dealId: deal.id.slice(0, 8),
-                comment: commentText,
-            },
+            messageArgs,
         );
 
         return {id: deal.id, stage};
@@ -1468,6 +1470,50 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         return {
             lastActivityAt: now,
         };
+    }
+
+    private async buildChangeRequestMessageArgs(
+        deal: DealEntity,
+        comment: string,
+    ): Promise<{
+        dealId: string;
+        channel: string;
+        price: string;
+        createdAt: string;
+        comment: string;
+    }> {
+        const channel = await this.channelRepository.findOne({
+            where: {id: deal.channelId},
+        });
+        const channelLabel = channel
+            ? channel.username
+                ? `@${channel.username}`
+                : channel.title
+            : '-';
+
+        const price = deal.listingSnapshot?.priceNano
+            ? `${formatTon(deal.listingSnapshot.priceNano)} ${
+                  deal.listingSnapshot.currency ?? DEFAULT_CURRENCY
+              }`
+            : '-';
+
+        return {
+            dealId: deal.id.slice(0, 8),
+            channel: channelLabel,
+            price,
+            createdAt: this.formatUtcTimestamp(deal.createdAt),
+            comment,
+        };
+    }
+
+    private formatUtcTimestamp(value: Date): string {
+        const year = value.getUTCFullYear();
+        const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(value.getUTCDate()).padStart(2, '0');
+        const hours = String(value.getUTCHours()).padStart(2, '0');
+        const minutes = String(value.getUTCMinutes()).padStart(2, '0');
+
+        return `${year}.${month}.${day} ${hours}:${minutes}`;
     }
 
     private addMinutes(date: Date, minutes: number): Date {
