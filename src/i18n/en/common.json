@@ -88,7 +88,8 @@
       "not_admin_anymore": "User is no longer an administrator of the channel.",
       "missing_rights": "User lacks required administrator rights.",
       "user_not_creator": "User is not the channel creator.",
-      "channel_already_linked": "Channel is already linked to your account."
+      "channel_already_linked": "Channel is already linked to your account.",
+      "moderator_not_admin": "Moderator is not a Telegram admin anymore."
     }
   },
   "payments": {

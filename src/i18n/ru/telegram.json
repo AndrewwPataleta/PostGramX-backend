@@ -156,5 +156,15 @@
   "admin": {
     "daily_withdraw_limit": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Лимит</b> - {limit} запроса в день",
     "refund_credited": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Сумма TON</b> - {amountTon}\n<b>Сумма nano</b> - {amountNano}\n<b>Deal ID</b> - {dealId}"
+  },
+  "moderators": {
+    "changed": {
+      "title": "<b>Канал</b> - {channelRef}\n\n<b>{addedTitle}</b>\n{addedList}\n\n<b>{removedTitle}</b>\n{removedList}\n\n{cta}\n{miniAppUrl}",
+      "added": "Добавлены модераторы",
+      "removed": "Удалены модераторы",
+      "cta_manage": "Откройте Mini App чтобы управлять правами"
+    },
+    "owner_lost_rights": "<b>Владелец потерял права администратора</b>\n<b>Канал</b> - {channelRef}\n\nВосстановите права администратора Telegram и пройдите повторную верификацию в Mini App\n{miniAppUrl}",
+    "owner_lost_rights_admin_alert": "<b>Владелец потерял права администратора</b>\n<b>Канал</b> - {channelRef}\n- ownerUserId - {ownerUserId}\n- telegramChatId - {telegramChatId}"
   }
 }

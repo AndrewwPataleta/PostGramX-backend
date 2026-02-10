@@ -156,5 +156,15 @@
   "admin": {
     "daily_withdraw_limit": "<b>Event type</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Limit</b> - {limit} requests per day",
     "refund_credited": "<b>Event type</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Amount TON</b> - {amountTon}\n<b>Amount nano</b> - {amountNano}\n<b>Deal ID</b> - {dealId}"
+  },
+  "moderators": {
+    "changed": {
+      "title": "<b>Channel</b> - {channelRef}\n\n<b>{addedTitle}</b>\n{addedList}\n\n<b>{removedTitle}</b>\n{removedList}\n\n{cta}\n{miniAppUrl}",
+      "added": "Added moderators",
+      "removed": "Removed moderators",
+      "cta_manage": "Open the Mini App to manage permissions"
+    },
+    "owner_lost_rights": "<b>Owner lost admin rights</b>\n<b>Channel</b> - {channelRef}\n\nRestore Telegram admin rights and re-verify in the Mini App\n{miniAppUrl}",
+    "owner_lost_rights_admin_alert": "<b>Owner lost admin rights</b>\n<b>Channel</b> - {channelRef}\n- ownerUserId - {ownerUserId}\n- telegramChatId - {telegramChatId}"
   }
 }
