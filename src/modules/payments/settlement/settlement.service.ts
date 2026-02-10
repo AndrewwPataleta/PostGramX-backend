@@ -1,7 +1,7 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {Cron} from '@nestjs/schedule';
 import {InjectRepository} from '@nestjs/typeorm';
-import {DataSource, Repository} from 'typeorm';
+import {DataSource, EntityManager, Repository} from 'typeorm';
 import {DealEscrowEntity} from '../../deals/entities/deal-escrow.entity';
 import {DealPublicationEntity} from '../../deals/entities/deal-publication.entity';
 import {DealEntity} from '../../deals/entities/deal.entity';
@@ -9,13 +9,12 @@ import {EscrowStatus} from '../../../common/constants/deals/deal-escrow-status.c
 import {PublicationStatus} from '../../../common/constants/deals/publication-status.constants';
 import {DealStatus} from '../../../common/constants/deals/deal-status.constants';
 import {PayoutRequestEntity} from '../entities/payout-request.entity';
-import {RefundRequestEntity} from '../entities/refund-request.entity';
 import {RequestStatus} from '../../../common/constants/payments/request-status.constants';
 import {SETTLEMENT_CRON} from '../../../config/payments.config';
-import {TransactionStatus} from "../../../common/constants/payments/transaction-status.constants";
-import {TransactionDirection} from "../../../common/constants/payments/transaction-direction.constants";
-import {TransactionType} from "../../../common/constants/payments/transaction-type.constants";
-import {TransactionEntity} from "../entities/transaction.entity";
+import {TransactionStatus} from '../../../common/constants/payments/transaction-status.constants';
+import {TransactionDirection} from '../../../common/constants/payments/transaction-direction.constants';
+import {TransactionType} from '../../../common/constants/payments/transaction-type.constants';
+import {TransactionEntity} from '../entities/transaction.entity';
 
 @Injectable()
 export class SettlementService {
@@ -30,8 +29,6 @@ export class SettlementService {
         private readonly dealRepository: Repository<DealEntity>,
         @InjectRepository(PayoutRequestEntity)
         private readonly payoutRepository: Repository<PayoutRequestEntity>,
-        @InjectRepository(RefundRequestEntity)
-        private readonly refundRepository: Repository<RefundRequestEntity>,
     ) {}
 
     @Cron(SETTLEMENT_CRON)
@@ -162,7 +159,6 @@ export class SettlementService {
         for (const escrow of escrows) {
             await this.dataSource.transaction(async (manager) => {
                 const escrowRepo = manager.getRepository(DealEscrowEntity);
-                const refundRepo = manager.getRepository(RefundRequestEntity);
                 const dealRepo = manager.getRepository(DealEntity);
 
                 const lockedEscrow = await escrowRepo.findOne({
@@ -188,31 +184,108 @@ export class SettlementService {
                     return;
                 }
 
-                const paidNano = BigInt(lockedEscrow.paidNano ?? '0');
-                const amountNano =
-                    paidNano > 0n ? paidNano.toString() : lockedEscrow.amountNano;
-                const idempotencyKey = `refund:${deal.id}:${amountNano}:${lockedEscrow.currency}`;
-                let refund = await refundRepo.findOne({where: {idempotencyKey}});
-                if (!refund) {
-                    refund = refundRepo.create({
-                        userId: deal.advertiserUserId,
+                const hasPayout = await manager
+                    .getRepository(TransactionEntity)
+                    .createQueryBuilder('transaction')
+                    .where('transaction.dealId = :dealId', {
                         dealId: deal.id,
-                        amountNano,
-                        currency: lockedEscrow.currency,
-                        status: RequestStatus.CREATED,
-                        idempotencyKey,
-                    });
-                    refund = await refundRepo.save(refund);
+                    })
+                    .andWhere('transaction.type = :type', {
+                        type: TransactionType.PAYOUT,
+                    })
+                    .andWhere('transaction.direction = :direction', {
+                        direction: TransactionDirection.OUT,
+                    })
+                    .andWhere('transaction.status = :status', {
+                        status: TransactionStatus.COMPLETED,
+                    })
+                    .getExists();
+                if (hasPayout) {
+                    return;
+                }
+
+                const paidNano = BigInt(lockedEscrow.paidNano ?? '0');
+                const refundableAmountNano =
+                    paidNano > 0n ? paidNano : BigInt(lockedEscrow.amountNano);
+
+                if (refundableAmountNano > 0n) {
+                    await this.creditRefundToAvailable(
+                        manager,
+                        deal,
+                        lockedEscrow,
+                        refundableAmountNano,
+                    );
                 }
 
                 await escrowRepo.update(lockedEscrow.id, {
-                    status: EscrowStatus.REFUND_PENDING,
-                    refundId: refund.id,
+                    status: EscrowStatus.REFUNDED,
+                    refundId: null,
+                    refundedAt: new Date(),
                 });
             });
 
-            this.logger.log(`Refund queued for escrow ${escrow.id}`);
+            this.logger.log(
+                'Deal canceled - crediting advertiser available balance (no on-chain refund).',
+                JSON.stringify({
+                    dealId: escrow.dealId,
+                    escrowId: escrow.id,
+                }),
+            );
         }
+    }
+
+    private async creditRefundToAvailable(
+        manager: EntityManager,
+        deal: DealEntity,
+        escrow: DealEscrowEntity,
+        amountNano: bigint,
+    ): Promise<void> {
+        const txRepository = manager.getRepository(TransactionEntity);
+        const idempotencyKey = `refund_to_available:${deal.id}`;
+
+        await txRepository
+            .createQueryBuilder('transaction')
+            .setLock('pessimistic_write')
+            .where('transaction.userId = :userId', {
+                userId: deal.advertiserUserId,
+            })
+            .andWhere('transaction.currency = :currency', {
+                currency: escrow.currency,
+            })
+            .orderBy('transaction.createdAt', 'DESC')
+            .limit(1)
+            .getOne();
+
+        const existing = await txRepository.findOne({
+            where: {idempotencyKey},
+            lock: {mode: 'pessimistic_write'},
+        });
+        if (existing) {
+            return;
+        }
+
+        await txRepository.save(
+            txRepository.create({
+                userId: deal.advertiserUserId,
+                type: TransactionType.REFUND,
+                direction: TransactionDirection.IN,
+                status: TransactionStatus.COMPLETED,
+                amountNano: amountNano.toString(),
+                amountToUserNano: amountNano.toString(),
+                totalDebitNano: '0',
+                currency: escrow.currency,
+                description:
+                    'Deal canceled - funds returned to available balance',
+                dealId: deal.id,
+                escrowId: escrow.id,
+                idempotencyKey,
+                metadata: {
+                    eventType: 'DEAL_REFUND_TO_AVAILABLE',
+                    refundableAmountNano: amountNano.toString(),
+                },
+                completedAt: new Date(),
+            }),
+        );
     }
 
 }
