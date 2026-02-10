@@ -3,6 +3,11 @@ import {DEAL_TIMEOUTS} from '../common/constants/deals/deal-timeouts.constants';
 
 const logger = new Logger('DealsConfig');
 
+const isStageOrProduction = ['stage', 'production'].includes(
+    process.env.NODE_ENV ?? 'local',
+);
+const defaultChecksIntervalMinutes = isStageOrProduction ? 10 : 1;
+
 const parseNumber = (value: string | undefined, fallback: number): number => {
     if (!value) {
         return fallback;
@@ -60,7 +65,7 @@ export const DEALS_CONFIG = {
     ),
     CRON_INTERVAL_MINUTES: parseNumber(
         process.env.DEAL_TIMEOUTS_CRON_INTERVAL_MINUTES,
-        1,
+        defaultChecksIntervalMinutes,
     ),
     AUTO_ADMIN_APPROVE: parseBoolean(
         process.env.AUTO_ADMIN_APPROVE,
@@ -90,7 +95,9 @@ logger.log(
 export const DEAL_TIMEOUTS_CRON = `*/${DEALS_CONFIG.CRON_INTERVAL_MINUTES} * * * *`;
 
 export const PIN_VISIBILITY_CONFIG = {
-    CRON: process.env.PIN_CHECK_CRON ?? '0 * * * *',
+    CRON:
+        process.env.PIN_CHECK_CRON ??
+        `*/${defaultChecksIntervalMinutes} * * * *`,
     MISSING_GRACE_CHECKS: parseNumber(
         process.env.PIN_MISSING_GRACE_CHECKS,
         1,
