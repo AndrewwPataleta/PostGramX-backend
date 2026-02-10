@@ -24,6 +24,7 @@ export const DEAL_STAGE_TRANSITIONS: Record<DealStage, DealStage[]> = {
     ],
     [DealStage.SCHEDULING_AWAITING_CONFIRM]: [
         DealStage.PAYMENT_AWAITING,
+        DealStage.SCHEDULE_AWAITING_FOR_CHANGES,
         DealStage.FINALIZED,
     ],
     [DealStage.SCHEDULE_AWAITING_FOR_CHANGES]: [

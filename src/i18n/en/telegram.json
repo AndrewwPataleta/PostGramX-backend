@@ -128,6 +128,10 @@
       "admin": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: advertiser completes payment in the Mini App.\nPayment deadline: {paymentDeadline}",
       "advertiser": "<b>Schedule approved</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nNext step: complete payment in the Mini App.\nPayment deadline: {paymentDeadline}"
     },
+    "schedule_confirm_too_late": {
+      "admin": "Confirmed too late. The advertiser will pick a new time.",
+      "advertiser": "The channel admin confirmed too late. Please choose a new time."
+    },
     "admin_review": {
       "approved": "Admin {adminName} approved deal {dealId}.\nChannel: {channel}",
       "rejected": "Admin {adminName} rejected deal {dealId}.\nChannel: {channel}"

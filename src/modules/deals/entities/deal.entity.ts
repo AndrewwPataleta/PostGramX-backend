@@ -89,6 +89,9 @@ export class DealEntity extends BaseEntity {
     @Column({type: 'timestamptz', nullable: true})
     idleExpiresAt: Date | null;
 
+    @Column({type: 'timestamptz', nullable: true})
+    lastScheduleLateNotifiedAt: Date | null;
+
     @Column({type: 'text', nullable: true})
     cancelReason: string | null;
 

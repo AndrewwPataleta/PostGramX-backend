@@ -1113,6 +1113,42 @@ export class DealsNotificationsService {
         }
     }
 
+
+    async notifyScheduleConfirmTooLate(deal: DealEntity): Promise<void> {
+        if (deal.channelId) {
+            const recipients =
+                await this.participantsService.getNotificationRecipients(
+                    deal.channelId,
+                );
+
+            await this.runWithConcurrency(
+                recipients,
+                NOTIFICATION_CONCURRENCY,
+                async (recipient) => {
+                    if (!recipient.telegramId) {
+                        return;
+                    }
+
+                    await this.telegramMessengerService.sendText(
+                        recipient.telegramId,
+                        'telegram.deal.schedule_confirm_too_late.admin',
+                        {},
+                        {
+                            lang: this.telegramI18nService.resolveLanguageForUser(
+                                recipient,
+                            ),
+                        },
+                    );
+                },
+            );
+        }
+
+        await this.notifyAdvertiser(
+            deal,
+            'telegram.deal.schedule_confirm_too_late.advertiser',
+        );
+    }
+
     private formatUtcTimestamp(value: Date): string {
         const year = value.getUTCFullYear();
         const month = String(value.getUTCMonth() + 1).padStart(2, '0');
