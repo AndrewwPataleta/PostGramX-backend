@@ -395,9 +395,10 @@ export class DealsBotHandler {
         context: Context,
         dealId: string,
     ): Promise<boolean> {
+        const telegramUserId = getTelegramUserId(context);
         const result =
             await this.dealsService.handleCreativeRequestChangesFromTelegram({
-                telegramUserId: getTelegramUserId(context),
+                telegramUserId,
                 dealId,
             });
 
@@ -406,6 +407,14 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
+
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                telegramUserId,
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
 
         return true;
     }
@@ -449,9 +458,10 @@ export class DealsBotHandler {
         context: Context,
         dealId: string,
     ): Promise<boolean> {
+        const telegramUserId = getTelegramUserId(context);
         const result =
             await this.dealsService.handleScheduleRequestChangesFromTelegram({
-                telegramUserId: getTelegramUserId(context),
+                telegramUserId,
                 dealId,
             });
 
@@ -460,6 +470,14 @@ export class DealsBotHandler {
         }
 
         await context.answerCbQuery();
+
+        if (result.messageKey) {
+            await this.telegramMessengerService.sendText(
+                telegramUserId,
+                result.messageKey,
+                result.messageArgs,
+            );
+        }
 
         return true;
     }
