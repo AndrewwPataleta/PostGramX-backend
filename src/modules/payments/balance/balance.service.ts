@@ -71,6 +71,30 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
+
+        const refundCreditsRow = await this.transactionRepository
+            .createQueryBuilder('tx')
+            .select(
+                'COALESCE(SUM(tx.amountNano), 0)::bigint',
+                'refundCreditsNano',
+            )
+            .addSelect('MAX(tx.completedAt)', 'lastUpdatedAt')
+            .where('tx.userId = :userId', { userId })
+            .andWhere('tx.currency = :currency', { currency })
+            .andWhere('tx.type = :type', {
+                type: TransactionType.REFUND,
+            })
+            .andWhere('tx.direction = :direction', {
+                direction: TransactionDirection.IN,
+            })
+            .andWhere('tx.status = :status', {
+                status: TransactionStatus.COMPLETED,
+            })
+            .getRawOne<{
+                refundCreditsNano: string;
+                lastUpdatedAt: string | null;
+            }>();
+
         const paidOutRow = await this.transactionRepository
             .createQueryBuilder('tx')
             .select(
@@ -161,7 +185,9 @@ export class BalanceService {
                 lastUpdatedAt: string | null;
             }>();
 
-        const earned = BigInt(earnedRow?.earnedNano ?? '0');
+        const earned =
+            BigInt(earnedRow?.earnedNano ?? '0') +
+            BigInt(refundCreditsRow?.refundCreditsNano ?? '0');
         const paidOut = BigInt(paidOutRow?.paidOutNano ?? '0');
         const pendingTx = BigInt(pendingTxRow?.pendingNano ?? '0');
         const pendingEscrow = BigInt(pendingEscrowRow?.pendingNano ?? '0');
@@ -192,6 +218,7 @@ export class BalanceService {
         const lastUpdatedAt = [
             earnedRow?.lastUpdatedAt,
             paidOutRow?.lastUpdatedAt,
+            refundCreditsRow?.lastUpdatedAt,
             pendingTxRow?.lastUpdatedAt,
             pendingEscrowRow?.lastUpdatedAt,
         ]

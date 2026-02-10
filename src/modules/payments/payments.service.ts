@@ -12,6 +12,7 @@ import {TransactionEntity} from './entities/transaction.entity';
 import {TransactionStatus} from '../../common/constants/payments/transaction-status.constants';
 import {definedOnly} from '../../common/utils/defined-only';
 import {TransactionType} from '../../common/constants/payments/transaction-type.constants';
+import {TransactionDirection} from '../../common/constants/payments/transaction-direction.constants';
 import {DealEntity} from '../deals/entities/deal.entity';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
 import {WalletsService} from './wallets/wallets.service';
@@ -317,19 +318,64 @@ export class PaymentsService {
         await this.dataSource.transaction(async (manager) => {
             const dealRepository = manager.getRepository(DealEntity);
             const escrowRepository = manager.getRepository(DealEscrowEntity);
+            const txRepository = manager.getRepository(TransactionEntity);
 
-            const deal = await dealRepository.findOne({where: {id: dealId}});
+            const deal = await dealRepository.findOne({
+                where: {id: dealId},
+                lock: {mode: 'pessimistic_write'},
+            });
             if (!deal) {
                 return;
             }
 
-            const escrow = await escrowRepository.findOne({where: {dealId}});
+            const escrow = await escrowRepository.findOne({
+                where: {dealId},
+                lock: {mode: 'pessimistic_write'},
+            });
             if (!escrow) {
                 return;
             }
 
+            const refundableAmountNano = BigInt(escrow.paidNano ?? '0');
+            if (refundableAmountNano <= 0n) {
+                await escrowRepository.update(escrow.id, {
+                    status: EscrowStatus.REFUNDED,
+                });
+                await dealRepository.update(dealId, {
+                    lastActivityAt: now,
+                });
+                return;
+            }
+
+            const idempotencyKey = `refund:deal:${dealId}`;
+            const existing = await txRepository.findOne({where: {idempotencyKey}});
+            if (!existing) {
+                await txRepository.save(
+                    txRepository.create({
+                        userId: deal.advertiserUserId,
+                        type: TransactionType.REFUND,
+                        direction: TransactionDirection.IN,
+                        status: TransactionStatus.COMPLETED,
+                        amountNano: refundableAmountNano.toString(),
+                        amountToUserNano: refundableAmountNano.toString(),
+                        currency: escrow.currency,
+                        description: `Deal refund - ${reason}`,
+                        dealId: deal.id,
+                        escrowId: escrow.id,
+                        idempotencyKey,
+                        metadata: {
+                            eventType: 'DEAL_REFUND_CREDITED',
+                            reason,
+                            refundableAmountNano: refundableAmountNano.toString(),
+                        },
+                        completedAt: now,
+                    }),
+                );
+            }
+
             await escrowRepository.update(escrow.id, {
-                status: EscrowStatus.REFUND_PENDING,
+                status: EscrowStatus.REFUNDED,
+                refundedAt: now,
             });
 
             await dealRepository.update(dealId, {
@@ -337,7 +383,7 @@ export class PaymentsService {
             });
         });
 
-        this.logger.log(`Refund queued for deal ${dealId}: ${reason}`);
+        this.logger.log(`Refund credited for deal ${dealId}: ${reason}`);
     }
 
     async markEscrowPayoutPending(dealId: string): Promise<void> {

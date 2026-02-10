@@ -130,6 +130,10 @@
       "advertiser": "Админ канала подтвердил слишком поздно. Пожалуйста, выберите новое время."
     },
     "request_changes": {
+      "failed": "Не удалось обработать запрос на изменения. Попробуйте снова в мини-приложении."
+    },
+    "canceled_refund_available": "<b>Сделка отменена</b>\n<b>Возврат доступен</b>\n<b>Сумма</b> - {amountTon} TON\nВы можете вывести средства в Mini App",
+    "canceled_no_payment": "<b>Сделка отменена</b>\nОплата не поступила"
       "failed": "Не удалось обработать запрос на изменения. Попробуйте снова в приложении."
     },
     "pin_missing_warning": "<b>Пропал закрепленный пост</b>\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>\nЗакрепите пост снова до следующей проверки",
@@ -148,6 +152,11 @@
     "blocked_liquidity": {
       "user_message": "<b>Вывод не выполнен</b> из-за временной нехватки ликвидности.\nСредства возвращены на ваш баланс.",
       "support_cta": "Связаться с поддержкой: {supportUrl}"
-    }
+    },
+    "daily_limit_reached": "<b>Лимит выводов достигнут</b>\nЛимит - {limit} запроса в день\nПопробуйте завтра"
+  },
+  "admin": {
+    "daily_withdraw_limit": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Лимит</b> - {limit} запроса в день",
+    "refund_credited": "<b>Тип события</b> - {eventType}\n<b>User ID</b> - {userId}\n<b>Username</b> - {username}\n<b>Сумма TON</b> - {amountTon}\n<b>Сумма nano</b> - {amountNano}\n<b>Deal ID</b> - {dealId}"
   }
 }
