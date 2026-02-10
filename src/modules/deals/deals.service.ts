@@ -201,7 +201,10 @@ export class DealsService {
         }
 
         const parsedScheduledAt = new Date(scheduledAt);
-        if (parsedScheduledAt.getTime() <= Date.now()) {
+        if (
+            !this.isLocalEnvironment() &&
+            parsedScheduledAt.getTime() <= Date.now()
+        ) {
             throw new DealServiceError(DealErrorCode.INVALID_SCHEDULE_TIME);
         }
 
@@ -1522,6 +1525,10 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
     private addHours(date: Date, hours: number): Date {
         return new Date(date.getTime() + hours * 60 * 60 * 1000);
+    }
+
+    private isLocalEnvironment(): boolean {
+        return (process.env.NODE_ENV ?? '').toLowerCase() === 'local';
     }
 
     private computeIdleExpiry(stage: DealStage, now: Date): Date | null {
