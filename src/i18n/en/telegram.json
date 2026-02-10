@@ -133,7 +133,7 @@
       "advertiser": "The channel admin confirmed too late. Please choose a new time."
     },
     "admin_review": {
-      "approved": "<b>Deal approved</b>\n<b>Admin:</b> {adminName}\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>",
+      "approved": "<b>Deal approved</b>\n<b>Admin:</b> {adminName}\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n<b>Price:</b> {price} {currency}\n<b>Publish time:</b> {publishTime}",
       "rejected": "<b>Deal rejected</b>\n<b>Admin:</b> {adminName}\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>"
     },
     "request_changes": {
