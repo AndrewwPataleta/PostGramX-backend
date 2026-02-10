@@ -539,10 +539,18 @@ export class DealsNotificationsService {
             action === 'approved'
                 ? 'telegram.deal.admin_review.approved'
                 : 'telegram.deal.admin_review.rejected';
+        const priceNano = deal.listingSnapshot?.priceNano;
+        const currency = deal.listingSnapshot?.currency ?? CurrencyCode.TON;
+        const publishTime = deal.scheduledAt
+            ? this.formatUtcTimestamp(deal.scheduledAt)
+            : '—';
         const messageArgs = {
             adminName,
             channel: channelLabel,
             dealId: deal.id.slice(0, 8),
+            price: priceNano ? formatTon(priceNano) : '—',
+            currency,
+            publishTime,
         };
 
         await this.runWithConcurrency(

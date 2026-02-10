@@ -138,7 +138,7 @@
     "pin_missing_finalized": "<b>Сделка отменена</b>\nПричина - закрепленный пост не найден\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>\nВозврат запущен",
     "pin_check_unavailable": "<b>Проверка закрепа недоступна</b>\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>\nБот не видит закреп\nВосстановите права админа и пройдите проверку снова",
     "admin_review": {
-      "approved": "<b>Сделка подтверждена</b>\n<b>Админ:</b> {adminName}\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>",
+      "approved": "<b>Сделка подтверждена</b>\n<b>Админ:</b> {adminName}\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>\n<b>Цена:</b> {price} {currency}\n<b>Время публикации:</b> {publishTime}",
       "rejected": "<b>Сделка отклонена</b>\n<b>Админ:</b> {adminName}\n<b>Канал:</b> {channel}\n<b>Сделка:</b> <code>{dealId}</code>"
     }
   },
