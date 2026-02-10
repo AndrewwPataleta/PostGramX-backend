@@ -4,6 +4,7 @@ export enum DealErrorCode {
     LISTING_DISABLED = 'deal.listing_disabled',
     UNAUTHORIZED = 'deal.unauthorized',
     INVALID_SCHEDULE_TIME = 'deal.invalid_schedule_time',
+    SCHEDULE_CONFIRM_TOO_LATE = 'SCHEDULE_CONFIRM_TOO_LATE',
     INVALID_STATUS = 'deal.invalid_status',
     SELF_DEAL_NOT_ALLOWED = 'deal.self_deal_not_allowed',
     ACTIVE_PENDING_LIMIT_REACHED = 'deal.active_pending_limit_reached',

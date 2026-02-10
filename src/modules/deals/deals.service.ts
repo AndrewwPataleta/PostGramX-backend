@@ -587,25 +587,84 @@ export class DealsService {
 
         await this.ensurePublisherAdmin(userId, deal);
 
-        this.ensureTransitionAllowed(deal.stage, DealStage.PAYMENT_AWAITING);
-
         const now = new Date();
+        const graceSeconds = DEALS_CONFIG.SCHEDULE_CONFIRM_GRACE_SECONDS;
+        const notifyDedupeSeconds =
+            DEALS_CONFIG.SCHEDULE_LATE_NOTIFY_DEDUPE_SECONDS;
+
+        let shouldNotifyLateConfirmation = false;
+        let lateRequestedTime: Date | null = null;
 
         await this.dataSource.transaction(async (manager) => {
             const escrowRepo = manager.getRepository(DealEscrowEntity);
             const dealRepo = manager.getRepository(DealEntity);
 
+            const lockedDeal = await dealRepo.findOne({
+                where: {id: deal.id},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if (!lockedDeal) {
+                throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
+            }
+
+            if (!lockedDeal.scheduledAt) {
+                throw new DealServiceError(DealErrorCode.INVALID_SCHEDULE_TIME);
+            }
+
+            const requestedTime = lockedDeal.scheduledAt;
+            const lateThreshold = new Date(
+                requestedTime.getTime() - graceSeconds * 1000,
+            );
+            const isLateConfirmation = now.getTime() > lateThreshold.getTime();
+
+            if (isLateConfirmation) {
+                this.ensureTransitionAllowed(
+                    lockedDeal.stage,
+                    DealStage.SCHEDULE_AWAITING_FOR_CHANGES,
+                );
+
+                lateRequestedTime = requestedTime;
+                const dedupeSince = new Date(
+                    now.getTime() - notifyDedupeSeconds * 1000,
+                );
+                shouldNotifyLateConfirmation =
+                    !lockedDeal.lastScheduleLateNotifiedAt ||
+                    lockedDeal.lastScheduleLateNotifiedAt.getTime() <
+                        dedupeSince.getTime();
+
+                const stage = DealStage.SCHEDULE_AWAITING_FOR_CHANGES;
+                await dealRepo.update(lockedDeal.id, {
+                    stage,
+                    status: mapStageToDealStatus(stage),
+                    scheduledAt: null,
+                    idleExpiresAt: this.computeIdleExpiry(stage, now),
+                    lastScheduleLateNotifiedAt: shouldNotifyLateConfirmation
+                        ? now
+                        : lockedDeal.lastScheduleLateNotifiedAt,
+                    ...this.buildActivityUpdate(now),
+                });
+
+                return;
+            }
+
+            this.ensureTransitionAllowed(
+                lockedDeal.stage,
+                DealStage.PAYMENT_AWAITING,
+            );
+
             const escrow = escrowRepo.create({
-                dealId: deal.id,
+                dealId: lockedDeal.id,
                 status: EscrowStatus.CREATED,
-                amountNano: deal.listingSnapshot.priceNano,
+                amountNano: lockedDeal.listingSnapshot.priceNano,
                 paidNano: '0',
-                currency: deal.listingSnapshot.currency,
+                currency: lockedDeal.listingSnapshot.currency,
             });
             await escrowRepo.save(escrow);
 
             const amountNano =
-                (deal.listingSnapshot as DealListingSnapshot).priceNano ?? '0';
+                (lockedDeal.listingSnapshot as DealListingSnapshot).priceNano ??
+                '0';
 
             const paymentDeadlineAt = this.addMinutes(
                 now,
@@ -619,18 +678,35 @@ export class DealsService {
             });
 
             await this.paymentsService.ensureDepositAddressForDeal(
-                deal.id,
+                lockedDeal.id,
                 manager,
             );
 
             const stage = DealStage.PAYMENT_AWAITING;
-            await dealRepo.update(deal.id, {
+            await dealRepo.update(lockedDeal.id, {
                 stage,
                 status: mapStageToDealStatus(stage),
                 idleExpiresAt: this.computeIdleExpiry(stage, now),
                 ...this.buildActivityUpdate(now),
             });
         });
+
+        if (lateRequestedTime) {
+            const updatedDeal = await this.dealRepository.findOne({
+                where: {id: deal.id},
+            });
+
+            if (shouldNotifyLateConfirmation && updatedDeal) {
+                await this.dealsNotificationsService.notifyScheduleConfirmTooLate(
+                    updatedDeal,
+                );
+            }
+
+            throw new DealServiceError(DealErrorCode.SCHEDULE_CONFIRM_TOO_LATE, {
+                serverTime: now.toISOString(),
+                requestedTime: lateRequestedTime.toISOString(),
+            });
+        }
 
         const updatedDeal = await this.dealRepository.findOne({
             where: {id: deal.id},

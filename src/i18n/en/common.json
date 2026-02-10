@@ -172,7 +172,8 @@
       "unauthorized": "You do not have access to this deal.",
       "invalidScheduleTime": "Scheduled time must be in the future.",
       "invalidTransition": "The deal is not in the expected state.",
-      "selfDealNotAllowed": "You can’t create a deal with your own channel."
+      "selfDealNotAllowed": "You can’t create a deal with your own channel.",
+      "scheduleConfirmTooLate": "Schedule confirmation is too late. Please choose a new time."
     },
     "stages": {
       "unknown": "Unknown status",

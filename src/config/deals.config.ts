@@ -19,6 +19,20 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
     return parsed;
 };
 
+const parseNonNegativeNumber = (
+    value: string | undefined,
+    fallback: number,
+): number => {
+    if (!value) {
+        return fallback;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return fallback;
+    }
+    return parsed;
+};
+
 const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
     if (value === undefined) {
         return fallback;
@@ -77,6 +91,14 @@ export const DEALS_CONFIG = {
     ),
     MOCK_CREATIVE_APPROVE:
         process.env.DEALS_MOCK_CREATIVE_APPROVE === 'true',
+    SCHEDULE_CONFIRM_GRACE_SECONDS: parseNonNegativeNumber(
+        process.env.SCHEDULE_CONFIRM_GRACE_SECONDS,
+        0,
+    ),
+    SCHEDULE_LATE_NOTIFY_DEDUPE_SECONDS: parseNonNegativeNumber(
+        process.env.SCHEDULE_LATE_NOTIFY_DEDUPE_SECONDS,
+        600,
+    ),
 };
 
 if (process.env.NODE_ENV === 'production' && DEALS_CONFIG.MOCK_CREATIVE_APPROVE) {

@@ -4,7 +4,7 @@ import {I18nContext} from 'nestjs-i18n';
 
 type UserRequest = Request & {user?: {id: string; telegramId?: string}};
 
-export type ErrorHandlingOptions<Code, ErrorType extends Error & {code: Code}> = {
+export type ErrorHandlingOptions<Code, ErrorType extends Error & {code: Code; details?: Record<string, unknown>}> = {
     errorType: new (...args: unknown[]) => ErrorType;
     mapStatus: (code: Code) => number;
     mapMessageKey: (code: Code) => string;
@@ -20,7 +20,7 @@ export function assertUser(req: Request) {
 
 export async function handleMappedError<
     Code,
-    ErrorType extends Error & {code: Code},
+    ErrorType extends Error & {code: Code; details?: Record<string, unknown>},
 >(
     error: unknown,
     i18n: I18nContext,
@@ -34,6 +34,7 @@ export async function handleMappedError<
             {
                 code: error.code,
                 message,
+                ...(error.details ? {details: error.details} : {}),
             },
             status,
         );
