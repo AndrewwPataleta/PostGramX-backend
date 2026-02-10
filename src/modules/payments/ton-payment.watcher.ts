@@ -643,14 +643,6 @@ export class TonPaymentWatcher {
                 }
 
                 if (matches.length === 0) {
-                    this.logger.log(
-                        `[TON-WATCHER] ${JSON.stringify({
-                            event: 'outgoing_unknown_tx',
-                            txHash: transfer.txHash,
-                            toAddress: transfer.toAddress,
-                            amountNano: transfer.amountNano,
-                        })}`,
-                    );
                     return;
                 }
 
