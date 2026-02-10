@@ -8,6 +8,10 @@ export type MarketplaceChannelItem = {
     avatarUrl: string | null;
     verified: boolean;
     subscribers: number | null;
+    subscribersCount?: number | null;
+    avgViews?: number | null;
+    lastPostsPreview?: Array<Record<string, unknown>> | null;
+    analyticsUpdatedAt?: Date | null;
     placementsCount: number;
     minPriceNano: string;
     currency: CurrencyCode;

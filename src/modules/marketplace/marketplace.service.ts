@@ -121,6 +121,9 @@ export class MarketplaceService {
                 'channel.username AS username',
                 'channel.status AS status',
                 'channel.subscribersCount AS subscribers',
+                'channel.avgViews AS avgViews',
+                'channel.lastPostsPreview AS lastPostsPreview',
+                'channel.analyticsUpdatedAt AS analyticsUpdatedAt',
                 'channel.avatarUrl AS avatarUrl',
                 'channel.updatedAt AS updatedAt',
             ])
@@ -165,6 +168,11 @@ export class MarketplaceService {
             avatarUrl: row.avatarUrl ?? null,
             verified: row.status === ChannelStatus.VERIFIED,
             subscribers: row.subscribers === null ? null : Number(row.subscribers),
+            subscribersCount:
+                row.subscribers === null ? null : Number(row.subscribers),
+            avgViews: row.avgViews === null ? null : Number(row.avgViews),
+            lastPostsPreview: row.lastPostsPreview ?? null,
+            analyticsUpdatedAt: row.analyticsUpdatedAt ?? null,
             placementsCount: Number(row.placementsCount ?? 0),
             minPriceNano: row.minPriceNano ?? '0',
             currency: CurrencyCode.TON,

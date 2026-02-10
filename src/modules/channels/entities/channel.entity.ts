@@ -58,6 +58,21 @@ export class ChannelEntity extends BaseEntity {
     @Column({type: 'integer', nullable: true})
     avgViews: number | null;
 
+    @Column({type: 'jsonb', nullable: true})
+    lastPostsPreview: Array<Record<string, unknown>> | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    analyticsUpdatedAt: Date | null;
+
+    @Column({type: 'text', nullable: true})
+    mtprotoLastErrorCode: string | null;
+
+    @Column({type: 'text', nullable: true})
+    mtprotoLastErrorMessage: string | null;
+
+    @Column({type: 'timestamptz', nullable: true})
+    mtprotoLastErrorAt: Date | null;
+
     @Column({default: false})
     isDisabled: boolean;
 

@@ -40,7 +40,10 @@ export type ChannelListItem = {
     telegramChatId: string | null;
     avatarUrl: string | null;
     subscribers: number | null;
+    subscribersCount?: number | null;
     avgViews: number | null;
+    lastPostsPreview?: Array<Record<string, unknown>> | null;
+    analyticsUpdatedAt?: Date | null;
     isDisabled: boolean;
     verifiedAt: Date | null;
     lastCheckedAt: Date | null;
