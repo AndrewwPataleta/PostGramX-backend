@@ -466,7 +466,9 @@ export class TonPaymentWatcher {
                         idempotencyKey: `deposit:${transfer.txHash}`,
                         errorMessage: null,
                     })
-                    .onConflict('( \"txHash\", \"network\" ) DO NOTHING')
+                    .onConflict(
+                        '( "txHash", "network" ) WHERE "txHash" IS NOT NULL DO NOTHING',
+                    )
                     .execute();
 
                 await escrowRepo.update(lockedEscrow.id, {
