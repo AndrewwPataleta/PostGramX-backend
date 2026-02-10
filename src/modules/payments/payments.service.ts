@@ -347,8 +347,24 @@ export class PaymentsService {
                 return;
             }
 
-            const idempotencyKey = `refund:deal:${dealId}`;
-            const existing = await txRepository.findOne({where: {idempotencyKey}});
+            const idempotencyKey = `refund_to_available:${dealId}`;
+            await txRepository
+                .createQueryBuilder('transaction')
+                .setLock('pessimistic_write')
+                .where('transaction.userId = :userId', {
+                    userId: deal.advertiserUserId,
+                })
+                .andWhere('transaction.currency = :currency', {
+                    currency: escrow.currency,
+                })
+                .orderBy('transaction.createdAt', 'DESC')
+                .limit(1)
+                .getOne();
+
+            const existing = await txRepository.findOne({
+                where: {idempotencyKey},
+                lock: {mode: 'pessimistic_write'},
+            });
             if (!existing) {
                 await txRepository.save(
                     txRepository.create({
@@ -359,12 +375,13 @@ export class PaymentsService {
                         amountNano: refundableAmountNano.toString(),
                         amountToUserNano: refundableAmountNano.toString(),
                         currency: escrow.currency,
-                        description: `Deal refund - ${reason}`,
+                        description:
+                            'Deal canceled - funds returned to available balance',
                         dealId: deal.id,
                         escrowId: escrow.id,
                         idempotencyKey,
                         metadata: {
-                            eventType: 'DEAL_REFUND_CREDITED',
+                            eventType: 'DEAL_REFUND_TO_AVAILABLE',
                             reason,
                             refundableAmountNano: refundableAmountNano.toString(),
                         },
@@ -383,7 +400,9 @@ export class PaymentsService {
             });
         });
 
-        this.logger.log(`Refund credited for deal ${dealId}: ${reason}`);
+        this.logger.log(
+            `Deal canceled - crediting advertiser available balance (no on-chain refund). dealId=${dealId}, reason=${reason}`,
+        );
     }
 
     async markEscrowPayoutPending(dealId: string): Promise<void> {

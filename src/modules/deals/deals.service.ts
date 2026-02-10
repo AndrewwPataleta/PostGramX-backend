@@ -1318,12 +1318,52 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         const txRepo = manager.getRepository(TransactionEntity);
         const escrowRepo = manager.getRepository(DealEscrowEntity);
         const dealRepo = manager.getRepository(DealEntity);
-        const idempotencyKey = `refund:deal:${deal.id}`;
+        const idempotencyKey = `refund_to_available:${deal.id}`;
 
-        const existing = await txRepo.findOne({where: {idempotencyKey}});
+        await txRepo
+            .createQueryBuilder('transaction')
+            .setLock('pessimistic_write')
+            .where('transaction.userId = :userId', {
+                userId: deal.advertiserUserId,
+            })
+            .andWhere('transaction.currency = :currency', {
+                currency: escrow.currency,
+            })
+            .orderBy('transaction.createdAt', 'DESC')
+            .limit(1)
+            .getOne();
+
+        const existing = await txRepo.findOne({where: {idempotencyKey}, lock: {mode: 'pessimistic_write'}});
         if (existing) {
             return BigInt(existing.amountNano);
         }
+
+        const payoutCompleted = await txRepo
+            .createQueryBuilder('transaction')
+            .where('transaction.dealId = :dealId', {dealId: deal.id})
+            .andWhere('transaction.type = :type', {
+                type: TransactionType.PAYOUT,
+            })
+            .andWhere('transaction.direction = :direction', {
+                direction: TransactionDirection.OUT,
+            })
+            .andWhere('transaction.status = :status', {
+                status: TransactionStatus.COMPLETED,
+            })
+            .getExists();
+        if (payoutCompleted) {
+            return 0n;
+        }
+
+        this.logger.log(
+            'Deal canceled - crediting advertiser available balance (no on-chain refund).',
+            JSON.stringify({
+                dealId: deal.id,
+                escrowId: escrow.id,
+                advertiserUserId: deal.advertiserUserId,
+                amountNano: amountNano.toString(),
+            }),
+        );
 
         await txRepo.save(
             txRepo.create({
@@ -1335,12 +1375,12 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                 amountToUserNano: amountNano.toString(),
                 totalDebitNano: '0',
                 currency: escrow.currency,
-                description: 'Deal canceled refund credit',
+                description: 'Deal canceled - funds returned to available balance',
                 dealId: deal.id,
                 escrowId: escrow.id,
                 idempotencyKey,
                 metadata: {
-                    eventType: 'DEAL_REFUND_CREDITED',
+                    eventType: 'DEAL_REFUND_TO_AVAILABLE',
                     reason,
                     refundableAmountNano: amountNano.toString(),
                 },
@@ -1376,7 +1416,7 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             amountTon: formatTon(amountNano.toString()),
             amountNano: amountNano.toString(),
             dealId: deal.id,
-            eventType: 'DEAL_REFUND_CREDITED',
+            eventType: 'DEAL_REFUND_TO_AVAILABLE',
         });
 
         await this.telegramSenderService.sendMessage(adminChatId, text, {
