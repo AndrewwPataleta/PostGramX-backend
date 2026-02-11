@@ -1,59 +1,61 @@
-import {HttpStatus} from '@nestjs/common';
-import {ListingServiceErrorCode} from './listing.errors';
+import { HttpStatus } from '@nestjs/common';
+import { mapEnumValue } from '../../../core/enum-mapper.util';
+import { ListingServiceErrorCode } from './listing.errors';
+
+const LISTING_STATUS_BY_CODE: Partial<
+  Record<ListingServiceErrorCode, HttpStatus>
+> = {
+  [ListingServiceErrorCode.CHANNEL_NOT_FOUND]: HttpStatus.NOT_FOUND,
+  [ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS]: HttpStatus.FORBIDDEN,
+  [ListingServiceErrorCode.CHANNEL_NOT_VERIFIED]: HttpStatus.FORBIDDEN,
+  [ListingServiceErrorCode.LISTING_FORBIDDEN]: HttpStatus.FORBIDDEN,
+  [ListingServiceErrorCode.LISTING_NOT_FOUND]: HttpStatus.NOT_FOUND,
+  [ListingServiceErrorCode.INVALID_FORMAT]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.INVALID_PIN_RULE]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.TAGS_MISSING_REQUIRED]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.INVALID_PRICE]: HttpStatus.BAD_REQUEST,
+  [ListingServiceErrorCode.LISTING_UPDATE_INVALID]: HttpStatus.BAD_REQUEST,
+};
+
+const LISTING_MESSAGE_KEY_BY_CODE: Partial<
+  Record<ListingServiceErrorCode, string>
+> = {
+  [ListingServiceErrorCode.CHANNEL_NOT_FOUND]:
+    'listings.errors.channelNotFound',
+  [ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS]:
+    'listings.errors.unauthorized',
+  [ListingServiceErrorCode.CHANNEL_NOT_VERIFIED]:
+    'listings.errors.channelNotVerified',
+  [ListingServiceErrorCode.INVALID_FORMAT]: 'listings.errors.invalidFormat',
+  [ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE]:
+    'listings.errors.invalidAvailability',
+  [ListingServiceErrorCode.INVALID_PIN_RULE]:
+    'listings.errors.invalidPinnedRule',
+  [ListingServiceErrorCode.TAGS_MISSING_REQUIRED]:
+    'listings.errors.tagsMissingRequired',
+  [ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL]:
+    'listings.errors.invalidRequiresApproval',
+  [ListingServiceErrorCode.INVALID_PRICE]: 'listings.errors.invalidPrice',
+  [ListingServiceErrorCode.LISTING_NOT_FOUND]: 'listings.errors.notFound',
+  [ListingServiceErrorCode.LISTING_FORBIDDEN]: 'listings.errors.forbidden',
+  [ListingServiceErrorCode.LISTING_UPDATE_INVALID]:
+    'listings.errors.invalidUpdate',
+};
 
 export const mapListingErrorToStatus = (
-    code: ListingServiceErrorCode,
+  code: ListingServiceErrorCode,
 ): HttpStatus => {
-    switch (code) {
-        case ListingServiceErrorCode.CHANNEL_NOT_FOUND:
-            return HttpStatus.NOT_FOUND;
-        case ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS:
-        case ListingServiceErrorCode.CHANNEL_NOT_VERIFIED:
-        case ListingServiceErrorCode.LISTING_FORBIDDEN:
-            return HttpStatus.FORBIDDEN;
-        case ListingServiceErrorCode.LISTING_NOT_FOUND:
-            return HttpStatus.NOT_FOUND;
-        case ListingServiceErrorCode.INVALID_FORMAT:
-        case ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE:
-        case ListingServiceErrorCode.INVALID_PIN_RULE:
-        case ListingServiceErrorCode.TAGS_MISSING_REQUIRED:
-        case ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL:
-        case ListingServiceErrorCode.INVALID_PRICE:
-        case ListingServiceErrorCode.LISTING_UPDATE_INVALID:
-        default:
-            return HttpStatus.BAD_REQUEST;
-    }
+  return mapEnumValue(code, LISTING_STATUS_BY_CODE, HttpStatus.BAD_REQUEST);
 };
 
 export const mapListingErrorToMessageKey = (
-    code: ListingServiceErrorCode,
+  code: ListingServiceErrorCode,
 ): string => {
-    switch (code) {
-        case ListingServiceErrorCode.CHANNEL_NOT_FOUND:
-            return 'listings.errors.channelNotFound';
-        case ListingServiceErrorCode.UNAUTHORIZED_CHANNEL_ACCESS:
-            return 'listings.errors.unauthorized';
-        case ListingServiceErrorCode.CHANNEL_NOT_VERIFIED:
-            return 'listings.errors.channelNotVerified';
-        case ListingServiceErrorCode.INVALID_FORMAT:
-            return 'listings.errors.invalidFormat';
-        case ListingServiceErrorCode.INVALID_AVAILABILITY_RANGE:
-            return 'listings.errors.invalidAvailability';
-        case ListingServiceErrorCode.INVALID_PIN_RULE:
-            return 'listings.errors.invalidPinnedRule';
-        case ListingServiceErrorCode.TAGS_MISSING_REQUIRED:
-            return 'listings.errors.tagsMissingRequired';
-        case ListingServiceErrorCode.INVALID_REQUIRES_APPROVAL:
-            return 'listings.errors.invalidRequiresApproval';
-        case ListingServiceErrorCode.INVALID_PRICE:
-            return 'listings.errors.invalidPrice';
-        case ListingServiceErrorCode.LISTING_NOT_FOUND:
-            return 'listings.errors.notFound';
-        case ListingServiceErrorCode.LISTING_FORBIDDEN:
-            return 'listings.errors.forbidden';
-        case ListingServiceErrorCode.LISTING_UPDATE_INVALID:
-            return 'listings.errors.invalidUpdate';
-        default:
-            return 'listings.errors.invalidAvailability';
-    }
+  return mapEnumValue(
+    code,
+    LISTING_MESSAGE_KEY_BY_CODE,
+    'listings.errors.invalidAvailability',
+  );
 };
