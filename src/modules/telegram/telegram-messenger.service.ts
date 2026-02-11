@@ -7,6 +7,13 @@ import {TelegramI18nService, TelegramLanguage} from './i18n/telegram-i18n.servic
 import {TelegramBotService} from "../telegram-bot/telegram-bot.service";
 import {User} from "../auth/entities/user.entity";
 import {TelegramInlineButton} from "../telegram-bot/telegram-bot.types";
+import {TELEGRAM_PUBLIC_BASE_URL} from '../../common/constants/telegram/telegram-links.constants';
+import {
+    appendRouteToUrl,
+    buildTelegramMiniAppFallbackUrl,
+    ensureHttpsUrl,
+    getMiniAppBaseUrlFromConfig,
+} from '../../common/utils/telegram-links.util';
 
 const TELEGRAM_MESSAGE_LIMIT = 4096;
 const TELEGRAM_CAPTION_LIMIT = 1024;
@@ -178,35 +185,16 @@ export class TelegramMessengerService {
     }
 
     buildMiniAppUrl(route?: string): string {
-        const baseUrl =
-            this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
-            this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
-            this.configService.get<string>('MINI_APP_URL');
-        const botUsername = this.normalizeBotUsername(
-            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
-        );
+        const baseUrl = getMiniAppBaseUrlFromConfig(this.configService);
 
         if (baseUrl) {
-            const normalized = this.ensureHttpsUrl(baseUrl);
-            if (route && normalized) {
-                try {
-                    const url = new URL(normalized);
-                    url.pathname = `${url.pathname.replace(/\/$/, '')}/${route}`;
-                    return url.toString();
-                } catch (error) {
-                    return normalized;
-                }
-            }
-            return normalized ?? 'https://t.me';
+            return appendRouteToUrl(baseUrl, route) ?? TELEGRAM_PUBLIC_BASE_URL;
         }
 
-        if (botUsername) {
-            return route
-                ? `https://t.me/${botUsername}?startapp=${route}`
-                : `https://t.me/${botUsername}`;
-        }
-
-        return 'https://t.me';
+        return buildTelegramMiniAppFallbackUrl(
+            this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
+            route,
+        );
     }
 
     private async resolveLanguage(
@@ -291,10 +279,10 @@ export class TelegramMessengerService {
                     );
 
                     const url = button.url
-                        ? this.ensureHttpsUrl(button.url)
+                        ? ensureHttpsUrl(button.url)
                         : undefined;
                     const webAppUrl = button.webAppUrl
-                        ? this.ensureHttpsUrl(button.webAppUrl)
+                        ? ensureHttpsUrl(button.webAppUrl)
                         : undefined;
 
                     if (!url && button.url) {
@@ -332,25 +320,5 @@ export class TelegramMessengerService {
                         Boolean(button?.text),
                 ),
         );
-    }
-
-    private ensureHttpsUrl(url: string): string | null {
-        try {
-            const parsed = new URL(url);
-            if (parsed.protocol !== 'https:') {
-                return null;
-            }
-            return parsed.toString();
-        } catch (error) {
-            return null;
-        }
-    }
-
-    private normalizeBotUsername(value?: string | null): string | undefined {
-        if (!value) {
-            return undefined;
-        }
-        const trimmed = value.trim();
-        return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
     }
 }

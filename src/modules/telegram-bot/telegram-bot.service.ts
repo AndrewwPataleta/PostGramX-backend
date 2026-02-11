@@ -17,6 +17,7 @@ import {
 import {TelegramBotUpdate} from './telegram-bot.update';
 import {TelegramBotConfig, TelegramInlineButton, TelegramBotMode} from './telegram-bot.types';
 import {ChannelParticipantsService} from '../channels/channel-participants.service';
+import {getMiniAppBaseUrlFromConfig} from '../../common/utils/telegram-links.util';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
@@ -307,9 +308,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         return {
             token: this.configService.get<string>('BOT_TOKEN') || '',
             username: this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
-            miniAppUrl:
-                this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
-                this.configService.get<string>('TELEGRAM_MINI_APP_URL'),
+            miniAppUrl: getMiniAppBaseUrlFromConfig(this.configService),
             mode,
             webhookUrl: this.configService.get<string>('TELEGRAM_WEBHOOK_URL'),
             allowedUpdates,
@@ -329,7 +328,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
         if (!config.miniAppUrl) {
             this.logger.warn(
-                'TELEGRAM_MINIAPP_URL is not set. Mini App buttons will be limited.',
+                'Mini App URL is not set (TELEGRAM_MINIAPP_URL/TELEGRAM_MINI_APP_URL/MINI_APP_URL). Mini App buttons will be limited.',
             );
         }
 
