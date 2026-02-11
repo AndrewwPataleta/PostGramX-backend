@@ -1,5 +1,11 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
+import {TELEGRAM_PUBLIC_BASE_URL} from '../../common/constants/telegram/telegram-links.constants';
+import {
+    appendRouteToUrl,
+    getMiniAppBaseUrlFromConfig,
+    normalizeTelegramHandle,
+} from '../../common/utils/telegram-links.util';
 
 @Injectable()
 export class DealsDeepLinkService {
@@ -8,48 +14,33 @@ export class DealsDeepLinkService {
     constructor(private readonly configService: ConfigService) {}
 
     buildDealLink(dealId: string): string {
-        const miniAppUrl =
-            this.configService.get<string>('TELEGRAM_MINIAPP_URL') ||
-            this.configService.get<string>('TELEGRAM_MINI_APP_URL') ||
-            this.configService.get<string>('MINI_APP_URL');
+        const miniAppUrl = getMiniAppBaseUrlFromConfig(this.configService);
         if (miniAppUrl) {
-            try {
-                const url = new URL(miniAppUrl);
-                if (url.protocol !== 'https:') {
-                    this.logger.warn('Mini App URL must be https; falling back.');
-                    return 'https://t.me';
-                }
-                url.pathname = `${url.pathname.replace(/\/$/, '')}/deals/${dealId}`;
-                return url.toString();
-            } catch (error) {
-                return 'https://t.me';
+            const dealLink = appendRouteToUrl(miniAppUrl, `deals/${dealId}`);
+            if (dealLink) {
+                return dealLink;
             }
+
+            this.logger.warn('Mini App URL must be https; falling back.');
+            return TELEGRAM_PUBLIC_BASE_URL;
         }
 
-        const botUsername = this.normalizeBotUsername(
+        const botUsername = normalizeTelegramHandle(
             this.configService.get<string>('TELEGRAM_BOT_USERNAME'),
         );
-        const miniAppShortName = this.normalizeBotUsername(
+        const miniAppShortName = normalizeTelegramHandle(
             this.configService.get<string>('TELEGRAM_MINIAPP_SHORT_NAME'),
         );
         const startParam = `deal_${dealId}`;
 
         if (botUsername && miniAppShortName) {
-            return `https://t.me/${botUsername}/${miniAppShortName}?startapp=${startParam}`;
+            return `${TELEGRAM_PUBLIC_BASE_URL}/${botUsername}/${miniAppShortName}?startapp=${startParam}`;
         }
 
         if (botUsername) {
-            return `https://t.me/${botUsername}?startapp=${startParam}`;
+            return `${TELEGRAM_PUBLIC_BASE_URL}/${botUsername}?startapp=${startParam}`;
         }
 
-        return 'https://t.me';
-    }
-
-    private normalizeBotUsername(value?: string | null): string | undefined {
-        if (!value) {
-            return undefined;
-        }
-        const trimmed = value.trim();
-        return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+        return TELEGRAM_PUBLIC_BASE_URL;
     }
 }

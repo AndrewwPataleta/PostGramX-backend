@@ -1,20 +1,14 @@
+import {TELEGRAM_PUBLIC_BASE_URL} from '../../../../common/constants/telegram/telegram-links.constants';
+import {
+    appendRouteToUrl,
+    getMiniAppBaseUrlFromEnv,
+} from '../../../../common/utils/telegram-links.util';
+
 export function buildMiniAppDealLink(dealId: string) {
-    const baseUrl =
-        process.env.TELEGRAM_MINIAPP_URL ||
-        process.env.TELEGRAM_MINI_APP_URL ||
-        process.env.MINI_APP_URL;
+    const baseUrl = getMiniAppBaseUrlFromEnv();
     if (!baseUrl) {
-        return 'https://t.me';
+        return TELEGRAM_PUBLIC_BASE_URL;
     }
 
-    try {
-        const url = new URL(baseUrl);
-        if (url.protocol !== 'https:') {
-            return 'https://t.me';
-        }
-        url.pathname = `${url.pathname.replace(/\/$/, '')}/deals/${dealId}`;
-        return url.toString();
-    } catch (error) {
-        return 'https://t.me';
-    }
+    return appendRouteToUrl(baseUrl, `deals/${dealId}`) ?? TELEGRAM_PUBLIC_BASE_URL;
 }
