@@ -10,7 +10,7 @@
     "support": "Поддержка",
     "about_escrow": "Об эскроу",
     "tbd": "Не указано",
-    "local_time_with_gmt": "Ваше локальное время: {localDateTime}"
+    "local_time_with_gmt": "{localDateTime}"
   },
   "start": {
     "message": "<b>Добро пожаловать в PostgramX</b>\nПокупайте и продавайте рекламу в Telegram с <b>эскроу</b> и <b>автопостингом</b>.\n\nНажмите <b>«Открыть приложение»</b>, чтобы продолжить, или узнайте подробнее про эскроу."
