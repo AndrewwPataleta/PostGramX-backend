@@ -14,7 +14,7 @@ import { CurrencyCode } from '../../common/constants/currency/currency.constants
 import { TransactionEntity } from '../payments/entities/transaction.entity';
 import { TransactionStatus } from '../../common/constants/payments/transaction-status.constants';
 import { TransactionType } from '../../common/constants/payments/transaction-type.constants';
-import { buildDisplayTime, getUserTimeZone } from '../../common/time/time.utils';
+import { getUserTimeZone } from '../../common/time/time.utils';
 import {
   TelegramI18nService,
   TelegramLanguage,
@@ -542,7 +542,8 @@ export class DealsNotificationsService {
       NOTIFICATION_CONCURRENCY,
       async (recipient) => {
         try {
-          const lang = this.telegramI18nService.resolveLanguageForUser(recipient);
+          const lang =
+            this.telegramI18nService.resolveLanguageForUser(recipient);
           const publishTime = this.formatDeadlineForUser(
             deal.scheduledAt,
             recipient,
@@ -762,7 +763,11 @@ export class DealsNotificationsService {
       user.telegramId,
       'telegram.deal.post.published',
       {
-        mustRemainUntil: this.formatDeadlineForUser(mustRemainUntil, user, lang),
+        mustRemainUntil: this.formatDeadlineForUser(
+          mustRemainUntil,
+          user,
+          lang,
+        ),
       },
       { lang },
     );
@@ -1150,12 +1155,46 @@ export class DealsNotificationsService {
     }
 
     const timeZone = getUserTimeZone(user);
-    const display = buildDisplayTime(value, timeZone);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(value);
 
-    return [
-      `- UTC: ${display.utc}`,
-      `- Your time (${display.timeZone}): ${display.local}`,
-    ].join('\n');
+    const partsMap = parts.reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== 'literal') {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+
+    const gmtOffset =
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+        timeZoneName: 'shortOffset',
+      })
+        .formatToParts(value)
+        .find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+
+    const localDateTime = `${partsMap.day}.${partsMap.month}.${partsMap.year} ${partsMap.hour}:${partsMap.minute} ${gmtOffset}`;
+
+    return this.telegramI18nService.t(
+      lang,
+      'telegram.common.local_time_with_gmt',
+      {
+        localDateTime,
+      },
+    );
   }
 
   private async notifyAdvertiserStep(
