@@ -365,7 +365,7 @@ export class TelegramAdminsSyncService {
         lang,
         'telegram.moderators.changed.added',
       );
-      changesSections.push(`<b>${addedTitle}</b>\n${addedList}`);
+      changesSections.push(`${addedTitle}\n${addedList}`);
     }
 
     if (removedAdmins.length > 0) {
@@ -373,7 +373,7 @@ export class TelegramAdminsSyncService {
         lang,
         'telegram.moderators.changed.removed',
       );
-      changesSections.push(`<b>${removedTitle}</b>\n${removedList}`);
+      changesSections.push(`${removedTitle}\n${removedList}`);
     }
 
     await this.telegramMessengerService.sendText(
