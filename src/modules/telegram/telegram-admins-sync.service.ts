@@ -333,14 +333,6 @@ export class TelegramAdminsSyncService {
       await this.telegramMessengerService.resolveLanguageForTelegramId(
         owner.telegramId,
       );
-    const addedTitle = this.telegramI18nService.t(
-      lang,
-      'telegram.moderators.changed.added',
-    );
-    const removedTitle = this.telegramI18nService.t(
-      lang,
-      'telegram.moderators.changed.removed',
-    );
     const cta = this.telegramI18nService.t(
       lang,
       'telegram.moderators.changed.cta_manage',
@@ -362,15 +354,30 @@ export class TelegramAdminsSyncService {
           .join('\n')
       : '-';
 
+    const changesSections: string[] = [];
+
+    if (addedAdmins.length > 0) {
+      const addedTitle = this.telegramI18nService.t(
+        lang,
+        'telegram.moderators.changed.added',
+      );
+      changesSections.push(`<b>${addedTitle}</b>\n${addedList}`);
+    }
+
+    if (removedAdmins.length > 0) {
+      const removedTitle = this.telegramI18nService.t(
+        lang,
+        'telegram.moderators.changed.removed',
+      );
+      changesSections.push(`<b>${removedTitle}</b>\n${removedList}`);
+    }
+
     await this.telegramMessengerService.sendText(
       owner.telegramId,
       'telegram.moderators.changed.title',
       {
         channelRef: this.buildChannelRef(channel),
-        addedTitle,
-        removedTitle,
-        addedList,
-        removedList,
+        changes: changesSections.join('\n\n'),
         cta,
         miniAppUrl: this.telegramMessengerService.buildMiniAppUrl(),
       },
