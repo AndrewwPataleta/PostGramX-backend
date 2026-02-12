@@ -19,7 +19,6 @@ import { ChannelServiceError } from './errors/channel-service.error';
 import {
   ChannelDetails,
   ChannelDisabledResult,
-  ChannelLinkResult,
   ChannelListResponse,
   ChannelPreview,
   ChannelUnlinkResult,
@@ -127,6 +126,7 @@ export class ChannelsService {
       bot: this.buildAdminSnapshot(preflight.botAdmin),
     };
     const now = new Date();
+    const telegramChatId = String(preflight.publicChat.id);
 
     const channel = await this.channelRepository.manager.transaction(
       async (manager) => {
@@ -136,8 +136,14 @@ export class ChannelsService {
         );
 
         let channel = await channelRepository.findOne({
-          where: { username: normalizedUsername },
+          where: { telegramChatId },
         });
+
+        if (!channel) {
+          channel = await channelRepository.findOne({
+            where: { username: normalizedUsername },
+          });
+        }
 
         if (channel) {
           if (channel.ownerUserId && channel.ownerUserId !== userId) {
@@ -155,8 +161,9 @@ export class ChannelsService {
           });
         }
 
+        channel.username = normalizedUsername;
         channel.title = preflight.publicChat.title ?? channel.title;
-        channel.telegramChatId = String(preflight.publicChat.id);
+        channel.telegramChatId = telegramChatId;
         channel.status = ChannelStatus.VERIFIED;
         channel.verifiedAt = now;
         channel.lastCheckedAt = now;

@@ -76,7 +76,7 @@ export class MembershipsAutoLinkService {
           role: shouldBeOwner ? ChannelRole.OWNER : ChannelRole.MODERATOR,
           isActive: true,
           isManuallyDisabled: false,
-          canReviewDeals: shouldBeOwner,
+          canReviewDeals: true,
           telegramUserId: admin.telegramUserId,
         });
         toSave.push(created);
