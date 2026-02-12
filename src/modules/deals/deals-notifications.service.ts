@@ -206,7 +206,7 @@ export class DealsNotificationsService {
       advertiserTelegramId,
       'telegram.deal.creative_required.message',
       undefined,
-      [[{ textKey: 'telegram.common.open_mini_app', url: link }]],
+      [[{ textKey: 'telegram.common.open_mini_app', webAppUrl: link }]],
     );
   }
 
@@ -624,7 +624,7 @@ export class DealsNotificationsService {
           [
             {
               textKey: 'telegram.common.open_mini_app',
-              url: link,
+              webAppUrl: link,
             },
           ],
         ]
@@ -663,7 +663,7 @@ export class DealsNotificationsService {
     };
     const link = this.ensureMiniAppLink(deal.id);
     const buttons: TelegramInlineButtonSpec[][] = link
-      ? [[{ textKey: 'telegram.common.open_mini_app', url: link }]]
+      ? [[{ textKey: 'telegram.common.open_mini_app', webAppUrl: link }]]
       : [];
 
     if (advertiser?.telegramId) {
@@ -872,7 +872,7 @@ export class DealsNotificationsService {
 
     const link = this.deepLinkService.buildDealLink(deal.id);
     const buttons: TelegramInlineButtonSpec[][] = [
-      [{ textKey: 'telegram.common.open_deal', url: link }],
+      [{ textKey: 'telegram.common.open_deal', webAppUrl: link }],
     ];
 
     this.logger.log(
@@ -928,7 +928,7 @@ export class DealsNotificationsService {
     if (deal.channelId) {
       const link = this.deepLinkService.buildDealLink(deal.id);
       const buttons: TelegramInlineButtonSpec[][] = [
-        [{ textKey: 'telegram.common.open_deal', url: link }],
+        [{ textKey: 'telegram.common.open_deal', webAppUrl: link }],
       ];
 
       const recipients =
@@ -987,7 +987,7 @@ export class DealsNotificationsService {
     if (deal.channelId) {
       const link = this.deepLinkService.buildDealLink(deal.id);
       const buttons: TelegramInlineButtonSpec[][] = [
-        [{ textKey: 'telegram.common.open_deal', url: link }],
+        [{ textKey: 'telegram.common.open_deal', webAppUrl: link }],
       ];
       const paymentDeadline = escrow?.paymentDeadlineAt;
 
@@ -1227,7 +1227,7 @@ export class DealsNotificationsService {
       [
         {
           textKey: 'telegram.common.open_deal',
-          url: this.deepLinkService.buildDealLink(deal.id),
+          webAppUrl: this.deepLinkService.buildDealLink(deal.id),
         },
       ],
     ];
@@ -1262,7 +1262,7 @@ export class DealsNotificationsService {
         [
           {
             textKey: 'telegram.common.open_deal',
-            url: this.deepLinkService.buildDealLink(dealId),
+            webAppUrl: this.deepLinkService.buildDealLink(dealId),
           },
         ],
       ];
@@ -1277,7 +1277,7 @@ export class DealsNotificationsService {
       [
         {
           textKey: 'telegram.common.open_mini_app',
-          url: link,
+          webAppUrl: link,
         },
       ],
     ];
