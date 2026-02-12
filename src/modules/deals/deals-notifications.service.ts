@@ -14,6 +14,7 @@ import { CurrencyCode } from '../../common/constants/currency/currency.constants
 import { TransactionEntity } from '../payments/entities/transaction.entity';
 import { TransactionStatus } from '../../common/constants/payments/transaction-status.constants';
 import { TransactionType } from '../../common/constants/payments/transaction-type.constants';
+import { buildDisplayTime, getUserTimeZone } from '../../common/time/time.utils';
 import {
   TelegramI18nService,
   TelegramLanguage,
@@ -240,9 +241,7 @@ export class DealsNotificationsService {
       return;
     }
 
-    const scheduledAtValue = deal.scheduledAt
-      ? this.formatUtcTimestamp(deal.scheduledAt)
-      : null;
+    const scheduledAtValue = deal.scheduledAt ?? null;
     const channelLabel = channel.username
       ? `@${channel.username}`
       : channel.title;
@@ -281,11 +280,14 @@ export class DealsNotificationsService {
         try {
           const lang =
             this.telegramI18nService.resolveLanguageForUser(recipient);
-          const scheduledAt =
-            scheduledAtValue ??
-            this.telegramI18nService.t(lang, 'telegram.common.tbd');
+          const scheduledAt = this.formatDeadlineForUser(
+            scheduledAtValue,
+            recipient,
+            lang,
+          );
           const actionDeadline = this.formatDeadlineForUser(
             deal.idleExpiresAt,
+            recipient,
             lang,
           );
           const messageArgs = {
@@ -380,9 +382,7 @@ export class DealsNotificationsService {
       return;
     }
 
-    const scheduledAtValue = deal.scheduledAt
-      ? this.formatUtcTimestamp(deal.scheduledAt)
-      : null;
+    const scheduledAtValue = deal.scheduledAt ?? null;
     const channelLabel = channel.username
       ? `@${channel.username}`
       : channel.title;
@@ -421,11 +421,14 @@ export class DealsNotificationsService {
         try {
           const lang =
             this.telegramI18nService.resolveLanguageForUser(recipient);
-          const scheduledAt =
-            scheduledAtValue ??
-            this.telegramI18nService.t(lang, 'telegram.common.tbd');
+          const scheduledAt = this.formatDeadlineForUser(
+            scheduledAtValue,
+            recipient,
+            lang,
+          );
           const actionDeadline = this.formatDeadlineForUser(
             deal.idleExpiresAt,
+            recipient,
             lang,
           );
           const messageArgs = {
@@ -534,27 +537,31 @@ export class DealsNotificationsService {
         : 'telegram.deal.admin_review.rejected';
     const priceNano = deal.listingSnapshot?.priceNano;
     const currency = deal.listingSnapshot?.currency ?? CurrencyCode.TON;
-    const publishTime = deal.scheduledAt
-      ? this.formatUtcTimestamp(deal.scheduledAt)
-      : '—';
-    const messageArgs = {
-      adminName,
-      channel: channelLabel,
-      dealId: deal.id.slice(0, 8),
-      price: priceNano ? formatTon(priceNano) : '—',
-      currency,
-      publishTime,
-    };
-
     await this.runWithConcurrency(
       recipients,
       NOTIFICATION_CONCURRENCY,
       async (recipient) => {
         try {
+          const lang = this.telegramI18nService.resolveLanguageForUser(recipient);
+          const publishTime = this.formatDeadlineForUser(
+            deal.scheduledAt,
+            recipient,
+            lang,
+          );
+          const messageArgs = {
+            adminName,
+            channel: channelLabel,
+            dealId: deal.id.slice(0, 8),
+            price: priceNano ? formatTon(priceNano) : '-',
+            currency,
+            publishTime,
+          };
+
           await this.telegramMessengerService.sendText(
             recipient.telegramId as string,
             messageKey,
             messageArgs,
+            { lang },
           );
         } catch (error) {
           const errorMessage =
@@ -606,12 +613,11 @@ export class DealsNotificationsService {
     );
     const messageArgs = {
       dealId: dealShortId,
-      paymentDeadline: paymentDeadline
-        ? this.formatUtcTimestamp(paymentDeadline)
-        : this.telegramI18nService.t(
-            this.telegramI18nService.resolveLanguageForUser(user),
-            'telegram.common.tbd',
-          ),
+      paymentDeadline: this.formatDeadlineForUser(
+        paymentDeadline,
+        user,
+        this.telegramI18nService.resolveLanguageForUser(user),
+      ),
       paymentAddress,
     };
 
@@ -833,7 +839,7 @@ export class DealsNotificationsService {
       user.telegramId,
       'telegram.deal.post.published',
       {
-        mustRemainUntil: this.formatDeadlineForUser(mustRemainUntil, lang),
+        mustRemainUntil: this.formatDeadlineForUser(mustRemainUntil, user, lang),
       },
       { lang },
     );
@@ -950,6 +956,7 @@ export class DealsNotificationsService {
             : channel.title;
           const actionDeadline = this.formatDeadlineForUser(
             deal.idleExpiresAt,
+            recipient,
             lang,
           );
           const args: Record<string, any> = {
@@ -1007,6 +1014,7 @@ export class DealsNotificationsService {
             this.telegramI18nService.resolveLanguageForUser(recipient);
           const actionDeadline = this.formatDeadlineForUser(
             deal.idleExpiresAt,
+            recipient,
             lang,
           );
           await this.telegramMessengerService.sendInlineKeyboard(
@@ -1066,6 +1074,7 @@ export class DealsNotificationsService {
             this.telegramI18nService.resolveLanguageForUser(recipient);
           const deadlineLabel = this.formatDeadlineForUser(
             paymentDeadline,
+            recipient,
             lang,
           );
           await this.telegramMessengerService.sendInlineKeyboard(
@@ -1226,12 +1235,20 @@ export class DealsNotificationsService {
 
   private formatDeadlineForUser(
     value: Date | null | undefined,
+    user: User | null | undefined,
     lang: TelegramLanguage,
   ): string {
     if (!value) {
       return this.telegramI18nService.t(lang, 'telegram.common.tbd');
     }
-    return this.formatUtcTimestamp(value);
+
+    const timeZone = getUserTimeZone(user);
+    const display = buildDisplayTime(value, timeZone);
+
+    return [
+      `- UTC: ${display.utc}`,
+      `- Your time (${display.timeZone}): ${display.local}`,
+    ].join('\n');
   }
 
   private async notifyAdvertiserStep(
@@ -1261,6 +1278,7 @@ export class DealsNotificationsService {
     const lang = this.telegramI18nService.resolveLanguageForUser(user);
     const actionDeadline = this.formatDeadlineForUser(
       deadline ?? deal.idleExpiresAt,
+      user,
       lang,
     );
 

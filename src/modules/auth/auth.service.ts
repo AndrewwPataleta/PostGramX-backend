@@ -1,8 +1,6 @@
 import {
-    BadRequestException,
     Injectable,
     Logger,
-    UnauthorizedException,
 } from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
@@ -11,6 +9,7 @@ import {I18nService} from 'nestjs-i18n';
 import {MembershipsAutoLinkService} from '../channels/memberships-auto-link.service';
 import {AuthType} from '../../common/constants/auth/auth-types.constants';
 import {PlatformType} from '../../common/constants/platform/platform-types.constants';
+import {isValidIanaTimeZone} from '../../common/time/time.utils';
 
 const isSupportedAuthType = (value: string): value is AuthType =>
     Object.values(AuthType).includes(value as AuthType);
@@ -19,7 +18,6 @@ const isSupportedPlatformType = (
     value: string,
 ): value is PlatformType =>
     Object.values(PlatformType).includes(value as PlatformType);
-
 
 @Injectable()
 export class AuthService {
@@ -38,6 +36,10 @@ export class AuthService {
         authType: string,
         token: string,
         platformType?: string,
+        authContext?: {
+            timeZone?: string;
+            utcOffsetMinutes?: number;
+        },
     ): Promise<User | null> {
         const normalizedAuthTypeCandidate = (authType ?? '').trim().toLowerCase();
         if (!isSupportedAuthType(normalizedAuthTypeCandidate)) {
@@ -154,6 +156,12 @@ export class AuthService {
             user.isPremium = userInfo.isPremium;
         }
 
+        const resolvedTimeZone = this.resolveTimeZone(
+            authContext?.timeZone,
+            authContext?.utcOffsetMinutes,
+        );
+        user.timeZone = resolvedTimeZone;
+
         user = await this.userRepository.save(user);
 
         if (normalizedAuthType === AuthType.TELEGRAM && user.telegramId) {
@@ -172,5 +180,41 @@ export class AuthService {
         }
 
         return user;
+    }
+
+    private resolveTimeZone(
+        timeZone?: string,
+        utcOffsetMinutes?: number,
+    ): string | null {
+        const normalizedTimeZone = timeZone?.trim();
+        if (normalizedTimeZone && isValidIanaTimeZone(normalizedTimeZone)) {
+            return normalizedTimeZone;
+        }
+
+        if (Number.isInteger(utcOffsetMinutes)) {
+            const mapped = this.mapUtcOffsetToIana(utcOffsetMinutes as number);
+            if (mapped && isValidIanaTimeZone(mapped)) {
+                return mapped;
+            }
+        }
+
+        return null;
+    }
+
+    private mapUtcOffsetToIana(utcOffsetMinutes: number): string | null {
+        if (utcOffsetMinutes % 60 !== 0) {
+            return null;
+        }
+
+        const hours = utcOffsetMinutes / 60;
+        if (hours < -14 || hours > 14) {
+            return null;
+        }
+
+        if (hours === 0) {
+            return 'UTC';
+        }
+
+        return `Etc/GMT${hours > 0 ? '-' : '+'}${Math.abs(hours)}`;
     }
 }

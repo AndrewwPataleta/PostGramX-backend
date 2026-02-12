@@ -39,6 +39,10 @@ export class AuthController {
             authType,
             token,
             platformType,
+            {
+                timeZone: dto.timeZone ?? dto.data?.timeZone,
+                utcOffsetMinutes: dto.utcOffsetMinutes ?? dto.data?.utcOffsetMinutes,
+            },
         );
 
         if (!user) {
