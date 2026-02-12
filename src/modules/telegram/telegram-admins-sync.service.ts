@@ -283,7 +283,7 @@ export class TelegramAdminsSyncService {
           permissionsSnapshot: addedAdmin.permissionsSnapshot,
           isActive: true,
           isManuallyDisabled: false,
-          canReviewDeals: false,
+          canReviewDeals: true,
           lastRecheckAt: now,
           permissionsUpdatedAt: now,
         });
@@ -309,7 +309,7 @@ export class TelegramAdminsSyncService {
 
       if (!existing.isManuallyDisabled && existing.role !== ChannelRole.OWNER) {
         existing.isActive = true;
-        existing.canReviewDeals = false;
+        existing.canReviewDeals = true;
         existing.permissionsUpdatedAt = now;
       }
 
