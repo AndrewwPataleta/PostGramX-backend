@@ -213,6 +213,7 @@ export class DealPostingWorker {
       await this.dealsNotificationsService.notifyPostPublishedAdvertiser(
         deal,
         mustRemainUntil,
+        this.buildTelegramPostUrl(channel, String(result.message_id)),
       );
       await this.dealsNotificationsService.notifyPostPublishedAdmin(deal);
       await this.postAnalyticsService.startTrackingForDeal(deal.id);
@@ -322,6 +323,21 @@ export class DealPostingWorker {
       now,
       deleteMessage: true,
     });
+  }
+
+  private buildTelegramPostUrl(
+    channel: ChannelEntity,
+    messageId: string,
+  ): string | null {
+    if (channel.username) {
+      return `https://t.me/${channel.username}/${messageId}`;
+    }
+
+    if (channel.telegramChatId?.startsWith('-100')) {
+      return `https://t.me/c/${channel.telegramChatId.slice(4)}/${messageId}`;
+    }
+
+    return null;
   }
 
   private async cancelDealForPublicationViolation({

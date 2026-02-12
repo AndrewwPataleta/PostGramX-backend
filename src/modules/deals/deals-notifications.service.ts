@@ -750,6 +750,7 @@ export class DealsNotificationsService {
   async notifyPostPublishedAdvertiser(
     deal: DealEntity,
     mustRemainUntil: Date | null,
+    postUrl: string | null,
   ): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: deal.advertiserUserId },
@@ -758,11 +759,20 @@ export class DealsNotificationsService {
       return;
     }
     const lang = this.telegramI18nService.resolveLanguageForUser(user);
+    const postPublishedTitle = postUrl
+      ? lang === 'ru'
+        ? `<a href="${postUrl}">Пост опубликован</a>`
+        : `<a href="${postUrl}">Post published</a>`
+      : lang === 'ru'
+        ? '<b>Пост опубликован</b>'
+        : '<b>Post published</b>';
+
     await this.telegramMessengerService.sendText(
       user.telegramId,
       'telegram.deal.post.published',
       {
         mustRemainUntil: this.formatDeadlineForUser(mustRemainUntil, user, lang),
+        postPublishedTitle,
       },
       { lang },
     );
