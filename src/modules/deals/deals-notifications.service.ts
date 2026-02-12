@@ -593,76 +593,6 @@ export class DealsNotificationsService {
     );
   }
 
-  async notifyAdvertiserPaymentRequired(
-    deal: DealEntity,
-    escrow: DealEscrowEntity,
-  ): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { id: deal.advertiserUserId },
-    });
-    if (!user?.telegramId) {
-      return;
-    }
-
-    const paymentDeadline = escrow.paymentDeadlineAt;
-    const paymentAddress = escrow.depositAddress;
-    const dealShortId = deal.id.slice(0, 8);
-    const messageKey = this.resolvePaymentRequiredKey(
-      Boolean(paymentDeadline),
-      Boolean(paymentAddress),
-    );
-    const messageArgs = {
-      dealId: dealShortId,
-      paymentDeadline: this.formatDeadlineForUser(
-        paymentDeadline,
-        user,
-        this.telegramI18nService.resolveLanguageForUser(user),
-      ),
-      paymentAddress,
-    };
-
-    const link = this.ensureMiniAppLink(deal.id);
-    const buttons: TelegramInlineButtonSpec[][] = link
-      ? [
-          [
-            {
-              textKey: 'telegram.common.pay_in_app',
-              webAppUrl: link,
-            },
-          ],
-          [
-            {
-              textKey: 'telegram.common.open_mini_app',
-              url: link,
-            },
-          ],
-        ]
-      : [];
-
-    if (buttons.length) {
-      await this.telegramMessengerService.sendInlineKeyboard(
-        user.telegramId,
-        messageKey,
-        messageArgs,
-        buttons,
-        { lang: this.telegramI18nService.resolveLanguageForUser(user) },
-      );
-    } else {
-      await this.telegramMessengerService.sendText(
-        user.telegramId,
-        messageKey,
-        messageArgs,
-        { lang: this.telegramI18nService.resolveLanguageForUser(user) },
-      );
-    }
-
-    this.logger.log('Sent pay-in-app button to advertiser', {
-      dealId: deal.id,
-      advertiserTelegramId: user.telegramId,
-      url: link,
-    });
-  }
-
   async notifyAdvertiserPartialPayment(
     deal: DealEntity,
     receivedNano: string,
@@ -790,13 +720,6 @@ export class DealsNotificationsService {
         }
       },
     );
-  }
-
-  async notifyDealCreated(deal: DealEntity): Promise<void> {
-    await this.notifyDeal(deal, {
-      type: 'DEAL_CREATED',
-      messageKey: 'telegram.deal.notification.created',
-    });
   }
 
   async notifyDealActionRequired(
@@ -1156,22 +1079,6 @@ export class DealsNotificationsService {
     const minutes = String(value.getUTCMinutes()).padStart(2, '0');
 
     return `${year}.${month}.${day} ${hours}:${minutes}`;
-  }
-
-  private resolvePaymentRequiredKey(
-    hasDeadline: boolean,
-    hasAddress: boolean,
-  ): string {
-    if (hasDeadline && hasAddress) {
-      return 'telegram.deal.payment_required.with_deadline_and_address';
-    }
-    if (hasDeadline) {
-      return 'telegram.deal.payment_required.with_deadline';
-    }
-    if (hasAddress) {
-      return 'telegram.deal.payment_required.with_address';
-    }
-    return 'telegram.deal.payment_required.basic';
   }
 
   private mapReasonKey(reason: DealActionReason): string {

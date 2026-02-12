@@ -166,8 +166,6 @@ export class DealsService {
 
             const saved = await repo.save(created);
 
-
-
             return saved;
         });
 
@@ -299,7 +297,7 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
         requiresDealSelection?: boolean;
-        dealOptions?: Array<{id: string}>;
+        dealOptions?: Array<{ id: string }>;
     }> {
         const advertiser = await this.userRepository.findOne({
             where: {telegramId: payload.telegramUserId},
@@ -584,9 +582,6 @@ export class DealsService {
         const updatedDeal = await this.dealRepository.findOne({
             where: {id: deal.id},
         });
-        const updatedEscrow = await this.escrowRepository.findOne({
-            where: {dealId: deal.id},
-        });
 
         if (updatedDeal) {
             await this.dealsNotificationsService.notifyCreativeApproved(
@@ -657,7 +652,7 @@ export class DealsService {
                 shouldNotifyLateConfirmation =
                     !lockedDeal.lastScheduleLateNotifiedAt ||
                     lockedDeal.lastScheduleLateNotifiedAt.getTime() <
-                        dedupeSince.getTime();
+                    dedupeSince.getTime();
 
                 const stage = DealStage.SCHEDULE_AWAITING_FOR_CHANGES;
                 await dealRepo.update(lockedDeal.id, {
@@ -763,7 +758,7 @@ export class DealsService {
         requestType?: ChangeRequestType,
     ) {
 
-const deal = await this.dealRepository.findOne({where: {id: dealId}});
+        const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
@@ -1493,8 +1488,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         const isPublisher = deal.publisherUserId
             ? deal.publisherUserId === userId
             : (await this.membershipRepository.findOne({
-                  where: {channelId: deal.channelId, userId},
-              })) !== null;
+            where: {channelId: deal.channelId, userId},
+        })) !== null;
 
         if (!isAdvertiser && !isPublisher) {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
@@ -1533,8 +1528,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         const isPublisher = deal.publisherUserId
             ? deal.publisherUserId === userId
             : (await this.membershipRepository.findOne({
-                  where: {channelId: deal.channelId, userId},
-              })) !== null;
+            where: {channelId: deal.channelId, userId},
+        })) !== null;
 
         if (!isAdvertiser && !isPublisher) {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
@@ -1545,7 +1540,7 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         });
 
         const visibilityDurationHours =
-            (deal.listingSnapshot as {visibilityDurationHours?: number})
+            (deal.listingSnapshot as { visibilityDurationHours?: number })
                 ?.visibilityDurationHours ?? 0;
 
         return {
@@ -1888,8 +1883,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         const price = deal.listingSnapshot?.priceNano
             ? `${formatTon(deal.listingSnapshot.priceNano)} ${
-                  deal.listingSnapshot.currency ?? DEFAULT_CURRENCY
-              }`
+                deal.listingSnapshot.currency ?? DEFAULT_CURRENCY
+            }`
             : '-';
 
         return {

@@ -90,54 +90,6 @@ export class ChannelsService {
     }
   }
 
-  async linkChannel(
-    username: string,
-    userId: string,
-  ): Promise<ChannelLinkResult> {
-    let normalizedUsername = username;
-    try {
-      normalizedUsername =
-        this.telegramChatService.normalizeUsernameOrLink(username);
-    } catch (error) {
-      this.throwMappedError(error);
-    }
-
-    let channel = await this.channelRepository.findOne({
-      where: { username: normalizedUsername },
-    });
-
-    if (channel) {
-      const ownerId = channel.ownerUserId ?? channel.createdByUserId;
-      if (ownerId !== userId) {
-        throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
-      }
-    }
-
-    if (!channel) {
-      //   let channelPreview = await this.previewChannel(username)
-      channel = this.channelRepository.create({
-        username: normalizedUsername,
-        title: normalizedUsername,
-        // subscribersCount: channelPreview.subscribers,
-        // avatarUrl: channelPreview.avatarUrl,
-        status: ChannelStatus.PENDING_VERIFY,
-        createdByUserId: userId,
-        ownerUserId: userId,
-      });
-    } else {
-      channel.status = ChannelStatus.PENDING_VERIFY;
-      if (!channel.ownerUserId && channel.createdByUserId === userId) {
-        channel.ownerUserId = userId;
-      }
-    }
-
-    await this.channelRepository.save(channel);
-
-    await this.upsertMembership(channel.id, userId, ChannelRole.OWNER);
-
-    return { id: channel.id, status: channel.status };
-  }
-
   async verifyChannel(
     username: string,
     userId: string,
@@ -780,17 +732,6 @@ export class ChannelsService {
 
     const code = mapping[error.code] ?? ChannelErrorCode.BOT_FORBIDDEN;
     return new ChannelServiceError(code);
-  }
-
-  private async markChannelFailed(
-    channel: ChannelEntity,
-    code: ChannelErrorCode,
-    messageKey: string,
-  ) {
-    channel.status = ChannelStatus.FAILED;
-    channel.verifiedAt = null;
-    channel.lastCheckedAt = new Date();
-    await this.channelRepository.save(channel);
   }
 
   private async attachListingsToChannels(
