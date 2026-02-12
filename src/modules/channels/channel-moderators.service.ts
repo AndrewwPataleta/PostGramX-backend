@@ -200,6 +200,15 @@ export class ChannelModeratorsService {
     });
 
     if (!membership) {
+      if (channel.ownerUserId === userId) {
+        await this.requireOwnerCanReviewDealsWithoutMembership(
+          channelId,
+          userId,
+          telegramUserId,
+        );
+        return;
+      }
+
       throw new ChannelServiceError(ChannelErrorCode.USER_NOT_MEMBER);
     }
 
@@ -234,6 +243,42 @@ export class ChannelModeratorsService {
       telegramId: Number(resolvedTelegramUserId),
       required: { anyAdmin: true, allowManager: true },
     });
+  }
+
+  private async requireOwnerCanReviewDealsWithoutMembership(
+    channelId: string,
+    userId: string,
+    telegramUserId?: string | number | null,
+  ): Promise<void> {
+    const ownerUser = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'telegramId'],
+    });
+
+    const resolvedTelegramUserId =
+      telegramUserId ?? ownerUser?.telegramId ?? null;
+    if (!resolvedTelegramUserId) {
+      throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN_ANYMORE);
+    }
+
+    await this.channelAdminRecheckService.requireChannelRights({
+      channelId,
+      userId,
+      telegramId: Number(resolvedTelegramUserId),
+      required: { anyAdmin: true, allowManager: true },
+    });
+
+    await this.membershipRepository.save(
+      this.membershipRepository.create({
+        channelId,
+        userId,
+        role: ChannelRole.OWNER,
+        isActive: true,
+        isManuallyDisabled: false,
+        canReviewDeals: true,
+        telegramUserId: String(resolvedTelegramUserId),
+      }),
+    );
   }
 
   private async setReviewEnabledForMembership(
