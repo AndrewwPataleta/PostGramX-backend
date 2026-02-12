@@ -21,9 +21,11 @@ import { TelegramPermissionsService } from '../../telegram/telegram-permissions.
 import { PAYMENTS_CONFIG } from '../../../config/payments.config';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { PostAnalyticsService } from '../../post-analytics/services/post-analytics.service';
+import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
 
 const POST_VERIFICATION_CRON =
-  process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *';
+  process.env.DEALS_POST_VERIFICATION_CRON ??
+  (process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *');
 
 @Injectable()
 export class DealPostingWorker {
@@ -47,7 +49,7 @@ export class DealPostingWorker {
     private readonly postAnalyticsService: PostAnalyticsService,
   ) {}
 
-  @Cron('*/30 * * * * *')
+  @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
   async handlePostingCron(): Promise<void> {
     const now = new Date();
     const deals = await this.dealRepository.find({
@@ -366,7 +368,10 @@ export class DealPostingWorker {
       status: DealStatus.COMPLETED,
     });
 
-    await this.postAnalyticsService.finalizeForDeal(deal.id, deleteMessage ? 'WINDOW_ENDED' : 'AUTO_COMPLETED');
+    await this.postAnalyticsService.finalizeForDeal(
+      deal.id,
+      deleteMessage ? 'WINDOW_ENDED' : 'AUTO_COMPLETED',
+    );
 
     const escrow = await this.escrowRepository.findOne({
       where: { dealId: deal.id },
