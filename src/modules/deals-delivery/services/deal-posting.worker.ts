@@ -22,6 +22,13 @@ import { PAYMENTS_CONFIG } from '../../../config/payments.config';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { PostAnalyticsService } from '../../post-analytics/services/post-analytics.service';
 import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
+import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
+import {
+  fingerprintEntities,
+  fingerprintKeyboard,
+  fingerprintMedia,
+  normalizeText,
+} from '../../deals/publication/telegramMessageFingerprint';
 
 const POST_VERIFICATION_CRON =
   process.env.DEALS_POST_VERIFICATION_CRON ??
@@ -47,6 +54,7 @@ export class DealPostingWorker {
     private readonly dealsNotificationsService: DealsNotificationsService,
     private readonly telegramPermissionsService: TelegramPermissionsService,
     private readonly postAnalyticsService: PostAnalyticsService,
+    private readonly telegramChannelPostsService: TelegramChannelPostsService,
   ) {}
 
   @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
@@ -182,6 +190,13 @@ export class DealPostingWorker {
         pinVisibilityStatus,
         pinMonitoringEndsAt,
       });
+
+      await this.capturePublicationSnapshot(
+        deal.id,
+        channel,
+        creative,
+        String(result.message_id),
+      );
 
       if (DEALS_CONFIG.AUTO_DEAL_COMPLETE) {
         await this.dealRepository.update(deal.id, {
@@ -419,6 +434,78 @@ export class DealPostingWorker {
         await this.dealsNotificationsService.notifyPostDeleteFailedAdmin(deal);
       }
     }
+  }
+
+  private async capturePublicationSnapshot(
+    dealId: string,
+    channel: ChannelEntity,
+    creative: DealCreativeEntity,
+    messageId: string,
+  ): Promise<void> {
+    const chatId =
+      channel.telegramChatId ??
+      (channel.username ? `@${channel.username}` : null);
+
+    try {
+      if (!chatId) {
+        throw new Error('CHANNEL_CHAT_ID_MISSING');
+      }
+
+      const message = await this.telegramChannelPostsService.getChannelMessage(
+        chatId,
+        messageId,
+      );
+
+      if (!message) {
+        throw new Error('MESSAGE_NOT_FOUND');
+      }
+
+      await this.upsertPublication(dealId, {
+        publishedMessageText: normalizeText(message.text),
+        publishedMessageCaption: normalizeText(message.caption),
+        publishedMessageMediaFingerprint: fingerprintMedia(message),
+        publishedMessageKeyboardFingerprint: fingerprintKeyboard(message),
+        publishedMessageSnapshotJson: {
+          source: 'telegram_api',
+          text: message.text ?? null,
+          caption: message.caption ?? null,
+          mediaFingerprint: fingerprintMedia(message),
+          keyboard: message.reply_markup?.inline_keyboard ?? null,
+          entitiesFingerprint: fingerprintEntities(message),
+        },
+      });
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to fetch published message snapshot for deal ${dealId}: ${message}`,
+      );
+    }
+
+    const payload = (creative.payload ?? {}) as Record<string, unknown>;
+    const textFallback = String(payload.text ?? '');
+    const captionFallback = String(payload.caption ?? payload.text ?? '');
+    const mediaType = payload.type ? String(payload.type) : null;
+    const mediaFileId = payload.mediaFileId
+      ? String(payload.mediaFileId)
+      : null;
+
+    await this.upsertPublication(dealId, {
+      publishedMessageText: normalizeText(textFallback),
+      publishedMessageCaption: normalizeText(captionFallback),
+      publishedMessageMediaFingerprint:
+        mediaType && mediaFileId
+          ? `${mediaType.toLowerCase()}:${mediaFileId}`
+          : 'none',
+      publishedMessageKeyboardFingerprint: 'none',
+      publishedMessageSnapshotJson: {
+        source: 'fallback',
+        text: textFallback,
+        caption: captionFallback,
+        mediaType,
+        mediaFileId,
+      },
+    });
   }
 
   private async upsertPublication(
