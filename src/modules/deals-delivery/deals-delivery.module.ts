@@ -13,6 +13,7 @@ import {TelegramBotModule} from '../telegram-bot/telegram-bot.module';
 import {ChannelsModule} from '../channels/channels.module';
 import {PaymentsModule} from '../payments/payments.module';
 import {DealsModule} from '../deals/deals.module';
+import {PostAnalyticsModule} from '../post-analytics/post-analytics.module';
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import {DealsModule} from '../deals/deals.module';
         ChannelsModule,
         PaymentsModule,
         DealsModule,
+        PostAnalyticsModule,
     ],
     providers: [
         TelegramPosterService,

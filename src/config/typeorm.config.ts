@@ -24,6 +24,9 @@ import {RefundRequestEntity} from '../modules/payments/entities/refund-request.e
 import {UserWalletEntity} from '../modules/payments/entities/user-wallet.entity';
 import {NotificationLogEntity} from '../modules/payments/entities/notification-log.entity';
 import {User} from '../modules/auth/entities/user.entity';
+import {DealPostAnalyticsEntity} from '../modules/post-analytics/entities/deal-post-analytics.entity';
+import {DealPostAnalyticsLinkEntity} from '../modules/post-analytics/entities/deal-post-analytics-link.entity';
+import {DealPostAnalyticsSnapshotEntity} from '../modules/post-analytics/entities/deal-post-analytics-snapshot.entity';
 
 export const typeOrmEntities = [
     User,
@@ -45,6 +48,9 @@ export const typeOrmEntities = [
     RefundRequestEntity,
     UserWalletEntity,
     NotificationLogEntity,
+    DealPostAnalyticsEntity,
+    DealPostAnalyticsLinkEntity,
+    DealPostAnalyticsSnapshotEntity,
 ];
 
 const getSslConfig = (

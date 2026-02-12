@@ -23,6 +23,7 @@ import {TelegramModule} from '../telegram/telegram.module';
 import {DealPinnedVisibilityWatcherService} from './services/deal-pinned-visibility-watcher.service';
 import {DealCancelAndRefundService} from './services/deal-cancel-refund.service';
 import {RefundRequestEntity} from '../payments/entities/refund-request.entity';
+import {PostAnalyticsModule} from '../post-analytics/post-analytics.module';
 
 @Module({
     imports: [
@@ -42,6 +43,7 @@ import {RefundRequestEntity} from '../payments/entities/refund-request.entity';
         forwardRef(() => TelegramModule),
         WalletsModule,
         forwardRef(() => PaymentsModule),
+        PostAnalyticsModule,
     ],
     controllers: [DealsController],
     providers: [

@@ -22,6 +22,7 @@ import {AuthType} from '../../common/constants/auth/auth-types.constants';
 import {PlatformType} from '../../common/constants/platform/platform-types.constants';
 import {PaymentsService} from '../payments/payments.service';
 import {DealPaymentPrepareDto} from './dto/deal-payment-prepare.dto';
+import {PostAnalyticsService} from '../post-analytics/services/post-analytics.service';
 
 @Controller('deals')
 @ApiTags('deals')
@@ -29,6 +30,7 @@ export class DealsController {
     constructor(
         private readonly dealsService: DealsService,
         private readonly paymentsService: PaymentsService,
+        private readonly postAnalyticsService: PostAnalyticsService,
     ) {}
 
     @Post('create')
@@ -147,6 +149,28 @@ export class DealsController {
 
         try {
             return await this.dealsService.getDeal(user.id, dto.data.id);
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+
+    @Get(':id/post-analytics')
+    @ApiOperation({summary: 'Get post analytics for a deal'})
+    async getPostAnalytics(
+        @Param('id') dealId: string,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            await this.dealsService.getDeal(user.id, dealId);
+            return await this.postAnalyticsService.getDealAnalytics(dealId);
         } catch (error) {
             await handleMappedError(error, i18n, {
                 errorType: DealServiceError,
