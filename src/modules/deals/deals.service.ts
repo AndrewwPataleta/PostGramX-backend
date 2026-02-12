@@ -1947,10 +1947,6 @@ export class DealsService {
     }
 
     private async ensurePublisherAdmin(userId: string, deal: DealEntity) {
-        if (deal.publisherUserId && deal.publisherUserId !== userId) {
-            throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
-        }
-
         const user = await this.userRepository.findOne({where: {id: userId}});
         try {
             await this.channelModeratorsService.requireCanReviewDeals(
@@ -1968,7 +1964,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
-        if (!deal.publisherUserId) {
+        if (!deal.publisherUserId || deal.publisherUserId !== userId) {
             await this.dealRepository.update(deal.id, {
                 publisherUserId: userId,
             });
