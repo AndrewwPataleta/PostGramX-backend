@@ -160,7 +160,10 @@ export class AuthService {
             authContext?.timeZone,
             authContext?.utcOffsetMinutes,
         );
-        user.timeZone = resolvedTimeZone;
+
+        if (resolvedTimeZone) {
+            user.timeZone = resolvedTimeZone;
+        }
 
         user = await this.userRepository.save(user);
 
