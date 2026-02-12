@@ -60,6 +60,31 @@ $ NODE_ENV=local npm run seed:withdrawable-balance -- <userId>
 $ NODE_ENV=local npm run seed:withdrawable-balance -- <userId> 2500000000
 ```
 
+
+### Publish final deal step to Telegram channel
+
+Script performs the **final deal publication step** (not just raw message sending):
+- validates publisher access to channel (owner/moderator)
+- creates deal records (`deal`, approved `creative`, `escrow` in `PAID_HELD`, `publication`)
+- publishes message to Telegram channel
+- moves deal to `POSTED_VERIFYING`
+
+```bash
+NODE_ENV=local npm run telegram:publish-channel-message -- <userId> <channelId> "<text>"
+```
+
+### Edit deal publication text
+
+Script allows another authorized channel user to edit an existing deal publication by:
+- `publicationId` as Telegram `message_id` **or** internal `deal_publications.id`
+- validating editor access (owner/moderator)
+- editing Telegram post text
+- marking publication with `POST_EDITED` to keep deal-monitor flow consistent
+
+```bash
+NODE_ENV=local npm run telegram:edit-channel-publication -- <userId> <publicationId> "<new text>"
+```
+
 ## Telegram Bot (Polling MVP)
 
 Set the required environment variables before starting the backend:
