@@ -23,6 +23,7 @@ import {PlatformType} from '../../common/constants/platform/platform-types.const
 import {PaymentsService} from '../payments/payments.service';
 import {DealPaymentPrepareDto} from './dto/deal-payment-prepare.dto';
 import {PostAnalyticsService} from '../post-analytics/services/post-analytics.service';
+import {CreativeReviewActionDto} from './dto/creative-review-action.dto';
 
 @Controller('deals')
 @ApiTags('deals')
@@ -269,6 +270,80 @@ export class DealsController {
             return await this.dealsService.getCreativeStatus(
                 user.id,
                 dto.data.dealId,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('creative/approve')
+    @ApiOperation({summary: 'Approve creative via API'})
+    @ApiBody({type: CreativeReviewActionDto})
+    async approveCreative(
+        @Body(dtoValidationPipe) dto: CreativeReviewActionDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.approveCreativeByAdmin(
+                user.id,
+                dto.data.id,
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('creative/edits')
+    @ApiOperation({summary: 'Request creative edits via API'})
+    @ApiBody({type: CreativeReviewActionDto})
+    async requestCreativeEdits(
+        @Body(dtoValidationPipe) dto: CreativeReviewActionDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.requestChangesByAdmin(
+                user.id,
+                dto.data.id,
+                undefined,
+                'creative',
+            );
+        } catch (error) {
+            await handleMappedError(error, i18n, {
+                errorType: DealServiceError,
+                mapStatus: mapDealErrorToStatus,
+                mapMessageKey: mapDealErrorToMessageKey,
+            });
+        }
+    }
+
+    @Post('creative/reject')
+    @ApiOperation({summary: 'Reject creative via API'})
+    @ApiBody({type: CreativeReviewActionDto})
+    async rejectCreative(
+        @Body(dtoValidationPipe) dto: CreativeReviewActionDto,
+        @Req() req: Request,
+        @I18n() i18n: I18nContext,
+    ) {
+        const user = assertUser(req);
+
+        try {
+            return await this.dealsService.rejectByAdmin(
+                user.id,
+                dto.data.id,
             );
         } catch (error) {
             await handleMappedError(error, i18n, {
