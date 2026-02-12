@@ -24,6 +24,8 @@ import {
 import { TelegramMessengerService } from './telegram-messenger.service';
 import { User } from '../auth/entities/user.entity';
 import { TelegramI18nService } from './i18n/telegram-i18n.service';
+import { ADVISORY_LOCKS, CRON, ENV } from '../../common/constants';
+import { getEnvString } from '../../common/utils/env';
 
 export enum TelegramAdminsSyncErrorCode {
   CHANNEL_NOT_FOUND = 'CHANNEL_NOT_FOUND',
@@ -65,9 +67,11 @@ export class TelegramAdminsSyncService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  @Cron(process.env.TELEGRAM_ADMIN_SYNC_CRON ?? '*/10 * * * *')
+  @Cron(getEnvString(ENV.TELEGRAM_ADMIN_SYNC_CRON, CRON.TELEGRAM_ADMIN_SYNC))
   async syncVerifiedChannelsByCron(): Promise<void> {
-    const acquired = await this.tryAdvisoryLock('tg:admins-sync');
+    const acquired = await this.tryAdvisoryLock(
+      ADVISORY_LOCKS.TELEGRAM_ADMINS_SYNC,
+    );
     if (!acquired) {
       return;
     }
@@ -96,7 +100,7 @@ export class TelegramAdminsSyncService {
         }
       }
     } finally {
-      await this.releaseAdvisoryLock('tg:admins-sync');
+      await this.releaseAdvisoryLock(ADVISORY_LOCKS.TELEGRAM_ADMINS_SYNC);
     }
   }
 
