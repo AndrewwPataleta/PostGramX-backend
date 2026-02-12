@@ -10,7 +10,7 @@
     "support": "Support",
     "about_escrow": "About escrow",
     "tbd": "TBD",
-    "local_time_with_gmt": "Your local time: {localDateTime}"
+    "local_time_with_gmt": "{localDateTime}"
   },
   "start": {
     "message": "<b>Welcome to PostgramX</b>\nBuy and sell Telegram ads with <b>escrow</b> and <b>auto-posting</b>.\n\nTap <b>Open App</b> to continue, or learn more about escrow below."

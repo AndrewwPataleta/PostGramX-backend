@@ -421,17 +421,22 @@ export class DealsService {
         });
 
 
-        const now = new Date();
+        const updatedDeal = await this.dealRepository.findOne({
+            where: {id: deal.id},
+        });
 
-        await this.dealsNotificationsService.notifyCreativeSubmitted(
-            deal,
-            {
-                ...creative,
-                status: CreativeStatus.RECEIVED_IN_BOT,
-                submittedAt: now,
-                submittedByUserId: deal.advertiserUserId,
-            } as DealCreativeEntity,
-        );
+        if (updatedDeal) {
+            const now = new Date();
+            await this.dealsNotificationsService.notifyCreativeSubmitted(
+                updatedDeal,
+                {
+                    ...creative,
+                    status: CreativeStatus.RECEIVED_IN_BOT,
+                    submittedAt: now,
+                    submittedByUserId: deal.advertiserUserId,
+                } as DealCreativeEntity,
+            );
+        }
 
         return {
             success: true,
