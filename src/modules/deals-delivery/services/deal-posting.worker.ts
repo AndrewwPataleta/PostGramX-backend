@@ -20,6 +20,7 @@ import { DEALS_CONFIG } from '../../../config/deals.config';
 import { TelegramPermissionsService } from '../../telegram/telegram-permissions.service';
 import { PAYMENTS_CONFIG } from '../../../config/payments.config';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
+import { PostAnalyticsService } from '../../post-analytics/services/post-analytics.service';
 
 const POST_VERIFICATION_CRON =
   process.env.NODE_ENV === 'production' ? '0 */30 * * * *' : '0 * * * * *';
@@ -43,6 +44,7 @@ export class DealPostingWorker {
     private readonly paymentsService: PaymentsService,
     private readonly dealsNotificationsService: DealsNotificationsService,
     private readonly telegramPermissionsService: TelegramPermissionsService,
+    private readonly postAnalyticsService: PostAnalyticsService,
   ) {}
 
   @Cron('*/30 * * * * *')
@@ -196,6 +198,7 @@ export class DealPostingWorker {
         mustRemainUntil,
       );
       await this.dealsNotificationsService.notifyPostPublishedAdmin(deal);
+      await this.postAnalyticsService.startTrackingForDeal(deal.id);
 
       if (DEALS_CONFIG.AUTO_DEAL_COMPLETE) {
         const publication = await this.publicationRepository.findOne({
@@ -334,6 +337,7 @@ export class DealPostingWorker {
       deal,
       advertiserMessageKey,
     );
+    await this.postAnalyticsService.finalizeForDeal(deal.id, 'EARLY_REMOVAL');
   }
 
   private async finalizeDeal({
@@ -361,6 +365,8 @@ export class DealPostingWorker {
       stage: DealStage.FINALIZED,
       status: DealStatus.COMPLETED,
     });
+
+    await this.postAnalyticsService.finalizeForDeal(deal.id, deleteMessage ? 'WINDOW_ENDED' : 'AUTO_COMPLETED');
 
     const escrow = await this.escrowRepository.findOne({
       where: { dealId: deal.id },

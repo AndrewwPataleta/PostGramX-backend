@@ -21,6 +21,7 @@ import {TelegramBotModule} from './modules/telegram-bot/telegram-bot.module';
 import {MarketplaceModule} from './modules/marketplace/marketplace.module';
 import {DealDeliveryMonitorModule} from './modules/deals-delivery/deals-delivery.module';
 import {UsersModule} from './modules/users/users.module';
+import {PostAnalyticsModule} from './modules/post-analytics/post-analytics.module';
 import {
     buildTypeOrmOptions,
     typeOrmEntities,
@@ -49,6 +50,7 @@ import {
         ListingsModule,
         PaymentsModule,
         UsersModule,
+        PostAnalyticsModule,
         TelegramBotModule,
         DealDeliveryMonitorModule,
     ],
