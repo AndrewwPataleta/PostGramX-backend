@@ -517,9 +517,13 @@ export class DealsNotificationsService {
     const recipients = await this.participantsService.getNotificationRecipients(
       deal.channelId,
     );
-    if (recipients.length === 0) {
+    const filteredRecipients = recipients.filter(
+      (recipient) => recipient.id !== actorUserId,
+    );
+
+    if (filteredRecipients.length === 0) {
       this.logger.log(
-        `No recipients found for review notification: dealId=${deal.id} channelId=${deal.channelId}`,
+        `No recipients found for review notification: dealId=${deal.id} channelId=${deal.channelId} actorUserId=${actorUserId}`,
       );
       return;
     }
@@ -538,7 +542,7 @@ export class DealsNotificationsService {
     const priceNano = deal.listingSnapshot?.priceNano;
     const currency = deal.listingSnapshot?.currency ?? CurrencyCode.TON;
     await this.runWithConcurrency(
-      recipients,
+      filteredRecipients,
       NOTIFICATION_CONCURRENCY,
       async (recipient) => {
         try {
