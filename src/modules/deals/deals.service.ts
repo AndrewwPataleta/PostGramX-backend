@@ -1006,15 +1006,16 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
-        await this.approveCreativeByAdmin(user.id, payload.dealId);
+        await this.approveCreativeByAdmin(adminUserId, payload.dealId);
 
         return {
             handled: true,
@@ -1029,15 +1030,16 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
-        await this.approveScheduleByAdmin(user.id, payload.dealId);
+        await this.approveScheduleByAdmin(adminUserId, payload.dealId);
 
         return {
             handled: true,
@@ -1054,16 +1056,17 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
         await this.ensureChangeRequestAllowed(
-            user.id,
+            adminUserId,
             payload.dealId,
             'creative',
         );
@@ -1083,16 +1086,17 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
         await this.ensureChangeRequestAllowed(
-            user.id,
+            adminUserId,
             payload.dealId,
             'schedule',
         );
@@ -1114,17 +1118,18 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
         try {
             await this.requestChangesByAdmin(
-                user.id,
+                adminUserId,
                 payload.dealId,
                 payload.comment,
                 payload.requestType,
@@ -1163,15 +1168,16 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
-        await this.rejectByAdmin(user.id, payload.dealId, 'ADMIN_REJECTED');
+        await this.rejectByAdmin(adminUserId, payload.dealId, 'ADMIN_REJECTED');
 
         return {
             handled: true,
@@ -1188,15 +1194,16 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
-        const user = await this.userRepository.findOne({
-            where: {telegramId: payload.telegramUserId},
-        });
+        const adminUserId = await this.resolveDealAdminUserIdByTelegram(
+            payload.dealId,
+            payload.telegramUserId,
+        );
 
-        if (!user) {
+        if (!adminUserId) {
             return {handled: false};
         }
 
-        await this.cancelDeal(user.id, payload.dealId, 'ADMIN_REJECTED');
+        await this.cancelDeal(adminUserId, payload.dealId, 'ADMIN_REJECTED');
 
         const updatedDeal = await this.dealRepository.findOne({
             where: {id: payload.dealId},
@@ -1970,6 +1977,42 @@ export class DealsService {
             });
             deal.publisherUserId = userId;
         }
+    }
+
+    private async resolveDealAdminUserIdByTelegram(
+        dealId: string,
+        telegramUserId: string,
+    ): Promise<string | null> {
+        const deal = await this.dealRepository.findOne({
+            where: {id: dealId},
+            select: ['id', 'channelId'],
+        });
+
+        if (!deal) {
+            return null;
+        }
+
+        const memberships = await this.membershipRepository.find({
+            where: {
+                channelId: deal.channelId,
+                telegramUserId,
+                isActive: true,
+                isManuallyDisabled: false,
+                role: In([ChannelRole.OWNER, ChannelRole.MODERATOR]),
+            },
+            order: {createdAt: 'ASC'},
+        });
+
+        if (memberships.length === 0) {
+            return null;
+        }
+
+        const reviewerMembership = memberships.find(
+            (membership) =>
+                membership.role === ChannelRole.OWNER || membership.canReviewDeals,
+        );
+
+        return reviewerMembership?.userId ?? null;
     }
 
     private async cancelDealForAdminRightsLoss(deal: DealEntity): Promise<void> {
