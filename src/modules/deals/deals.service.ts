@@ -537,11 +537,18 @@ export class DealsService {
     }
 
     async approveCreativeByAdmin(userId: string, dealId: string) {
+        this.logger.log(
+            `[approveCreativeByAdmin] started userId=${userId} dealId=${dealId}`,
+        );
+
         const deal = await this.dealRepository.findOne({
             where: {id: dealId},
         });
 
         if (!deal) {
+            this.logger.warn(
+                `[approveCreativeByAdmin] deal not found userId=${userId} dealId=${dealId}`,
+            );
             throw new DealServiceError(DealErrorCode.DEAL_NOT_FOUND);
         }
 
@@ -555,6 +562,9 @@ export class DealsService {
         });
 
         if (!creative) {
+            this.logger.warn(
+                `[approveCreativeByAdmin] creative not submitted userId=${userId} dealId=${dealId}`,
+            );
             throw new DealServiceError(DealErrorCode.CREATIVE_NOT_SUBMITTED);
         }
 
@@ -598,6 +608,10 @@ export class DealsService {
                 'approved',
             );
         }
+
+        this.logger.log(
+            `[approveCreativeByAdmin] approved userId=${userId} dealId=${dealId}`,
+        );
 
         return {id: deal.id, stage: DealStage.PAYMENT_AWAITING};
     }
@@ -1954,14 +1968,17 @@ export class DealsService {
     }
 
     private async ensurePublisherAdmin(userId: string, deal: DealEntity) {
-        const user = await this.userRepository.findOne({where: {id: userId}});
         try {
             await this.channelModeratorsService.requireCanReviewDeals(
                 deal.channelId,
                 userId,
-                user?.telegramId,
             );
         } catch (error) {
+            this.logger.warn(
+                `[ensurePublisherAdmin] unauthorized channelId=${deal.channelId} userId=${userId} dealId=${deal.id} error=${
+                    error instanceof Error ? error.message : 'unknown'
+                }`,
+            );
             if (
                 error instanceof ChannelServiceError &&
                 error.code === ChannelErrorCode.NOT_ADMIN_ANYMORE
