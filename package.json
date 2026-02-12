@@ -25,7 +25,9 @@
     "cleanup:deals:stage": "NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/cleanup-deals-data.ts",
     "clean:local-mock": "NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/cleanup-local-mock.ts",
     "clean:stage-mock": "NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/cleanup-local-mock.ts",
-    "deploy:hot-wallet": "ts-node src/scripts/deploy-hot-wallet.ts"
+    "deploy:hot-wallet": "ts-node src/scripts/deploy-hot-wallet.ts",
+    "telegram:publish-channel-message": "node src/scripts/publish-channel-message.js",
+    "telegram:edit-channel-publication": "node src/scripts/edit-channel-publication.js"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",

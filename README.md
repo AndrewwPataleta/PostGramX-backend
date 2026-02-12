@@ -60,6 +60,23 @@ $ NODE_ENV=local npm run seed:withdrawable-balance -- <userId>
 $ NODE_ENV=local npm run seed:withdrawable-balance -- <userId> 2500000000
 ```
 
+
+### Publish message to Telegram channel
+
+Script sends a text message to a channel via `TELEGRAM_BOT_TOKEN` and prints created Telegram `messageId` (publication id).
+
+```bash
+NODE_ENV=local npm run telegram:publish-channel-message -- <userId> <channelId> "<text>"
+```
+
+### Edit existing Telegram publication
+
+Script edits an existing message text in a channel by publication id (`messageId`).
+
+```bash
+NODE_ENV=local npm run telegram:edit-channel-publication -- <userId> <channelId> <publicationId> "<new text>"
+```
+
 ## Telegram Bot (Polling MVP)
 
 Set the required environment variables before starting the backend:
