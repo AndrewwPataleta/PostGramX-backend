@@ -1,4 +1,4 @@
-import {Module} from '@nestjs/common';
+import {forwardRef, Module} from '@nestjs/common';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {DealEntity} from '../deals/entities/deal.entity';
 import {DealPublicationEntity} from '../deals/entities/deal-publication.entity';
@@ -22,7 +22,7 @@ import {PostAnalyticsCronService} from './services/post-analytics-cron.service';
             DealPostAnalyticsLinkEntity,
             DealPostAnalyticsSnapshotEntity,
         ]),
-        TelegramModule,
+        forwardRef(() => TelegramModule),
     ],
     providers: [
         PostAnalyticsService,
