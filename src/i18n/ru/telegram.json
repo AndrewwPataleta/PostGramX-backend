@@ -160,7 +160,7 @@
   },
   "moderators": {
     "changed": {
-      "title": "<b>Канал</b> - {channelRef}\n\n<b>{addedTitle}</b>\n{addedList}\n\n<b>{removedTitle}</b>\n{removedList}\n\n{cta}\n{miniAppUrl}",
+      "title": "<b>Канал</b> - {channelRef}\n\n{changes}\n\n{cta}\n{miniAppUrl}",
       "added": "Добавлены модераторы",
       "removed": "Удалены модераторы",
       "cta_manage": "Откройте Mini App чтобы управлять правами"
