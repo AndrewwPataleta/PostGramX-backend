@@ -53,6 +53,9 @@ export class User extends BaseEntity {
     @Column({nullable: true})
     fbPushToken?: string;
 
+    @Column({nullable: true})
+    timeZone?: string | null;
+
     @Column({type: 'timestamp', nullable: true})
     lastLoginAt: Date;
 

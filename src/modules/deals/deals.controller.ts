@@ -214,7 +214,13 @@ export class DealsController {
             return await this.dealsService.scheduleDeal(
                 user.id,
                 dto.data.id,
-                dto.data.scheduledAt,
+                {
+                    scheduledAt: dto.data.scheduledAt,
+                    publishAtUtc: dto.data.publishAtUtc,
+                    publishAtLocal: dto.data.publishAtLocal,
+                    timeZone: dto.data.timeZone,
+                    utcOffsetMinutes: dto.data.utcOffsetMinutes,
+                },
             );
         } catch (error) {
             await handleMappedError(error, i18n, {

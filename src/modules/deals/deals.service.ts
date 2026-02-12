@@ -35,6 +35,7 @@ import {TelegramI18nService} from '../telegram/i18n/telegram-i18n.service';
 import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constants';
 import {PAYMENTS_CONFIG} from '../../config/payments.config';
 import {PinVisibilityStatus} from '../../common/constants/deals/pin-visibility-status.constants';
+import {buildDisplayTime, getUserTimeZone, isValidIanaTimeZone} from '../../common/time/time.utils';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -199,7 +200,17 @@ export class DealsService {
         };
     }
 
-    async scheduleDeal(userId: string, dealId: string, scheduledAt: string) {
+    async scheduleDeal(
+        userId: string,
+        dealId: string,
+        scheduleInput: {
+            scheduledAt?: string;
+            publishAtUtc?: string;
+            publishAtLocal?: string;
+            timeZone?: string;
+            utcOffsetMinutes?: number;
+        },
+    ) {
         const deal = await this.dealRepository.findOne({where: {id: dealId}});
 
         if (!deal) {
@@ -210,7 +221,7 @@ export class DealsService {
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
-        const parsedScheduledAt = new Date(scheduledAt);
+        const parsedScheduledAt = this.resolveScheduleUtcInstant(scheduleInput);
         if (
             !this.isLocalEnvironment() &&
             parsedScheduledAt.getTime() <= Date.now()
@@ -261,10 +272,15 @@ export class DealsService {
             );
         }
 
+        const advertiser = await this.userRepository.findOne({where: {id: userId}});
+        const advertiserTimeZone = getUserTimeZone(advertiser);
+
         return {
             id: deal.id,
             status: mapStageToDealStatus(stage),
             stage,
+            scheduledAt: parsedScheduledAt,
+            scheduledAtDisplay: buildDisplayTime(parsedScheduledAt, advertiserTimeZone),
         };
     }
 
@@ -1484,6 +1500,8 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             throw new DealServiceError(DealErrorCode.UNAUTHORIZED);
         }
 
+        const viewer = await this.userRepository.findOne({where: {id: userId}});
+
         const [escrow, publication, creative] = await Promise.all([
             this.escrowRepository.findOne({where: {dealId: deal.id}}),
             this.publicationRepository.findOne({where: {dealId: deal.id}}),
@@ -1493,7 +1511,13 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             }),
         ]);
 
-        return this.buildDealItem(deal, creative, escrow, publication);
+        return this.buildDealItem(
+            deal,
+            creative,
+            escrow,
+            publication,
+            getUserTimeZone(viewer),
+        );
     }
 
     async getPinVisibility(userId: string, dealId: string) {
@@ -1611,12 +1635,16 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             }
         }
 
+        const viewer = await this.userRepository.findOne({where: {id: userId}});
+        const viewerTimeZone = getUserTimeZone(viewer);
+
         const items = deals.map((deal) =>
             this.buildDealItem(
                 deal,
                 creativeMap.get(deal.id) ?? null,
                 escrowMap.get(deal.id) ?? null,
                 publicationMap.get(deal.id) ?? null,
+                viewerTimeZone,
             ),
         );
 
@@ -1633,6 +1661,7 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
         creative: DealCreativeEntity | null,
         escrow: DealEscrowEntity | null,
         publication: DealPublicationEntity | null,
+        viewerTimeZone: string,
     ) {
         const channel = deal.channel;
 
@@ -1644,8 +1673,11 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
             status: deal.status,
             stage: deal.stage,
             scheduledAt: deal.scheduledAt,
+            scheduledAtDisplay: this.buildDisplayTimeOrNull(deal.scheduledAt, viewerTimeZone),
             createdAt: deal.createdAt,
+            createdAtDisplay: this.buildDisplayTimeOrNull(deal.createdAt, viewerTimeZone),
             idleExpiresAt: deal.idleExpiresAt,
+            idleExpiresAtDisplay: this.buildDisplayTimeOrNull(deal.idleExpiresAt, viewerTimeZone),
             channel: channel
                 ? {
                     id: channel.id,
@@ -1661,6 +1693,10 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                     paidNano: escrow.paidNano,
                     depositAddress: escrow.depositAddress,
                     paymentDeadlineAt: escrow.paymentDeadlineAt,
+                    paymentDeadlineAtDisplay: this.buildDisplayTimeOrNull(
+                        escrow.paymentDeadlineAt,
+                        viewerTimeZone,
+                    ),
                 }
                 : null,
             creative: creative
@@ -1677,14 +1713,120 @@ const deal = await this.dealRepository.findOne({where: {id: dealId}});
                     status: publication.status,
                     publishedMessageId: publication.publishedMessageId,
                     publishedAt: publication.publishedAt,
+                    publishedAtDisplay: this.buildDisplayTimeOrNull(publication.publishedAt, viewerTimeZone),
                     mustRemainUntil: publication.mustRemainUntil,
+                    mustRemainUntilDisplay: this.buildDisplayTimeOrNull(publication.mustRemainUntil, viewerTimeZone),
                     verifiedAt: publication.verifiedAt,
+                    verifiedAtDisplay: this.buildDisplayTimeOrNull(publication.verifiedAt, viewerTimeZone),
                     error: publication.error,
                 }
                 : null,
         };
     }
 
+
+
+    private buildDisplayTimeOrNull(value: Date | null | undefined, timeZone: string) {
+        if (!value) {
+            return null;
+        }
+
+        return buildDisplayTime(value, timeZone);
+    }
+
+    private resolveScheduleUtcInstant(scheduleInput: {
+        scheduledAt?: string;
+        publishAtUtc?: string;
+        publishAtLocal?: string;
+        timeZone?: string;
+        utcOffsetMinutes?: number;
+    }): Date {
+        const publishAtUtc = scheduleInput.publishAtUtc ?? scheduleInput.scheduledAt;
+        if (publishAtUtc) {
+            const utcDate = new Date(publishAtUtc);
+            if (!Number.isNaN(utcDate.getTime())) {
+                return utcDate;
+            }
+        }
+
+        const timeZone = this.resolveInputTimeZone(
+            scheduleInput.timeZone,
+            scheduleInput.utcOffsetMinutes,
+        );
+
+        if (scheduleInput.publishAtLocal && timeZone) {
+            const fromLocal = this.convertLocalDateTimeToUtc(
+                scheduleInput.publishAtLocal,
+                timeZone,
+            );
+            if (fromLocal) {
+                return fromLocal;
+            }
+        }
+
+        throw new DealServiceError(DealErrorCode.INVALID_SCHEDULE_TIME);
+    }
+
+    private resolveInputTimeZone(
+        timeZone?: string,
+        utcOffsetMinutes?: number,
+    ): string | null {
+        const normalized = timeZone?.trim();
+        if (normalized && isValidIanaTimeZone(normalized)) {
+            return normalized;
+        }
+
+        if (!Number.isInteger(utcOffsetMinutes) || (utcOffsetMinutes as number) % 60 !== 0) {
+            return null;
+        }
+
+        const hours = (utcOffsetMinutes as number) / 60;
+        if (hours < -14 || hours > 14) {
+            return null;
+        }
+
+        if (hours === 0) {
+            return 'UTC';
+        }
+
+        return `Etc/GMT${hours > 0 ? '-' : '+'}${Math.abs(hours)}`;
+    }
+
+    private convertLocalDateTimeToUtc(value: string, timeZone: string): Date | null {
+        const local = value.trim();
+        const match = local.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+        if (!match) {
+            return null;
+        }
+
+        const [, year, month, day, hour, minute, secondRaw] = match;
+        const second = Number(secondRaw ?? '0');
+        const baseUtcMs = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), second);
+
+        const offsetPart = new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            timeZoneName: 'shortOffset',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(new Date(baseUtcMs)).find((part) => part.type === 'timeZoneName')?.value;
+
+        const offsetMatch = offsetPart?.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+        if (!offsetMatch) {
+            return null;
+        }
+
+        const sign = offsetMatch[1] === '+' ? 1 : -1;
+        const offsetHours = Number(offsetMatch[2]);
+        const offsetMinutes = Number(offsetMatch[3] ?? '0');
+        const totalOffsetMinutes = sign * (offsetHours * 60 + offsetMinutes);
+
+        return new Date(baseUtcMs - totalOffsetMinutes * 60_000);
+    }
     private buildListingSnapshot(
         listing: ListingEntity,
         snapshotAt: Date,

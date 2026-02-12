@@ -1,6 +1,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {
     IsBoolean,
+    IsInt,
     IsOptional,
     IsString,
     MaxLength,
@@ -44,6 +45,17 @@ class AuthDataDto {
     @IsOptional()
     @IsBoolean()
     isPremium?: boolean;
+
+    @ApiProperty({required: false, description: 'IANA timezone string, e.g. America/New_York'})
+    @IsOptional()
+    @IsString()
+    timeZone?: string;
+
+    @ApiProperty({required: false, description: 'Client offset from UTC in minutes'})
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    utcOffsetMinutes?: number;
 }
 
 export class AuthDto {
@@ -74,6 +86,17 @@ export class AuthDto {
     @IsOptional()
     @IsBoolean()
     isPremium?: boolean;
+
+    @ApiProperty({required: false, description: 'IANA timezone string, e.g. America/New_York'})
+    @IsOptional()
+    @IsString()
+    timeZone?: string;
+
+    @ApiProperty({required: false, description: 'Client offset from UTC in minutes'})
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    utcOffsetMinutes?: number;
 
     @ApiProperty({enum: PlatformType})
     @IsEnum(PlatformType)
