@@ -9,6 +9,7 @@ import { DealStatus } from '../../../common/constants/deals/deal-status.constant
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
 import { TelegramMessageNotFoundError } from '../../telegram/services/telegram-channel-posts.service';
+import { PublicationStatus } from '../../../common/constants/deals/publication-status.constants';
 
 import {
   fingerprintEntities,
@@ -18,8 +19,7 @@ import {
   TelegramMessage,
 } from '../publication/telegramMessageFingerprint';
 import { MIN_EDIT_CHECK_INTERVAL_MS } from '../../../common/constants/deals/deal-post-monitor.constants';
-import {POST_EDIT_MONITOR_CONFIG} from "../../../config/deals.config";
-import {DEAL_DELIVERY_CONFIG} from "../../../config/deal-delivery.config";
+import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
 
 @Injectable()
 export class DealPostMonitorService {
@@ -36,7 +36,6 @@ export class DealPostMonitorService {
 
   @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
   async runEditedPostCheckCron(): Promise<void> {
-
     const lockKey = 'deals:post-edited-check';
     const acquired = await this.tryAdvisoryLock(lockKey);
     if (!acquired) {
@@ -72,16 +71,22 @@ export class DealPostMonitorService {
 
   private async handleBatch(): Promise<void> {
     const now = new Date();
+    const allowedStages = [
+      DealStage.POSTED_VERIFYING,
+      DealStage.DELIVERY_CONFIRMED,
+    ];
 
     const candidates = await this.publicationRepository
       .createQueryBuilder('publication')
       .innerJoinAndSelect('publication.deal', 'deal')
       .innerJoinAndSelect('deal.channel', 'channel')
-      .where('deal.stage = :stage', { stage: DealStage.POSTED_VERIFYING })
+      .where('deal.stage IN (:...stages)', { stages: allowedStages })
       .andWhere('deal.status = :status', { status: DealStatus.ACTIVE })
+      .andWhere('publication.status = :publicationStatus', {
+        publicationStatus: PublicationStatus.POSTED,
+      })
       .andWhere('publication.publishedMessageId IS NOT NULL')
       .getMany();
-
 
     for (const publication of candidates) {
       if (!publication.deal?.channel || !publication.publishedMessageId) {
@@ -118,7 +123,9 @@ export class DealPostMonitorService {
       }
 
       if (
-        publication.deal.stage !== DealStage.POSTED_VERIFYING ||
+        ![DealStage.POSTED_VERIFYING, DealStage.DELIVERY_CONFIRMED].includes(
+          publication.deal.stage,
+        ) ||
         publication.deal.status !== DealStatus.ACTIVE
       ) {
         return;
