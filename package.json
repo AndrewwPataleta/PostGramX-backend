@@ -27,7 +27,9 @@
     "clean:stage-mock": "NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/cleanup-local-mock.ts",
     "deploy:hot-wallet": "ts-node src/scripts/deploy-hot-wallet.ts",
     "telegram:publish-channel-message": "ts-node -r tsconfig-paths/register src/scripts/publish-channel-message.ts",
-    "telegram:edit-channel-publication": "ts-node -r tsconfig-paths/register src/scripts/edit-channel-publication.ts"
+    "telegram:edit-channel-publication": "ts-node -r tsconfig-paths/register src/scripts/edit-channel-publication.ts",
+    "clean:db:keep-users:local": "NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/cleanup-db-keep-users.ts",
+    "clean:db:keep-users:stage": "NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/cleanup-db-keep-users.ts"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",
