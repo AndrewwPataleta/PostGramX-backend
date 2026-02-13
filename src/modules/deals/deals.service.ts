@@ -1030,7 +1030,20 @@ export class DealsService {
             return {handled: false};
         }
 
-        await this.approveCreativeByAdmin(adminUserId, payload.dealId);
+        try {
+            await this.approveCreativeByAdmin(adminUserId, payload.dealId);
+        } catch (error) {
+            if (
+                error instanceof DealServiceError &&
+                error.code === DealErrorCode.UNAUTHORIZED
+            ) {
+                return {
+                    handled: true,
+                    messageKey: 'telegram.deal.creative.restore_bot_admin',
+                };
+            }
+            throw error;
+        }
 
         return {
             handled: true,

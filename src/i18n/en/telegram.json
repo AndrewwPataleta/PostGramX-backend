@@ -47,7 +47,8 @@
       "rejected_notified": "<b>Creative rejected</b>\n\nAdvertiser has been notified. Deal closed.",
       "rejected_resubmit": "<b>Creative rejected</b>\n\nPlease submit a new creative in the App.",
       "rejected_closed_advertiser": "<b>Creative rejected</b>\n\nThe deal is closed.\nReason: creative rejected by the channel admin.",
-      "request_changes_prompt": "To request changes, reply to this message with the edit details.\n"
+      "request_changes_prompt": "To request changes, reply to this message with the edit details.\n",
+      "restore_bot_admin": "Before approving, add the bot back as a channel admin and try again."
     },
     "creative_submitted": {
       "message": "<b>Creative submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n\n<b>Creative:</b>\n{creativeText}\n\nNext step: review and approve in the App.\nDeadline to act: {actionDeadline}",
