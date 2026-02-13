@@ -9,7 +9,7 @@ import { DealStatus } from '../../../common/constants/deals/deal-status.constant
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
 import { TelegramMessageNotFoundError } from '../../telegram/services/telegram-channel-posts.service';
-import { POST_EDIT_MONITOR_CONFIG } from '../../../config/deals.config';
+
 import {
   fingerprintEntities,
   fingerprintKeyboard,
@@ -18,6 +18,8 @@ import {
   TelegramMessage,
 } from '../publication/telegramMessageFingerprint';
 import { MIN_EDIT_CHECK_INTERVAL_MS } from '../../../common/constants/deals/deal-post-monitor.constants';
+import {POST_EDIT_MONITOR_CONFIG} from "../../../config/deals.config";
+import {DEAL_DELIVERY_CONFIG} from "../../../config/deal-delivery.config";
 
 @Injectable()
 export class DealPostMonitorService {
@@ -32,8 +34,9 @@ export class DealPostMonitorService {
     private readonly dataSource: DataSource,
   ) {}
 
-  @Cron(POST_EDIT_MONITOR_CONFIG.CRON)
+  @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
   async runEditedPostCheckCron(): Promise<void> {
+
     const lockKey = 'deals:post-edited-check';
     const acquired = await this.tryAdvisoryLock(lockKey);
     if (!acquired) {
@@ -69,7 +72,6 @@ export class DealPostMonitorService {
 
   private async handleBatch(): Promise<void> {
     const now = new Date();
-    const threshold = new Date(now.getTime() - MIN_EDIT_CHECK_INTERVAL_MS);
 
     const candidates = await this.publicationRepository
       .createQueryBuilder('publication')
@@ -78,19 +80,8 @@ export class DealPostMonitorService {
       .where('deal.stage = :stage', { stage: DealStage.POSTED_VERIFYING })
       .andWhere('deal.status = :status', { status: DealStatus.ACTIVE })
       .andWhere('publication.publishedMessageId IS NOT NULL')
-      .andWhere(
-        '(publication.error IS NULL OR publication.error <> :postEditedError)',
-        {
-          postEditedError: DEAL_PUBLICATION_ERRORS.POST_EDITED,
-        },
-      )
-      .andWhere(
-        '(publication.lastCheckedAt IS NULL OR publication.lastCheckedAt <= :threshold)',
-        { threshold },
-      )
-      .orderBy('publication.lastCheckedAt', 'ASC', 'NULLS FIRST')
-      .take(POST_EDIT_MONITOR_CONFIG.BATCH_LIMIT)
       .getMany();
+
 
     for (const publication of candidates) {
       if (!publication.deal?.channel || !publication.publishedMessageId) {

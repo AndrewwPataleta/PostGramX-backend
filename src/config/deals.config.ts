@@ -139,5 +139,4 @@ export const POST_EDIT_MONITOR_CONFIG = {
     CRON:
         process.env.POST_EDIT_CHECK_CRON ??
         `*/${defaultChecksIntervalMinutes} * * * *`,
-    BATCH_LIMIT: parseNumber(process.env.POST_EDIT_CHECK_BATCH_LIMIT, 50),
 };
