@@ -758,24 +758,31 @@ export class DealsNotificationsService {
       return;
     }
     const lang = this.telegramI18nService.resolveLanguageForUser(user);
-    const postPublishedTitle = postUrl
-      ? lang === 'ru'
-        ? `<a href="${postUrl}">Пост опубликован</a>`
-        : `<a href="${postUrl}">Post published</a>`
-      : lang === 'ru'
-        ? '<b>Пост опубликован</b>'
-        : '<b>Post published</b>';
+    const mustRemainUntilText = this.formatDeadlineForUser(
+      mustRemainUntil,
+      user,
+      lang,
+    );
+
+    if (postUrl) {
+      await this.telegramMessengerService.sendInlineKeyboard(
+        user.telegramId,
+        'telegram.deal.post.published',
+        {
+          mustRemainUntil: mustRemainUntilText,
+        },
+        [[{ textKey: 'telegram.deal.buttons.open_post', url: postUrl }]],
+        { lang },
+      );
+
+      return;
+    }
 
     await this.telegramMessengerService.sendText(
       user.telegramId,
       'telegram.deal.post.published',
       {
-        mustRemainUntil: this.formatDeadlineForUser(
-          mustRemainUntil,
-          user,
-          lang,
-        ),
-        postPublishedTitle,
+        mustRemainUntil: mustRemainUntilText,
       },
       { lang },
     );
