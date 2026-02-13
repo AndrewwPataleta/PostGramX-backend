@@ -5,6 +5,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { DealEscrowEntity } from '../../deals/entities/deal-escrow.entity';
 import { DealPublicationEntity } from '../../deals/entities/deal-publication.entity';
 import { DealEntity } from '../../deals/entities/deal.entity';
+import { DealListingSnapshot } from '../../deals/types/deal-listing-snapshot.type';
 import { EscrowStatus } from '../../../common/constants/deals/deal-escrow-status.constants';
 import { PublicationStatus } from '../../../common/constants/deals/publication-status.constants';
 import { DealStatus } from '../../../common/constants/deals/deal-status.constants';
@@ -94,7 +95,21 @@ export class SettlementService {
           return;
         }
 
-        const idempotencyKey = `${IDEMPOTENCY_PREFIX.PAYOUT}${deal.id}:${lockedEscrow.amountNano}:${lockedEscrow.currency}`;
+        const listingSnapshot = deal.listingSnapshot as DealListingSnapshot;
+        const payoutAmountNano = listingSnapshot?.priceNano ?? lockedEscrow.amountNano;
+        const payoutAmount = BigInt(payoutAmountNano);
+        const escrowAmount = BigInt(lockedEscrow.amountNano);
+        if (payoutAmount > escrowAmount) {
+          this.logger.error(`Invalid payout amount: exceeds escrow`, JSON.stringify({ dealId: deal.id, payoutAmountNano, escrowAmountNano: lockedEscrow.amountNano }));
+          return;
+        }
+        const feeAmount = escrowAmount - payoutAmount;
+        if (feeAmount + payoutAmount !== escrowAmount) {
+          this.logger.error(`Escrow split invariant failed`, JSON.stringify({ dealId: deal.id, payoutAmountNano, feeAmountNano: feeAmount.toString(), escrowAmountNano: lockedEscrow.amountNano }));
+          return;
+        }
+
+        const idempotencyKey = `${IDEMPOTENCY_PREFIX.PAYOUT}${deal.id}:${payoutAmountNano}:${lockedEscrow.currency}`;
         let payout = await payoutRepo.findOne({
           where: { idempotencyKey },
         });
@@ -103,12 +118,24 @@ export class SettlementService {
           payout = payoutRepo.create({
             userId: deal.publisherUserId,
             dealId: deal.id,
-            amountNano: lockedEscrow.amountNano,
+            amountNano: payoutAmountNano,
             currency: lockedEscrow.currency,
             status: RequestStatus.CREATED,
             idempotencyKey,
           });
           payout = await payoutRepo.save(payout);
+        }
+
+        const alreadyPaidOut = await transactionRepo
+          .createQueryBuilder('transaction')
+          .where('transaction.dealId = :dealId', { dealId: deal.id })
+          .andWhere('transaction.type = :type', { type: TransactionType.PAYOUT })
+          .andWhere('transaction.direction = :direction', { direction: TransactionDirection.OUT })
+          .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETED })
+          .getExists();
+        if (alreadyPaidOut) {
+          this.logger.warn(`Skip payout queue: completed payout already exists`, JSON.stringify({ dealId: deal.id }));
+          return;
         }
 
         const releaseKey = buildIdempotencyKey(
@@ -125,13 +152,20 @@ export class SettlementService {
               type: TransactionType.PAYOUT,
               direction: TransactionDirection.IN,
               status: TransactionStatus.COMPLETED,
-              amountNano: lockedEscrow.amountNano,
+              amountNano: payoutAmountNano,
               currency: lockedEscrow.currency,
               dealId: deal.id,
               escrowId: lockedEscrow.id,
               channelId: deal.channelId,
               description: PAYMENT_DESCRIPTIONS.ESCROW_RELEASE,
               idempotencyKey: releaseKey,
+              serviceFeeNano: feeAmount.toString(),
+              totalDebitNano: lockedEscrow.amountNano,
+              metadata: {
+                feeAmountNano: feeAmount.toString(),
+                baseAmountNano: payoutAmountNano,
+                escrowAmountNano: lockedEscrow.amountNano,
+              },
               confirmedAt: new Date(),
               completedAt: new Date(),
             }),

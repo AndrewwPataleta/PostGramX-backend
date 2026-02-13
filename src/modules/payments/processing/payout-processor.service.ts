@@ -648,6 +648,22 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    let serviceFeeNano = '0';
+    let totalDebitNano = options.amountNano.toString();
+    if (options.kind === 'payout') {
+      const escrow = await this.escrowRepository.findOne({
+        where: {dealId: options.dealId},
+      });
+      if (escrow) {
+        const payoutAmount = options.amountNano;
+        const escrowAmount = BigInt(escrow.amountNano);
+        if (payoutAmount <= escrowAmount) {
+          serviceFeeNano = (escrowAmount - payoutAmount).toString();
+          totalDebitNano = escrow.amountNano;
+        }
+      }
+    }
+
     await this.transactionRepository.save(
       this.transactionRepository.create({
         userId: options.userId,
@@ -658,6 +674,9 @@ export class PayoutProcessorService implements OnModuleInit, OnModuleDestroy {
         direction: TransactionDirection.OUT,
         status,
         amountNano: options.amountNano.toString(),
+        amountToUserNano: options.amountNano.toString(),
+        serviceFeeNano,
+        totalDebitNano,
         currency: options.currency as any,
         dealId: options.dealId,
         description: options.kind === 'payout' ? 'Payout' : 'Refund',

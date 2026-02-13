@@ -25,6 +25,7 @@ import {DealCancelAndRefundService} from './services/deal-cancel-refund.service'
 import {RefundRequestEntity} from '../payments/entities/refund-request.entity';
 import {PostAnalyticsModule} from '../post-analytics/post-analytics.module';
 
+import {FeesModule} from '../payments/fees/fees.module';
 @Module({
     imports: [
         TypeOrmModule.forFeature([
@@ -43,6 +44,7 @@ import {PostAnalyticsModule} from '../post-analytics/post-analytics.module';
         forwardRef(() => TelegramModule),
         WalletsModule,
         forwardRef(() => PaymentsModule),
+        FeesModule,
         PostAnalyticsModule,
     ],
     controllers: [DealsController],

@@ -36,6 +36,7 @@ import {DEFAULT_CURRENCY} from '../../common/constants/currency/currency.constan
 import {PAYMENTS_CONFIG} from '../../config/payments.config';
 import {PinVisibilityStatus} from '../../common/constants/deals/pin-visibility-status.constants';
 import {buildDisplayTime, getUserTimeZone, isValidIanaTimeZone} from '../../common/time/time.utils';
+import {FeesService} from '../payments/fees/fees.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -69,6 +70,7 @@ export class DealsService {
         private readonly telegramSenderService: TelegramSenderService,
         private readonly telegramI18nService: TelegramI18nService,
         private readonly configService: ConfigService,
+        private readonly feesService: FeesService,
     ) {
     }
 
@@ -693,18 +695,24 @@ export class DealsService {
                 DealStage.PAYMENT_AWAITING,
             );
 
+            const baseAmountNano =
+                (lockedDeal.listingSnapshot as DealListingSnapshot).priceNano ??
+                '0';
+            const finalPrice = await this.feesService.computeFinalPriceNano({
+                baseAmountNano,
+                currency: lockedDeal.listingSnapshot.currency,
+            });
+
             const escrow = escrowRepo.create({
                 dealId: lockedDeal.id,
                 status: EscrowStatus.CREATED,
-                amountNano: lockedDeal.listingSnapshot.priceNano,
+                amountNano: finalPrice.finalAmountNano,
                 paidNano: '0',
                 currency: lockedDeal.listingSnapshot.currency,
             });
             await escrowRepo.save(escrow);
 
-            const amountNano =
-                (lockedDeal.listingSnapshot as DealListingSnapshot).priceNano ??
-                '0';
+            const amountNano = finalPrice.finalAmountNano;
 
             const paymentDeadlineAt = this.addMinutes(
                 now,
