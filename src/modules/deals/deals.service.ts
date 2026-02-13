@@ -1694,6 +1694,7 @@ export class DealsService {
             channelId: deal.channelId,
             status: deal.status,
             stage: deal.stage,
+            avatarUrl: deal.channel.avatarUrl,
             scheduledAt: deal.scheduledAt,
             scheduledAtDisplay: this.buildDisplayTimeOrNull(deal.scheduledAt, viewerTimeZone),
             createdAt: deal.createdAt,

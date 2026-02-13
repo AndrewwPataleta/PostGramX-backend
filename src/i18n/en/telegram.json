@@ -28,7 +28,7 @@
   },
   "deal": {
     "creative_required": {
-      "message": "<b>Ad creative required</b>\n\nYour deal is moving forward.\nPlease send the ad post content to this bot so the channel admin can review it.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\nAfter sending the post, return to the App and press Submit Creative. You can always check the status in the App."
+      "message": "<b>Ad creative required</b>\n\nPlease send the ad post content to this bot so the channel admin can review it.\n\nSupported formats:\n- Text\n- Image + caption\n- Video + caption\n\n You can always check the status in the App."
     },
     "creative_ready": "<b>Ready to receive creative</b>\nDeal: <code>{dealId}</code>\nPlease send the post content to this bot.",
     "creative": {
