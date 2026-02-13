@@ -169,13 +169,13 @@ export class DealPostingWorker {
       const mustRemainUntil = windowHours
         ? new Date(publishedAt.getTime() + windowHours * 60 * 60 * 1000)
         : null;
-      const visibilityHours = listingSnapshot.visibilityDurationHours ?? 0;
+      const pinDurationHours = listingSnapshot.pinDurationHours ?? 0;
       const pinMonitoringEndsAt =
-        visibilityHours > 0
-          ? new Date(publishedAt.getTime() + visibilityHours * 60 * 60 * 1000)
+        pinDurationHours > 0
+          ? new Date(publishedAt.getTime() + pinDurationHours * 60 * 60 * 1000)
           : null;
       const pinVisibilityStatus =
-        visibilityHours > 0
+        pinDurationHours > 0
           ? PinVisibilityStatus.MONITORING
           : PinVisibilityStatus.NOT_REQUIRED;
 
