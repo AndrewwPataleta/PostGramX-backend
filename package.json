@@ -59,6 +59,7 @@
     "firebase-admin": "^13.4.0",
     "fs": "^0.0.1-security",
     "grammy": "^1.36.3",
+    "input": "^1.0.1",
     "nestjs-i18n": "^10.5.1",
     "nodemailer": "^7.0.9",
     "openai": "^6.6.0",
@@ -72,8 +73,8 @@
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.0",
     "telegraf": "^4.16.3",
-    "typeorm": "^0.3.25",
-    "telegram": "^2.26.22"
+    "telegram": "^2.26.22",
+    "typeorm": "^0.3.25"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
