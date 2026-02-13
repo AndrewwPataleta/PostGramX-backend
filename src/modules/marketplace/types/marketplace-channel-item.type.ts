@@ -7,9 +7,6 @@ export type MarketplaceChannelItem = {
     about: string | null;
     avatarUrl: string | null;
     verified: boolean;
-    subscribers: number | null;
-    placementsCount: number;
-    minPriceNano: string;
     currency: CurrencyCode;
     tags: string[];
     preview: {

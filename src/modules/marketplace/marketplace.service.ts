@@ -24,7 +24,8 @@ export class MarketplaceService {
         private readonly channelRepository: Repository<ChannelEntity>,
         @InjectRepository(ListingEntity)
         private readonly listingRepository: Repository<ListingEntity>,
-    ) {}
+    ) {
+    }
 
     async listChannels(
         filters: MarketplaceListChannelsDataDto,
@@ -110,7 +111,7 @@ export class MarketplaceService {
         const totalResult = await baseQuery
             .clone()
             .select('COUNT(DISTINCT channel.id)', 'total')
-            .getRawOne<{total: string}>();
+            .getRawOne<{ total: string }>();
         const total = Number(totalResult?.total ?? 0);
 
         const query = baseQuery
@@ -121,9 +122,9 @@ export class MarketplaceService {
                 'channel.username AS username',
                 'channel.status AS status',
                 'channel.subscribersCount AS subscribers',
-                'channel.avatarUrl AS avatarUrl',
                 'channel.updatedAt AS updatedAt',
             ])
+            .addSelect('channel.avatarUrl', 'avatarUrl')
             .addSelect('COUNT(listing.id)', 'placementsCount')
             .addSelect('MIN(listing.priceNano)', 'minPriceNano')
             .addSelect('jsonb_agg(listing.tags)', 'listingTags')
@@ -157,24 +158,22 @@ export class MarketplaceService {
 
         const rows = await query.getRawMany();
 
-        const items: MarketplaceChannelItem[] = rows.map((row) => ({
-            id: row.id,
-            name: row.name,
-            username: row.username,
-            about: null,
-            avatarUrl: row.avatarUrl ?? null,
-            verified: row.status === ChannelStatus.VERIFIED,
-            subscribers: row.subscribers === null ? null : Number(row.subscribers),
-            placementsCount: Number(row.placementsCount ?? 0),
-            minPriceNano: row.minPriceNano ?? '0',
-            currency: CurrencyCode.TON,
-            tags: this.normalizeAggregatedTags(row.listingTags),
-            preview: {
-                listingCount: 0,
-                subsCount: row.subscribers === null ? null : Number(row.subscribers),
-                listingFrom: null,
-            },
-        }));
+        const items: MarketplaceChannelItem[] = rows.map((row) => (
+            {
+                id: row.id,
+                name: row.name,
+                username: row.username,
+                about: null,
+                avatarUrl: row.avatarUrl,
+                verified: row.status === ChannelStatus.VERIFIED,
+                currency: CurrencyCode.TON,
+                tags: this.normalizeAggregatedTags(row.listingTags),
+                preview: {
+                    listingCount: 0,
+                    subsCount: row.subscribers === null ? null : Number(row.subscribers),
+                    listingFrom: row.minPriceNano ?? 0,
+                },
+            }));
 
         if (items.length > 0) {
             const channelIds = items.map((item) => item.id);

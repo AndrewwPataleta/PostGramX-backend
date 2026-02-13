@@ -12,7 +12,7 @@ class ChannelDetailDataDto {
   @ApiProperty({ description: 'Channel UUID.' })
   @IsDefined()
   @IsUUID('4')
-  channelId: string;
+  id: string;
 
   @ApiPropertyOptional({
     description: 'Include active listings for the channel.',

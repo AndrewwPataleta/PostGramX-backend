@@ -175,7 +175,7 @@ export class ChannelsController {
     const user = assertUser(req);
     return this.channelsService.getForUser(
       user.id,
-      dto.data.channelId,
+      dto.data.id,
       dto.data.includeListings,
     );
   }

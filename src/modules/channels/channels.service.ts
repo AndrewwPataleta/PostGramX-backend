@@ -149,9 +149,7 @@ export class ChannelsService {
           if (channel.ownerUserId && channel.ownerUserId !== userId) {
             throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
           }
-          if (!channel.ownerUserId) {
-            channel.ownerUserId = userId;
-          }
+
         } else {
           channel = channelRepository.create({
             username: normalizedUsername,
@@ -325,7 +323,7 @@ export class ChannelsService {
         title: channel.title,
         status: channel.status,
         telegramChatId: channel.telegramChatId,
-        avatarUrl: channel.avatarUrl ?? null,
+        avatarUrl: channel.avatarUrl,
         subscribers: channel.subscribersCount,
         avgViews: channel.avgViews,
         isDisabled: channel.isDisabled,
@@ -406,6 +404,7 @@ export class ChannelsService {
       title: channel.title,
       status: channel.status,
       telegramChatId: channel.telegramChatId,
+      avatarUrl: channel.avatarUrl,
       subscribers: channel.subscribersCount,
       avgViews: channel.avgViews,
       isDisabled: channel.isDisabled,
