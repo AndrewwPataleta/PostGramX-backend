@@ -8,6 +8,7 @@ import { DealStage } from '../../../common/constants/deals/deal-stage.constants'
 import { DealStatus } from '../../../common/constants/deals/deal-status.constants';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
+import { TelegramMessageNotFoundError } from '../../telegram/services/telegram-channel-posts.service';
 import { POST_EDIT_MONITOR_CONFIG } from '../../../config/deals.config';
 import {
   fingerprintEntities,
@@ -144,10 +145,35 @@ export class DealPostMonitorService {
         return;
       }
 
-      const currentMessage = await this.fetchCurrentMessage(channel, messageId);
-      if (!currentMessage) {
+      const currentMessageState = await this.fetchCurrentMessage(
+        channel,
+        messageId,
+      );
+      if (currentMessageState.state === 'unavailable') {
         return;
       }
+
+      if (currentMessageState.state === 'deleted') {
+        await manager
+          .getRepository(DealPublicationEntity)
+          .update(publication.id, {
+            lastCheckedAt: now,
+            error: DEAL_PUBLICATION_ERRORS.POST_EDITED,
+          });
+
+        this.logger.warn(
+          JSON.stringify({
+            event: 'post_deleted_detected',
+            dealId: publication.dealId,
+            publicationId: publication.id,
+            messageId: publication.publishedMessageId,
+            channelId: channel.id,
+          }),
+        );
+        return;
+      }
+
+      const currentMessage = currentMessageState.message;
 
       if (!this.hasBaselineSnapshot(publication)) {
         await manager
@@ -239,33 +265,43 @@ export class DealPostMonitorService {
   private async fetchCurrentMessage(
     channel: ChannelEntity,
     messageId: string | null,
-  ): Promise<TelegramMessage | null> {
+  ): Promise<
+    | { state: 'ok'; message: TelegramMessage }
+    | { state: 'deleted' }
+    | { state: 'unavailable' }
+  > {
     if (!messageId) {
-      return null;
+      return { state: 'unavailable' };
     }
 
     if (!channel.telegramChatId && !channel.username) {
-      return null;
+      return { state: 'unavailable' };
     }
 
     try {
-      return await this.telegramChannelPostsService.getChannelMessage(
+      const message = await this.telegramChannelPostsService.getChannelMessage(
         channel.telegramChatId ?? `@${channel.username}`,
         messageId,
       );
+
+      return { state: 'ok', message };
     } catch (error) {
+      if (error instanceof TelegramMessageNotFoundError) {
+        return { state: 'deleted' };
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       const [errorCode] = message.split(':');
       if (errorCode === '400' || errorCode === '403' || errorCode === '404') {
         this.logger.warn(
           `Skip edited-post check due Telegram API error for message ${messageId}: ${message}`,
         );
-        return null;
+        return { state: 'unavailable' };
       }
       this.logger.warn(
         `Unexpected Telegram API error for message ${messageId}: ${message}`,
       );
-      return null;
+      return { state: 'unavailable' };
     }
   }
 
