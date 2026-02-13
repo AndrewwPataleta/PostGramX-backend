@@ -9,6 +9,13 @@ export class TelegramMessageNotFoundError extends Error {
   }
 }
 
+export class TelegramMethodUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = TelegramMethodUnavailableError.name;
+  }
+}
+
 interface TelegramApiResponse<T> {
   ok: boolean;
   result?: T;
@@ -20,6 +27,7 @@ interface TelegramApiResponse<T> {
 export class TelegramChannelPostsService {
   private readonly logger = new Logger(TelegramChannelPostsService.name);
   private readonly apiBaseUrl: string;
+  private getMessageSupported: boolean | null = null;
 
   constructor(private readonly telegramApiService: TelegramApiService) {
     this.apiBaseUrl = this.telegramApiService.getApiBaseUrl();
@@ -29,6 +37,12 @@ export class TelegramChannelPostsService {
     chatId: string,
     messageId: string,
   ): Promise<TelegramMessage | null> {
+    if (this.getMessageSupported === false) {
+      throw new TelegramMethodUnavailableError(
+        'GET_MESSAGE_METHOD_UNAVAILABLE',
+      );
+    }
+
     const response = await this.request<TelegramMessage>('getMessage', {
       chat_id: chatId,
       message_id: messageId,
@@ -49,6 +63,10 @@ export class TelegramChannelPostsService {
   ): Promise<TelegramApiResponse<T>> {
     const url = `${this.apiBaseUrl}/${method}`;
     const body = new URLSearchParams(params);
+    this.logger.debug(
+      `Telegram API request ${method}: ${body.toString().replace(/&/g, ' ')}`,
+    );
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -57,11 +75,30 @@ export class TelegramChannelPostsService {
       body,
     });
 
+    this.logger.debug(
+      `Telegram API response ${method}: HTTP ${response.status}`,
+    );
+
     const payload = (await response.json()) as TelegramApiResponse<T>;
     if (!response.ok || !payload.ok) {
       const description = payload.description || 'Telegram API error.';
       const errorCode = payload.error_code;
       const normalizedDescription = description.toLowerCase();
+
+      this.logger.warn(
+        `Telegram API ${method} failed: status=${response.status} code=${errorCode ?? 'unknown'} description=${description}`,
+      );
+
+      if (
+        method === 'getMessage' &&
+        response.status === 404 &&
+        normalizedDescription === 'not found'
+      ) {
+        this.getMessageSupported = false;
+        throw new TelegramMethodUnavailableError(
+          `${errorCode ?? 404}:${description}`,
+        );
+      }
 
       if (
         normalizedDescription.includes('message to get not found') ||
@@ -76,6 +113,10 @@ export class TelegramChannelPostsService {
         `Failed to fetch channel message via ${method}: ${description} (code=${errorCode ?? 'unknown'})`,
       );
       throw new Error(`${errorCode ?? 'UNKNOWN'}:${description}`);
+    }
+
+    if (method === 'getMessage') {
+      this.getMessageSupported = true;
     }
 
     return payload;
