@@ -1,5 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { MTPROTO_MONITOR_CONFIG } from '../mtproto-monitor.config';
+
+const gramjs = require('telegram');
+const { StringSession } = require('telegram/sessions');
+const { Raw } = require('telegram/events');
+
+const TelegramClient = gramjs.TelegramClient;
+const Api = gramjs.Api;
+
+type TelegramClientInstance = any;
+type GramMessage = any;
 
 export interface MtprotoChannelMessage {
   id: number;
@@ -9,10 +24,42 @@ export interface MtprotoChannelMessage {
 }
 
 @Injectable()
-export class MtprotoClientService {
+export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
+  private static sharedClient: TelegramClientInstance | null = null;
+  private static connectPromise: Promise<void> | null = null;
+  private static disconnectPromise: Promise<void> | null = null;
+  private static updatesBound = false;
+
   private readonly logger = new Logger(MtprotoClientService.name);
-  private readonly gatewayUrl = process.env.MTPROTO_GATEWAY_URL ?? '';
-  private circuitOpenedUntil = 0;
+
+  async onModuleInit(): Promise<void> {
+    if (!this.isEnabled()) {
+      return;
+    }
+
+    await this.withRetry(async () => {
+      await this.ensureConnected();
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (!MtprotoClientService.sharedClient) {
+      return;
+    }
+
+    if (!MtprotoClientService.disconnectPromise) {
+      MtprotoClientService.disconnectPromise = (async () => {
+        await MtprotoClientService.sharedClient?.disconnect();
+        MtprotoClientService.sharedClient = null;
+        MtprotoClientService.connectPromise = null;
+        MtprotoClientService.updatesBound = false;
+      })().finally(() => {
+        MtprotoClientService.disconnectPromise = null;
+      });
+    }
+
+    await MtprotoClientService.disconnectPromise;
+  }
 
   isEnabled(): boolean {
     return (
@@ -25,82 +72,196 @@ export class MtprotoClientService {
     peer: string,
     messageId: number,
   ): Promise<MtprotoChannelMessage | null> {
-    return this.withRetry(async () =>
-      this.request<MtprotoChannelMessage | null>('channel-message', {
-        peer,
-        messageId,
-      }),
-    );
+    return this.withRetry(async () => {
+      const client = await this.getConnectedClient();
+      const messages = await client.getMessages(peer, {
+        ids: [messageId],
+      });
+
+      const message = messages[0];
+      if (!message || typeof message.id !== 'number') {
+        return null;
+      }
+
+      return this.mapMessage(message);
+    });
   }
 
   async getPinnedMessage(peer: string): Promise<number | null> {
-    return this.withRetry(async () =>
-      this.request<number | null>('channel-pinned-message', { peer }),
-    );
+    return this.withRetry(async () => {
+      const client = await this.getConnectedClient();
+      const channel = await client.getEntity(peer);
+      const fullChannel = await client.invoke(
+        new Api.channels.GetFullChannel({ channel }),
+      );
+
+      return Number(fullChannel.fullChat?.pinnedMsgId ?? 0) || null;
+    });
   }
 
   async getChannelHistorySlice(
     peer: string,
     aroundMessageId: number,
   ): Promise<MtprotoChannelMessage[]> {
-    return this.withRetry(async () =>
-      this.request<MtprotoChannelMessage[]>('channel-history-slice', {
-        peer,
-        aroundMessageId,
-      }),
-    );
+    return this.withRetry(async () => {
+      const client = await this.getConnectedClient();
+      const ids = Array.from(
+        { length: 5 },
+        (_, index) => aroundMessageId - 2 + index,
+      ).filter((id) => id > 0);
+
+      const messages = await client.getMessages(peer, { ids });
+      return messages
+        .filter((message: GramMessage) =>
+          Boolean(message && typeof message.id === 'number'),
+        )
+        .sort((a: GramMessage, b: GramMessage) => a.id - b.id)
+        .map((message: GramMessage) => this.mapMessage(message));
+    });
+  }
+
+  private async getConnectedClient(): Promise<TelegramClientInstance> {
+    await this.ensureConnected();
+
+    if (
+      !MtprotoClientService.sharedClient ||
+      !MtprotoClientService.sharedClient.connected
+    ) {
+      throw new Error('MTPROTO_CLIENT_NOT_CONNECTED');
+    }
+
+    return MtprotoClientService.sharedClient;
+  }
+
+  private async ensureConnected(): Promise<void> {
+    this.validateConfig();
+
+    if (!MtprotoClientService.sharedClient) {
+      MtprotoClientService.sharedClient = new TelegramClient(
+        new StringSession(MTPROTO_MONITOR_CONFIG.SESSION),
+        MTPROTO_MONITOR_CONFIG.API_ID,
+        MTPROTO_MONITOR_CONFIG.API_HASH,
+        {
+          connectionRetries: 1,
+          useWSS: false,
+        },
+      );
+    }
+
+    if (MtprotoClientService.sharedClient.connected) {
+      return;
+    }
+
+    if (!MtprotoClientService.connectPromise) {
+      MtprotoClientService.connectPromise = (async () => {
+        await MtprotoClientService.sharedClient?.connect();
+        this.bindUpdateListener();
+        this.logger.log('MTProto client connected');
+      })().finally(() => {
+        MtprotoClientService.connectPromise = null;
+      });
+    }
+
+    await MtprotoClientService.connectPromise;
+  }
+
+  private bindUpdateListener(): void {
+    if (
+      !MtprotoClientService.sharedClient ||
+      MtprotoClientService.updatesBound
+    ) {
+      return;
+    }
+
+    MtprotoClientService.sharedClient.addEventHandler((update: any) => {
+      if (update instanceof Api.UpdateEditChannelMessage) {
+        this.logger.debug(
+          `MTProto update: edited channel message ${update.message.id}`,
+        );
+      }
+
+      if (update instanceof Api.UpdateDeleteChannelMessages) {
+        this.logger.debug(
+          `MTProto update: deleted channel messages ${update.messages.join(',')}`,
+        );
+      }
+
+      if (update instanceof Api.UpdateChannelPinnedMessage) {
+        this.logger.debug(
+          `MTProto update: pinned message changed in channel ${update.channelId}`,
+        );
+      }
+    }, new Raw({}));
+
+    MtprotoClientService.updatesBound = true;
+  }
+
+  private mapMessage(message: GramMessage): MtprotoChannelMessage {
+    return {
+      id: message.id,
+      text: message.message ?? null,
+      mediaUniqueId: this.extractMediaUniqueId(message),
+      entitiesSignature: this.extractEntitiesSignature(message),
+    };
+  }
+
+  private extractMediaUniqueId(message: GramMessage): string | null {
+    if (message.media?.document?.id) {
+      return `document:${message.media.document.id}`;
+    }
+
+    if (message.media?.photo?.id) {
+      return `photo:${message.media.photo.id}`;
+    }
+
+    return null;
+  }
+
+  private extractEntitiesSignature(message: GramMessage): string | null {
+    if (!message.entities?.length) {
+      return null;
+    }
+
+    return message.entities
+      .map((entity: any) => {
+        const type = entity.className;
+        const offset = entity.offset ?? 0;
+        const length = entity.length ?? 0;
+        const extra = entity.url ?? entity.userId ?? '';
+        return `${type}:${offset}:${length}:${extra}`;
+      })
+      .join('|');
   }
 
   private async withRetry<T>(
     operation: () => Promise<T>,
     attempt = 0,
   ): Promise<T> {
-    if (!this.gatewayUrl) {
-      throw new Error('MTPROTO_GATEWAY_URL_MISSING');
-    }
-
-    if (Date.now() < this.circuitOpenedUntil) {
-      throw new Error('MTPROTO_CIRCUIT_OPEN');
-    }
-
     try {
       return await operation();
     } catch (error) {
       if (attempt >= 2) {
-        this.circuitOpenedUntil = Date.now() + 30_000;
-        this.logger.warn('MTProto circuit opened for 30 seconds');
         throw error;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      const delayMs = 250 * (attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await this.ensureConnected();
       return this.withRetry(operation, attempt + 1);
     }
   }
 
-  private async request<T>(
-    endpoint: string,
-    payload: Record<string, unknown>,
-  ): Promise<T> {
-    const response = await fetch(`${this.gatewayUrl}/${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-mtproto-api-id': String(MTPROTO_MONITOR_CONFIG.API_ID),
-        'x-mtproto-api-hash': MTPROTO_MONITOR_CONFIG.API_HASH,
-        'x-mtproto-session': MTPROTO_MONITOR_CONFIG.SESSION,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`MTPROTO_HTTP_${response.status}`);
+  private validateConfig(): void {
+    if (!MTPROTO_MONITOR_CONFIG.API_ID) {
+      throw new Error('MTPROTO_API_ID_MISSING');
     }
 
-    const result = (await response.json()) as { ok: boolean; result?: T };
-    if (!result.ok) {
-      throw new Error('MTPROTO_REQUEST_FAILED');
+    if (!MTPROTO_MONITOR_CONFIG.API_HASH) {
+      throw new Error('MTPROTO_API_HASH_MISSING');
     }
 
-    return result.result as T;
+    if (!MTPROTO_MONITOR_CONFIG.SESSION) {
+      throw new Error('MTPROTO_SESSION_MISSING');
+    }
   }
 }
