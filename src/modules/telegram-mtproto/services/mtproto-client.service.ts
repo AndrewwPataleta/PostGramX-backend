@@ -252,6 +252,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   }
 
   private validateConfig(): void {
+
     if (!MTPROTO_MONITOR_CONFIG.API_ID) {
       throw new Error('MTPROTO_API_ID_MISSING');
     }

@@ -239,31 +239,6 @@ export class TelegramBotUpdate {
       }
     });
 
-    bot.on('edited_channel_post', async (context) => {
-      const update = (
-        context as Context & {
-          update?: {
-            edited_channel_post?: {
-              message_id?: number;
-              chat?: { id?: number; username?: string };
-            };
-          };
-        }
-      ).update;
-      const post = update?.edited_channel_post;
-      const chatId = post?.chat?.id;
-      const chatUsername = post?.chat?.username;
-
-      if (!post?.message_id || (!chatId && !chatUsername)) {
-        return;
-      }
-
-      await this.dealPostMonitorService.handleEditedChannelPost({
-        chatId,
-        username: chatUsername,
-        messageId: post.message_id,
-      });
-    });
   }
 
   private isKnownCommand(text: string): boolean {

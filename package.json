@@ -30,7 +30,8 @@
     "telegram:edit-channel-publication": "ts-node -r tsconfig-paths/register src/scripts/edit-channel-publication.ts",
     "clean:db:keep-users:local": "NODE_ENV=local ts-node -r tsconfig-paths/register src/scripts/cleanup-db-keep-users.ts",
     "clean:db:keep-users:stage": "NODE_ENV=stage ts-node -r tsconfig-paths/register src/scripts/cleanup-db-keep-users.ts",
-    "sweep:completed-deals": "ts-node -r tsconfig-paths/register src/scripts/sweep-completed-deals-to-hot-wallet.ts"
+    "sweep:completed-deals": "ts-node -r tsconfig-paths/register src/scripts/sweep-completed-deals-to-hot-wallet.ts",
+    "mtproto:generate-session": "ts-node -r tsconfig-paths/register src/scripts/generate-mtproto-session.ts"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",
