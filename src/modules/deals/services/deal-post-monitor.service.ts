@@ -7,8 +7,11 @@ import { ChannelEntity } from '../../channels/entities/channel.entity';
 import { DealStage } from '../../../common/constants/deals/deal-stage.constants';
 import { DealStatus } from '../../../common/constants/deals/deal-status.constants';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
-import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
-import { TelegramMessageNotFoundError } from '../../telegram/services/telegram-channel-posts.service';
+import {
+  TelegramChannelPostsService,
+  TelegramMessageNotFoundError,
+  TelegramMethodUnavailableError,
+} from '../../telegram/services/telegram-channel-posts.service';
 import { PublicationStatus } from '../../../common/constants/deals/publication-status.constants';
 
 import {
@@ -284,6 +287,10 @@ export class DealPostMonitorService {
 
       return { state: 'ok', message };
     } catch (error) {
+      if (error instanceof TelegramMethodUnavailableError) {
+        return { state: 'unavailable' };
+      }
+
       if (error instanceof TelegramMessageNotFoundError) {
         return { state: 'deleted' };
       }
