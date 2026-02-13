@@ -256,7 +256,7 @@ export class DealPostMonitorService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const [errorCode] = message.split(':');
-      if (errorCode === '400' || errorCode === '403') {
+      if (errorCode === '400' || errorCode === '403' || errorCode === '404') {
         this.logger.warn(
           `Skip edited-post check due Telegram API error for message ${messageId}: ${message}`,
         );

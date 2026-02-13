@@ -48,10 +48,13 @@ export class TelegramChannelPostsService {
     if (!response.ok || !payload.ok) {
       const description = payload.description || 'Telegram API error.';
       const errorCode = payload.error_code;
+      const normalizedDescription = description.toLowerCase();
 
       if (
-        description.toLowerCase().includes('message to get not found') ||
-        description.toLowerCase().includes('message not found')
+        errorCode === 404 ||
+        normalizedDescription === 'not found' ||
+        normalizedDescription.includes('message to get not found') ||
+        normalizedDescription.includes('message not found')
       ) {
         return { ok: true, result: undefined };
       }
