@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { DealPublicationEntity } from '../entities/deal-publication.entity';
@@ -7,6 +8,7 @@ import { DealStage } from '../../../common/constants/deals/deal-stage.constants'
 import { DealStatus } from '../../../common/constants/deals/deal-status.constants';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
+import { POST_EDIT_MONITOR_CONFIG } from '../../../config/deals.config';
 import {
   fingerprintEntities,
   fingerprintKeyboard,
@@ -29,6 +31,21 @@ export class DealPostMonitorService {
     private readonly dataSource: DataSource,
   ) {}
 
+  @Cron(POST_EDIT_MONITOR_CONFIG.CRON)
+  async runEditedPostCheckCron(): Promise<void> {
+    const lockKey = 'deals:post-edited-check';
+    const acquired = await this.tryAdvisoryLock(lockKey);
+    if (!acquired) {
+      return;
+    }
+
+    try {
+      await this.handleBatch();
+    } finally {
+      await this.releaseAdvisoryLock(lockKey);
+    }
+  }
+
   async handleEditedChannelPost(payload: {
     chatId: string | number;
     username?: string | null;
@@ -41,6 +58,58 @@ export class DealPostMonitorService {
 
     const now = new Date();
     const messageId = String(payload.messageId);
+
+    await this.checkPublicationByChannelAndMessage({
+      channel,
+      messageId,
+      now,
+    });
+  }
+
+  private async handleBatch(): Promise<void> {
+    const now = new Date();
+    const threshold = new Date(now.getTime() - MIN_EDIT_CHECK_INTERVAL_MS);
+
+    const candidates = await this.publicationRepository
+      .createQueryBuilder('publication')
+      .innerJoinAndSelect('publication.deal', 'deal')
+      .innerJoinAndSelect('deal.channel', 'channel')
+      .where('deal.stage = :stage', { stage: DealStage.POSTED_VERIFYING })
+      .andWhere('deal.status = :status', { status: DealStatus.ACTIVE })
+      .andWhere('publication.publishedMessageId IS NOT NULL')
+      .andWhere(
+        '(publication.error IS NULL OR publication.error <> :postEditedError)',
+        {
+          postEditedError: DEAL_PUBLICATION_ERRORS.POST_EDITED,
+        },
+      )
+      .andWhere(
+        '(publication.lastCheckedAt IS NULL OR publication.lastCheckedAt <= :threshold)',
+        { threshold },
+      )
+      .orderBy('publication.lastCheckedAt', 'ASC', 'NULLS FIRST')
+      .take(POST_EDIT_MONITOR_CONFIG.BATCH_LIMIT)
+      .getMany();
+
+    for (const publication of candidates) {
+      if (!publication.deal?.channel || !publication.publishedMessageId) {
+        continue;
+      }
+
+      await this.checkPublicationByChannelAndMessage({
+        channel: publication.deal.channel,
+        messageId: publication.publishedMessageId,
+        now,
+      });
+    }
+  }
+
+  private async checkPublicationByChannelAndMessage(payload: {
+    channel: ChannelEntity;
+    messageId: string;
+    now: Date;
+  }): Promise<void> {
+    const { channel, messageId, now } = payload;
 
     await this.dataSource.transaction(async (manager) => {
       const publication = await manager
@@ -75,10 +144,7 @@ export class DealPostMonitorService {
         return;
       }
 
-      const currentMessage = await this.fetchCurrentMessage(
-        channel,
-        publication.publishedMessageId,
-      );
+      const currentMessage = await this.fetchCurrentMessage(channel, messageId);
       if (!currentMessage) {
         return;
       }
@@ -154,6 +220,20 @@ export class DealPostMonitorService {
         );
       }
     });
+  }
+
+  private async tryAdvisoryLock(key: string): Promise<boolean> {
+    const result = await this.dataSource.query(
+      'SELECT pg_try_advisory_lock(hashtext($1)) as locked',
+      [key],
+    );
+    return Boolean(result?.[0]?.locked);
+  }
+
+  private async releaseAdvisoryLock(key: string): Promise<void> {
+    await this.dataSource.query('SELECT pg_advisory_unlock(hashtext($1))', [
+      key,
+    ]);
   }
 
   private async fetchCurrentMessage(
