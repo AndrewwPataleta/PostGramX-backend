@@ -118,6 +118,29 @@ export class FeesService {
         };
     }
 
+    async computeFinalPriceNano(options: {
+        baseAmountNano: string;
+        currency?: CurrencyCode;
+    }): Promise<{finalAmountNano: string; feeAmountNano: string}> {
+        const config = await this.feesConfigService.getConfig();
+        const amount = BigInt(options.baseAmountNano ?? '0');
+        if (amount <= 0n || !config.feesEnabled) {
+            return {
+                finalAmountNano: amount.toString(),
+                feeAmountNano: '0',
+            };
+        }
+
+        const serviceFee = this.computeServiceFeeNano(amount, config);
+        const networkFee = this.computeNetworkFeeFlatNano(config);
+        const feeAmount = serviceFee + networkFee;
+
+        return {
+            finalAmountNano: (amount + feeAmount).toString(),
+            feeAmountNano: feeAmount.toString(),
+        };
+    }
+
     async validatePayout(options: {
         amountNano: string;
         withdrawableNano: string;
@@ -168,7 +191,9 @@ export class FeesService {
             return 0n;
         }
         let fee: bigint;
-        if (config.payoutServiceFeeMode === 'FIXED') {
+        if ((config.payoutServiceFeeMode as string) === 'NONE') {
+            fee = 0n;
+        } else if (config.payoutServiceFeeMode === 'FIXED') {
             fee = BigInt(config.payoutServiceFeeFixedNano);
         } else {
             const bps = BigInt(config.payoutServiceFeeBps);
@@ -212,6 +237,21 @@ export class FeesService {
             config.payoutNetworkFeeMaxNano,
         );
         return {fee, estimated};
+    }
+
+    private computeNetworkFeeFlatNano(
+        config: Awaited<ReturnType<FeesConfigService['getConfig']>>,
+    ): bigint {
+        let fee =
+            (config.payoutNetworkFeeMode as string) === 'NONE'
+                ? 0n
+                : BigInt(config.payoutNetworkFeeFixedNano);
+        fee = this.applyMinMax(
+            fee,
+            config.payoutNetworkFeeMinNano,
+            config.payoutNetworkFeeMaxNano,
+        );
+        return fee;
     }
 
     private applyMinMax(

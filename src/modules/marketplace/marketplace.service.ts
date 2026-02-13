@@ -15,15 +15,14 @@ import {
     MarketplaceChannelsResponse,
 } from './types/marketplace-channel-item.type';
 import {CurrencyCode} from '../../common/constants/currency/currency.constants';
-import {buildChannelPreview} from '../listings/utils/channel-preview';
+import {FeesService} from '../payments/fees/fees.service';
 
 @Injectable()
 export class MarketplaceService {
     constructor(
         @InjectRepository(ChannelEntity)
         private readonly channelRepository: Repository<ChannelEntity>,
-        @InjectRepository(ListingEntity)
-        private readonly listingRepository: Repository<ListingEntity>,
+        private readonly feesService: FeesService,
     ) {
     }
 
@@ -94,26 +93,6 @@ export class MarketplaceService {
             });
         }
 
-        if (filters.minPriceTon !== undefined) {
-            const minPriceNano = this.parseTonToNano(filters.minPriceTon);
-            baseQuery.andWhere('listing.priceNano >= :minPriceNano', {
-                minPriceNano,
-            });
-        }
-
-        if (filters.maxPriceTon !== undefined) {
-            const maxPriceNano = this.parseTonToNano(filters.maxPriceTon);
-            baseQuery.andWhere('listing.priceNano <= :maxPriceNano', {
-                maxPriceNano,
-            });
-        }
-
-        const totalResult = await baseQuery
-            .clone()
-            .select('COUNT(DISTINCT channel.id)', 'total')
-            .getRawOne<{ total: string }>();
-        const total = Number(totalResult?.total ?? 0);
-
         const query = baseQuery
             .clone()
             .select([
@@ -130,35 +109,68 @@ export class MarketplaceService {
             .addSelect('jsonb_agg(listing.tags)', 'listingTags')
             .groupBy('channel.id');
 
-        switch (sort) {
-            case 'price_min':
-                query.orderBy(
-                    'minPriceNano',
-                    order.toUpperCase() as 'ASC' | 'DESC',
-                );
-                break;
-            case 'subscribers':
-                query.orderBy(
-                    'channel.subscribersCount',
-                    order.toUpperCase() as 'ASC' | 'DESC',
-                    'NULLS LAST',
-                );
-                break;
-            case 'recent':
-            default:
-                query.orderBy(
-                    'channel.updatedAt',
-                    order.toUpperCase() as 'ASC' | 'DESC',
-                );
-                break;
-        }
-
-        query.addOrderBy('channel.id', 'DESC');
-        query.offset(offset).limit(limit);
-
         const rows = await query.getRawMany();
+        const minPriceNano =
+            filters.minPriceTon !== undefined
+                ? BigInt(this.parseTonToNano(filters.minPriceTon))
+                : null;
+        const maxPriceNano =
+            filters.maxPriceTon !== undefined
+                ? BigInt(this.parseTonToNano(filters.maxPriceTon))
+                : null;
 
-        const items: MarketplaceChannelItem[] = rows.map((row) => (
+        const withFinalPrice = await Promise.all(
+            rows.map(async (row) => {
+                const baseMinPrice = row.minPriceNano ?? '0';
+                const priced = await this.feesService.computeFinalPriceNano({
+                    baseAmountNano: baseMinPrice,
+                    currency: CurrencyCode.TON,
+                });
+                return {
+                    row,
+                    finalMinPriceNano: priced.finalAmountNano,
+                };
+            }),
+        );
+
+        const filteredRows = withFinalPrice.filter((entry) => {
+            const current = BigInt(entry.finalMinPriceNano);
+            if (minPriceNano !== null && current < minPriceNano) {
+                return false;
+            }
+            if (maxPriceNano !== null && current > maxPriceNano) {
+                return false;
+            }
+            return true;
+        });
+
+        filteredRows.sort((left, right) => {
+            if (sort === 'price_min') {
+                const l = BigInt(left.finalMinPriceNano);
+                const r = BigInt(right.finalMinPriceNano);
+                if (l !== r) {
+                    return order === 'asc' ? (l < r ? -1 : 1) : l > r ? -1 : 1;
+                }
+            } else if (sort === 'subscribers') {
+                const l = Number(left.row.subscribers ?? -1);
+                const r = Number(right.row.subscribers ?? -1);
+                if (l !== r) {
+                    return order === 'asc' ? l - r : r - l;
+                }
+            } else {
+                const l = new Date(left.row.updatedAt).getTime();
+                const r = new Date(right.row.updatedAt).getTime();
+                if (l !== r) {
+                    return order === 'asc' ? l - r : r - l;
+                }
+            }
+            return right.row.id.localeCompare(left.row.id);
+        });
+
+        const total = filteredRows.length;
+        const pagedRows = filteredRows.slice(offset, offset + limit);
+
+        const items: MarketplaceChannelItem[] = pagedRows.map(({row, finalMinPriceNano}) => (
             {
                 id: row.id,
                 name: row.name,
@@ -169,26 +181,11 @@ export class MarketplaceService {
                 currency: CurrencyCode.TON,
                 tags: this.normalizeAggregatedTags(row.listingTags),
                 preview: {
-                    listingCount: 0,
+                    listingCount: Number(row.placementsCount ?? 0),
                     subsCount: row.subscribers === null ? null : Number(row.subscribers),
-                    listingFrom: row.minPriceNano ?? 0,
+                    listingFrom: this.formatNanoToTon(finalMinPriceNano),
                 },
             }));
-
-        if (items.length > 0) {
-            const channelIds = items.map((item) => item.id);
-            const previews = await buildChannelPreview(
-                this.listingRepository,
-                channelIds,
-                'marketplace',
-            );
-
-            for (const item of items) {
-                const preview = previews.get(item.id);
-                item.preview.listingCount = preview?.listingCount ?? 0;
-                item.preview.listingFrom = preview?.listingFrom ?? null;
-            }
-        }
 
         return {
             items,
@@ -196,6 +193,19 @@ export class MarketplaceService {
             limit,
             total,
         };
+    }
+
+    private formatNanoToTon(nano: string): string {
+        const nanoValue = BigInt(nano);
+        const whole = nanoValue / 1000000000n;
+        const fraction = nanoValue % 1000000000n;
+        if (fraction === 0n) {
+            return whole.toString();
+        }
+        return `${whole.toString()}.${fraction
+            .toString()
+            .padStart(9, '0')
+            .replace(/0+$/, '')}`;
     }
 
     private parseTonToNano(value: number): string {
