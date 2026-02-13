@@ -57,7 +57,7 @@ export class DealPinnedVisibilityWatcherService {
             .createQueryBuilder('publication')
             .innerJoin('publication.deal', 'deal')
             .innerJoin(ListingEntity, 'listing', 'listing.id = deal.listingId')
-            .where('listing.visibilityDurationHours != 0')
+            .where('COALESCE(listing.pinDurationHours, 0) > 0')
             .andWhere('deal.status = :status', {status: DealStatus.ACTIVE})
             .andWhere('deal.stage = :stage', {stage: DealStage.POSTED_VERIFYING})
             .andWhere('publication.telegramChatId IS NOT NULL')
