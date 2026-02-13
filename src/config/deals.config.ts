@@ -6,7 +6,7 @@ const logger = new Logger('DealsConfig');
 const isStageOrProduction = ['stage', 'production'].includes(
     process.env.NODE_ENV ?? 'local',
 );
-const defaultChecksIntervalMinutes = isStageOrProduction ? 10 : 1;
+const defaultChecksIntervalMinutes = isStageOrProduction ? 1 : 1;
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
     if (!value) {
