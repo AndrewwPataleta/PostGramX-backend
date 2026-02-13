@@ -58,7 +58,7 @@ export class DealPostMonitorService {
     }
   }
 
-  async handleEditedChannelPost(payload: {
+  async   handleEditedChannelPost(payload: {
     chatId?: string | number | null;
     username?: string | null;
     messageId: string | number;
