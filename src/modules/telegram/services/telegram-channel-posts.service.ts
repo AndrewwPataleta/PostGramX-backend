@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TelegramApiService } from '../../../core/telegram-api.service';
 import { TelegramMessage } from '../../deals/publication/telegramMessageFingerprint';
 
+export class TelegramMessageNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = TelegramMessageNotFoundError.name;
+  }
+}
+
 interface TelegramApiResponse<T> {
   ok: boolean;
   result?: T;
@@ -27,7 +34,13 @@ export class TelegramChannelPostsService {
       message_id: messageId,
     });
 
-    return response.result ?? null;
+    if (!response.result) {
+      throw new TelegramMessageNotFoundError(
+        `MESSAGE_NOT_FOUND: chatId=${chatId} messageId=${messageId}`,
+      );
+    }
+
+    return response.result;
   }
 
   private async request<T>(
@@ -51,12 +64,12 @@ export class TelegramChannelPostsService {
       const normalizedDescription = description.toLowerCase();
 
       if (
-        errorCode === 404 ||
-        normalizedDescription === 'not found' ||
         normalizedDescription.includes('message to get not found') ||
         normalizedDescription.includes('message not found')
       ) {
-        return { ok: true, result: undefined };
+        throw new TelegramMessageNotFoundError(
+          `${errorCode ?? 400}:${description}`,
+        );
       }
 
       this.logger.warn(
