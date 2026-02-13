@@ -42,11 +42,11 @@
       "select_deal_button": "Deal {dealId}",
       "selection_expired": "I couldn't find the creative to attach. Please send it again.",
       "saved": "Creative saved for Deal #{dealId}. Return to the App and press Submit Creative.",
-      "changes_requested": "Changes requested. Advertiser has been notified.",
+      "changes_requested": "<b>Changes requested</b>\n\nAdvertiser has been notified.",
       "changes_requested_advertiser": "Changes requested for Deal {dealId}.\nChannel: {channel}\nPrice: {price}\nCreated: {createdAt}\nNotes: {comment}",
-      "rejected_notified": "Creative rejected. Advertiser has been notified. Deal closed.",
-      "rejected_resubmit": "Creative rejected. Please submit a new creative in the App.",
-      "rejected_closed_advertiser": "Creative rejected. The deal is closed. Reason: creative rejected by the channel admin.",
+      "rejected_notified": "<b>Creative rejected</b>\n\nAdvertiser has been notified. Deal closed.",
+      "rejected_resubmit": "<b>Creative rejected</b>\n\nPlease submit a new creative in the App.",
+      "rejected_closed_advertiser": "<b>Creative rejected</b>\n\nThe deal is closed.\nReason: creative rejected by the channel admin.",
       "request_changes_prompt": "To request changes, reply to this message with the edit details.\n"
     },
     "creative_submitted": {
@@ -119,11 +119,11 @@
       "unsupported_preview": "<b>Schedule submitted for review</b>\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>\n<b>Publish time:</b> {scheduledAt}\n\nCreative preview is not supported for this format.\n\nNext step: review and approve in the App.\nDeadline to act: {actionDeadline}"
     },
     "schedule": {
-      "approved": "Schedule approved. Advertiser has been notified.",
+      "approved": "<b>Schedule approved</b>\n\nAdvertiser has been notified.",
       "canceled_advertiser": "Schedule canceled for Deal {dealId}. Please review and resubmit in the App.",
-      "canceled_notified": "Schedule canceled. Advertiser has been notified.",
+      "canceled_notified": "<b>Schedule canceled</b>\n\nAdvertiser has been notified.",
       "request_changes_prompt": "To request schedule changes, reply to this message with the updated scheduling details.\n",
-      "changes_requested": "Schedule changes requested. Advertiser has been notified.",
+      "changes_requested": "<b>Schedule changes requested</b>\n\nAdvertiser has been notified.",
       "changes_requested_advertiser": "Schedule changes requested for Deal {dealId}.\nNotes: {comment}"
     },
     "schedule_submitted.advertiser": "<b>Schedule sent for review</b>\n<b>Deal:</b> <code>{dealId}</code>\n\nWe sent the schedule to the channel admin.\nNext step: wait for approval in the App.\nDeadline to act: {actionDeadline}",
