@@ -112,7 +112,7 @@ export class DealPostingWorker {
       return;
     }
 
-    const permissionCheck = await this.ensurePermissions(deal);
+    const permissionCheck = await this.ensurePermissions(deal, 'publish');
     if (!permissionCheck.ok) {
       return;
     }
@@ -266,7 +266,7 @@ export class DealPostingWorker {
       return;
     }
 
-    const permissionCheck = await this.ensurePermissions(deal);
+    const permissionCheck = await this.ensurePermissions(deal, 'verify');
     if (!permissionCheck.ok) {
       return;
     }
@@ -545,7 +545,10 @@ export class DealPostingWorker {
     await this.publicationRepository.save(created);
   }
 
-  private async ensurePermissions(deal: DealEntity): Promise<{ ok: boolean }> {
+  private async ensurePermissions(
+    deal: DealEntity,
+    phase: 'publish' | 'verify',
+  ): Promise<{ ok: boolean }> {
     const botCheck = await this.telegramPermissionsService.checkBotIsAdmin(
       deal.channelId,
     );
@@ -553,7 +556,7 @@ export class DealPostingWorker {
       this.logger.warn(
         `Permission check failed: bot not admin for deal ${deal.id}`,
       );
-      await this.cancelDealForPermissions(deal, 'BOT_NOT_ADMIN');
+      await this.cancelDealForPermissions(deal, 'BOT_NOT_ADMIN', phase);
       return { ok: false };
     }
 
@@ -561,7 +564,7 @@ export class DealPostingWorker {
       this.logger.warn(
         `Permission check failed: publisher not bound for deal ${deal.id}`,
       );
-      await this.cancelDealForPermissions(deal, 'PUBLISHER_NOT_BOUND');
+      await this.cancelDealForPermissions(deal, 'PUBLISHER_NOT_BOUND', phase);
       return { ok: false };
     }
 
@@ -573,7 +576,7 @@ export class DealPostingWorker {
       this.logger.warn(
         `Permission check failed: publisher admin missing for deal ${deal.id}`,
       );
-      await this.cancelDealForPermissions(deal, 'ADMIN_RIGHTS_LOST');
+      await this.cancelDealForPermissions(deal, 'ADMIN_RIGHTS_LOST', phase);
       return { ok: false };
     }
 
@@ -583,6 +586,7 @@ export class DealPostingWorker {
   private async cancelDealForPermissions(
     deal: DealEntity,
     reason: string,
+    phase: 'publish' | 'verify',
   ): Promise<void> {
     await this.upsertPublication(deal.id, {
       status: PublicationStatus.FAILED,
@@ -596,11 +600,21 @@ export class DealPostingWorker {
     });
 
     if (reason === 'BOT_NOT_ADMIN') {
-      await this.dealsNotificationsService.notifyPostNotPublishedAdmin(deal);
-      await this.dealsNotificationsService.notifyAdvertiser(
-        deal,
-        'telegram.deal.post.not_published_advertiser',
-      );
+      if (phase === 'verify') {
+        await this.dealsNotificationsService.notifyPostCheckUnavailableAdmin(
+          deal,
+        );
+        await this.dealsNotificationsService.notifyAdvertiser(
+          deal,
+          'telegram.deal.post.check_unavailable_advertiser',
+        );
+      } else {
+        await this.dealsNotificationsService.notifyPostNotPublishedAdmin(deal);
+        await this.dealsNotificationsService.notifyAdvertiser(
+          deal,
+          'telegram.deal.post.not_published_advertiser',
+        );
+      }
     } else if (reason === 'ADMIN_RIGHTS_LOST') {
       await this.dealsNotificationsService.notifyAdvertiser(
         deal,
