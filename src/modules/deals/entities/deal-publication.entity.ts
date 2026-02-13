@@ -89,6 +89,9 @@ export class DealPublicationEntity {
   verifiedAt: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
+  lastVerifiedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
   lastCheckedAt: Date | null;
 
   @Column({ type: 'text', nullable: true })
@@ -105,6 +108,9 @@ export class DealPublicationEntity {
 
   @Column({ type: 'text', nullable: true })
   publishedMessageKeyboardFingerprint: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  publishedMessageHash: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
   publishedMessageSnapshotJson: Record<string, unknown> | null;

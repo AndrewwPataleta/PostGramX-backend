@@ -4,7 +4,7 @@ import { HelpHandler } from './handlers/help.handler';
 import { StartHandler } from './handlers/start.handler';
 import { TELEGRAM_BOT_COMMANDS } from './telegram-bot.constants';
 import { DealsBotHandler } from '../deals/deals-bot.handler';
-import { DealPostMonitorService } from '../deals/services/deal-post-monitor.service';
+import { DealPostMtprotoMonitorService } from '../telegram-mtproto/services/deal-post-mtproto-monitor.service';
 import { TelegramMessengerService } from '../telegram/telegram-messenger.service';
 
 @Injectable()
@@ -18,7 +18,7 @@ export class TelegramBotUpdate {
     private readonly telegramMessengerService: TelegramMessengerService,
     @Inject(forwardRef(() => DealsBotHandler))
     private readonly dealsBotHandler: DealsBotHandler,
-    private readonly dealPostMonitorService: DealPostMonitorService,
+    private readonly dealPostMonitorService: DealPostMtprotoMonitorService,
   ) {}
 
   register(bot: Telegraf<Context>): void {
