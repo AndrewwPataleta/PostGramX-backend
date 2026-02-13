@@ -552,8 +552,8 @@ export class ChannelsService {
       throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN);
     }
 
-    if (!['creator', 'administrator'].includes(userAdmin.status)) {
-      throw new ChannelServiceError(ChannelErrorCode.NOT_ADMIN);
+    if (userAdmin.status !== 'creator') {
+      throw new ChannelServiceError(ChannelErrorCode.USER_NOT_CREATOR);
     }
 
     return userAdmin;
