@@ -50,7 +50,7 @@ export class DealPostMonitorService {
   }
 
   async handleEditedChannelPost(payload: {
-    chatId: string | number;
+    chatId?: string | number | null;
     username?: string | null;
     messageId: string | number;
   }): Promise<void> {
@@ -332,11 +332,14 @@ export class DealPostMonitorService {
   }
 
   private async resolveChannel(
-    chatId: string | number,
+    chatId?: string | number | null,
     username?: string | null,
   ): Promise<ChannelEntity | null> {
-    const chatIdValue = chatId ? String(chatId) : null;
-    const usernameValue = username ? String(username).replace('@', '') : null;
+    const chatIdValue =
+      chatId !== undefined && chatId !== null ? String(chatId) : null;
+    const usernameValue = username
+      ? String(username).replace('@', '').toLowerCase()
+      : null;
     if (!chatIdValue && !usernameValue) {
       return null;
     }
