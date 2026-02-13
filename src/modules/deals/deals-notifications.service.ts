@@ -746,6 +746,13 @@ export class DealsNotificationsService {
     });
   }
 
+  async notifyPostCheckUnavailableAdmin(deal: DealEntity): Promise<void> {
+    await this.notifyDeal(deal, {
+      type: 'POST_CHECK_UNAVAILABLE',
+      messageKey: 'telegram.deal.notification.post_check_unavailable_admin',
+    });
+  }
+
   async notifyPostPublishedAdvertiser(
     deal: DealEntity,
     mustRemainUntil: Date | null,
