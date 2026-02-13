@@ -29,6 +29,7 @@ import {
   fingerprintMedia,
   normalizeText,
 } from '../../deals/publication/telegramMessageFingerprint';
+import { buildMessageFingerprintHash } from '../../telegram-mtproto/utils/message-fingerprint.util';
 
 const POST_VERIFICATION_CRON =
   process.env.DEALS_POST_VERIFICATION_CRON ??
@@ -259,18 +260,6 @@ export class DealPostingWorker {
       return;
     }
 
-    const channel = await this.channelRepository.findOne({
-      where: { id: deal.channelId },
-    });
-    if (!channel) {
-      return;
-    }
-
-    const permissionCheck = await this.ensurePermissions(deal, 'verify');
-    if (!permissionCheck.ok) {
-      return;
-    }
-
     if (publication.error === DEAL_PUBLICATION_ERRORS.POST_EDITED) {
       await this.cancelDealForPublicationViolation({
         deal,
@@ -284,29 +273,17 @@ export class DealPostingWorker {
       return;
     }
 
-    if (publication.publishedMessageId) {
-      const exists = await this.telegramPosterService.checkMessagePresence(
-        channel,
-        publication.publishedMessageId,
-      );
-      if (!exists.ok && exists.reason === 'MESSAGE_NOT_FOUND') {
-        await this.cancelDealForPublicationViolation({
-          deal,
-          publication,
-          now,
-          refundReason: 'POST_DELETED',
-          advertiserMessageKey: 'telegram.deal.post.deleted_advertiser',
-          notifyAdmin: () =>
-            this.dealsNotificationsService.notifyPostDeletedAdmin(deal),
-        });
-        return;
-      }
-      if (!exists.ok) {
-        this.logger.warn(
-          `Delivery check failed for deal ${deal.id}: ${exists.reason}`,
-        );
-        return;
-      }
+    if (publication.error === 'POST_DELETED') {
+      await this.cancelDealForPublicationViolation({
+        deal,
+        publication,
+        now,
+        refundReason: 'POST_DELETED',
+        advertiserMessageKey: 'telegram.deal.post.deleted_advertiser',
+        notifyAdmin: () =>
+          this.dealsNotificationsService.notifyPostDeletedAdmin(deal),
+      });
+      return;
     }
 
     if (now < publication.mustRemainUntil) {
@@ -319,7 +296,6 @@ export class DealPostingWorker {
     await this.finalizeDeal({
       deal,
       publication,
-      channel,
       now,
       deleteMessage: true,
     });
@@ -476,18 +452,25 @@ export class DealPostingWorker {
         throw new Error('MESSAGE_NOT_FOUND');
       }
 
+      const mediaFingerprint = fingerprintMedia(message);
+      const entitiesFingerprint = fingerprintEntities(message);
       await this.upsertPublication(dealId, {
         publishedMessageText: normalizeText(message.text),
         publishedMessageCaption: normalizeText(message.caption),
-        publishedMessageMediaFingerprint: fingerprintMedia(message),
+        publishedMessageMediaFingerprint: mediaFingerprint,
         publishedMessageKeyboardFingerprint: fingerprintKeyboard(message),
+        publishedMessageHash: buildMessageFingerprintHash({
+          text: normalizeText(message.text) || normalizeText(message.caption),
+          mediaUniqueId: mediaFingerprint,
+          entitiesSignature: entitiesFingerprint,
+        }),
         publishedMessageSnapshotJson: {
           source: 'telegram_api',
           text: message.text ?? null,
           caption: message.caption ?? null,
           mediaFingerprint: fingerprintMedia(message),
           keyboard: message.reply_markup?.inline_keyboard ?? null,
-          entitiesFingerprint: fingerprintEntities(message),
+          entitiesFingerprint,
         },
       });
       return;
@@ -506,14 +489,21 @@ export class DealPostingWorker {
       ? String(payload.mediaFileId)
       : null;
 
+    const fallbackMediaFingerprint =
+      mediaType && mediaFileId
+        ? `${mediaType.toLowerCase()}:${mediaFileId}`
+        : 'none';
+
     await this.upsertPublication(dealId, {
       publishedMessageText: normalizeText(textFallback),
       publishedMessageCaption: normalizeText(captionFallback),
-      publishedMessageMediaFingerprint:
-        mediaType && mediaFileId
-          ? `${mediaType.toLowerCase()}:${mediaFileId}`
-          : 'none',
+      publishedMessageMediaFingerprint: fallbackMediaFingerprint,
       publishedMessageKeyboardFingerprint: 'none',
+      publishedMessageHash: buildMessageFingerprintHash({
+        text: normalizeText(textFallback) || normalizeText(captionFallback),
+        mediaUniqueId: fallbackMediaFingerprint,
+        entitiesSignature: 'none',
+      }),
       publishedMessageSnapshotJson: {
         source: 'fallback',
         text: textFallback,

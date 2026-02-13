@@ -24,6 +24,9 @@ import {
 import { MIN_EDIT_CHECK_INTERVAL_MS } from '../../../common/constants/deals/deal-post-monitor.constants';
 import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
 
+const TELEGRAM_POST_VERIFY_PROVIDER =
+  process.env.TELEGRAM_POST_VERIFY_PROVIDER ?? 'mtproto';
+
 @Injectable()
 export class DealPostMonitorService {
   private readonly logger = new Logger(DealPostMonitorService.name);
@@ -39,6 +42,9 @@ export class DealPostMonitorService {
 
   @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
   async runEditedPostCheckCron(): Promise<void> {
+    if (TELEGRAM_POST_VERIFY_PROVIDER !== 'bot') {
+      return;
+    }
     const lockKey = 'deals:post-edited-check';
     const acquired = await this.tryAdvisoryLock(lockKey);
     if (!acquired) {
@@ -57,6 +63,9 @@ export class DealPostMonitorService {
     username?: string | null;
     messageId: string | number;
   }): Promise<void> {
+    if (TELEGRAM_POST_VERIFY_PROVIDER !== 'bot') {
+      return;
+    }
     const channel = await this.resolveChannel(payload.chatId, payload.username);
     if (!channel) {
       return;
