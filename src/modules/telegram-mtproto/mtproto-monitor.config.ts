@@ -1,17 +1,32 @@
-const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+const normalizeEnvValue = (value: string | undefined): string | undefined => {
   if (value === undefined) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.replace(/^['\"]|['\"]$/g, '');
+};
+
+const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+  const normalizedValue = normalizeEnvValue(value);
+  if (normalizedValue === undefined) {
     return fallback;
   }
 
-  return value === 'true';
+  return normalizedValue === 'true';
 };
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
-  if (!value) {
+  const normalizedValue = normalizeEnvValue(value);
+  if (normalizedValue === undefined) {
     return fallback;
   }
 
-  const parsed = Number(value);
+  const parsed = Number(normalizedValue);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return fallback;
   }
@@ -21,12 +36,14 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
 
 export const MTPROTO_MONITOR_CONFIG = {
   ENABLED: parseBoolean(process.env.MTPROTO_ENABLED, true),
-  API_ID: Number(process.env.MTPROTO_API_ID ?? 0),
-  API_HASH: process.env.MTPROTO_API_HASH ?? '',
-  SESSION: process.env.MTPROTO_SESSION ?? '',
-  PHONE: process.env.MTPROTO_PHONE ?? '',
-  POLL_CRON: process.env.MTPROTO_POLL_CRON ?? '*/30 * * * * *',
+  API_ID: parseNumber(process.env.MTPROTO_API_ID, 0),
+  API_HASH: normalizeEnvValue(process.env.MTPROTO_API_HASH) ?? '',
+  SESSION: normalizeEnvValue(process.env.MTPROTO_SESSION) ?? '',
+  PHONE: normalizeEnvValue(process.env.MTPROTO_PHONE) ?? '',
+  POLL_CRON:
+    normalizeEnvValue(process.env.MTPROTO_POLL_CRON) ?? '*/30 * * * * *',
   MAX_PARALLEL: parseNumber(process.env.MTPROTO_MAX_PARALLEL, 5),
-  PROVIDER: process.env.TELEGRAM_POST_VERIFY_PROVIDER ?? 'mtproto',
+  PROVIDER:
+    normalizeEnvValue(process.env.TELEGRAM_POST_VERIFY_PROVIDER) ?? 'mtproto',
   PEER_CACHE_MINUTES: parseNumber(process.env.MTPROTO_PEER_CACHE_MINUTES, 10),
 };
