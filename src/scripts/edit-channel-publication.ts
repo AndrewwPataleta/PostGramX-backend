@@ -24,7 +24,7 @@ function printUsage() {
     console.log(
         [
             'Usage:',
-            '  NODE_ENV=local npm run telegram:edit-channel-publication -- <userId> <publicationId> "<new text>"',
+            '  NODE_ENV=local npm run telegram:edit-channel-publication -- b5d3cfbf-9ccc-447b-bdf9-34492ce4e73d d8aee2de-c53f-46a1-a2a8-5c44c2757561 "zxc"',
             '',
             'publicationId accepts either:',
             '  - Telegram message_id',
@@ -104,7 +104,7 @@ async function ensureEditorAccess(manager, userId, channel) {
 
 async function run() {
     const {userId, publicationId, text} = parseArgs(process.argv.slice(2));
-    const token = requiredEnv('TELEGRAM_BOT_TOKEN');
+    const token = requiredEnv('BOT_TOKEN');
 
     await AppDataSource.initialize();
 

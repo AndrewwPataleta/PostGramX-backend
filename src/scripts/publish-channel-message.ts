@@ -38,7 +38,7 @@ function printUsage() {
     console.log(
         [
             'Usage:',
-            '  NODE_ENV=local npm run telegram:publish-channel-message -- <userId> <channelId> "<text>"',
+            '  NODE_ENV=local npm run telegram:publish-channel-message -- 6d9654dd-a354-4357-b32e-533c8447b734 970a8d8b-e7ff-43b7-88a2-6efc805108f0 "qweqweqw"',
             '',
             'Description:',
             '  Creates full deal records (creative/escrow/publication timeline) and performs the final publish step to Telegram channel.',
@@ -154,7 +154,7 @@ function buildListingSnapshot(channelId) {
 
 async function run() {
     const {userId, channelId, text} = parseArgs(process.argv.slice(2));
-    const token = requiredEnv('TELEGRAM_BOT_TOKEN');
+    const token = requiredEnv('BOT_TOKEN');
 
     await AppDataSource.initialize();
 

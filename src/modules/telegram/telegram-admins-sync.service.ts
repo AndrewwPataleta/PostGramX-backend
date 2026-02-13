@@ -383,7 +383,6 @@ export class TelegramAdminsSyncService {
         channelRef: this.buildChannelRef(channel),
         changes: changesSections.join('\n\n'),
         cta,
-        miniAppUrl: this.telegramMessengerService.buildMiniAppUrl(),
       },
       { lang },
     );

@@ -1020,6 +1020,7 @@ export class DealsService {
         messageKey?: string;
         messageArgs?: Record<string, any>;
     }> {
+
         const adminUserId = await this.resolveDealAdminUserIdByTelegram(
             payload.dealId,
             payload.telegramUserId,
@@ -2000,6 +2001,8 @@ export class DealsService {
         dealId: string,
         telegramUserId: string,
     ): Promise<string | null> {
+        console.log(telegramUserId)
+        console.log(dealId)
         const deal = await this.dealRepository.findOne({
             where: {id: dealId},
             select: ['id', 'channelId'],
@@ -2019,6 +2022,7 @@ export class DealsService {
             },
             order: {createdAt: 'ASC'},
         });
+        console.log(memberships)
 
         if (memberships.length === 0) {
             return null;
@@ -2028,7 +2032,7 @@ export class DealsService {
             (membership) =>
                 membership.role === ChannelRole.OWNER || membership.canReviewDeals,
         );
-
+        console.log(reviewerMembership)
         return reviewerMembership?.userId ?? null;
     }
 

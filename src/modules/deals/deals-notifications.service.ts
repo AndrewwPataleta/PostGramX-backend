@@ -625,12 +625,6 @@ export class DealsNotificationsService {
               webAppUrl: link,
             },
           ],
-          [
-            {
-              textKey: 'telegram.common.open_mini_app',
-              webAppUrl: link,
-            },
-          ],
         ]
       : [];
 
@@ -1275,12 +1269,6 @@ export class DealsNotificationsService {
       [
         {
           textKey: 'telegram.common.pay_in_app',
-          webAppUrl: link,
-        },
-      ],
-      [
-        {
-          textKey: 'telegram.common.open_mini_app',
           webAppUrl: link,
         },
       ],
