@@ -256,6 +256,10 @@ export class DealPostingWorker {
       return;
     }
 
+    const channel = await this.channelRepository.findOne({
+      where: { id: deal.channelId },
+    });
+
     const publication = await this.publicationRepository.findOne({
       where: { dealId: deal.id },
     });
@@ -299,6 +303,7 @@ export class DealPostingWorker {
     await this.finalizeDeal({
       deal,
       publication,
+      channel: channel ?? undefined,
       now,
       deleteMessage: true,
     });
