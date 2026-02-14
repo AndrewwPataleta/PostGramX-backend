@@ -21,7 +21,7 @@ import { TelegramPermissionsService } from '../../telegram/telegram-permissions.
 import { PAYMENTS_CONFIG } from '../../../config/payments.config';
 import { DEAL_PUBLICATION_ERRORS } from '../../../common/constants/deals/deal-publication-errors.constants';
 import { PostAnalyticsService } from '../../post-analytics/services/post-analytics.service';
-import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
+import { DEAL_DELIVERY_POSTING_CRON } from '../../../config/deal-delivery.config';
 import { TelegramChannelPostsService } from '../../telegram/services/telegram-channel-posts.service';
 import {
   fingerprintEntities,
@@ -58,7 +58,7 @@ export class DealPostingWorker {
     private readonly telegramChannelPostsService: TelegramChannelPostsService,
   ) {}
 
-  @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
+  @Cron(DEAL_DELIVERY_POSTING_CRON)
   async handlePostingCron(): Promise<void> {
     const now = new Date();
     const deals = await this.dealRepository.find({

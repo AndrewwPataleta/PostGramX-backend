@@ -45,7 +45,7 @@ export class DealPostMtprotoMonitorService {
     private readonly dealCancelAndRefundService: DealCancelAndRefundService,
   ) {}
 
-  @Cron(`*/10 * * * * *`)
+  @Cron(MTPROTO_MONITOR_CONFIG.POLL_CRON)
   async runVerificationCron(): Promise<void> {
     if (!this.mtprotoClientService.isEnabled()) {
       return;

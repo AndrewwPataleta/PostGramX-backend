@@ -22,7 +22,7 @@ import {
   TelegramMessage,
 } from '../publication/telegramMessageFingerprint';
 import { MIN_EDIT_CHECK_INTERVAL_MS } from '../../../common/constants/deals/deal-post-monitor.constants';
-import { DEAL_DELIVERY_CONFIG } from '../../../config/deal-delivery.config';
+import { DEAL_DELIVERY_POSTING_CRON } from '../../../config/deal-delivery.config';
 
 const TELEGRAM_POST_VERIFY_PROVIDER =
   process.env.TELEGRAM_POST_VERIFY_PROVIDER ?? 'mtproto';
@@ -40,7 +40,7 @@ export class DealPostMonitorService {
     private readonly dataSource: DataSource,
   ) {}
 
-  @Cron(`*/${DEAL_DELIVERY_CONFIG.POSTING_CRON_EVERY_SECONDS} * * * * *`)
+  @Cron(DEAL_DELIVERY_POSTING_CRON)
   async runEditedPostCheckCron(): Promise<void> {
     if (TELEGRAM_POST_VERIFY_PROVIDER !== 'bot') {
       return;
@@ -58,7 +58,7 @@ export class DealPostMonitorService {
     }
   }
 
-  async   handleEditedChannelPost(payload: {
+  async handleEditedChannelPost(payload: {
     chatId?: string | number | null;
     username?: string | null;
     messageId: string | number;
