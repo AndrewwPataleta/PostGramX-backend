@@ -174,19 +174,19 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     }
 
     MtprotoClientService.sharedClient.addEventHandler((update: any) => {
-      if (update instanceof Api.UpdateEditChannelMessage) {
+      if (this.isApiUpdate(update, 'UpdateEditChannelMessage')) {
         this.logger.debug(
           `MTProto update: edited channel message ${update.message.id}`,
         );
       }
 
-      if (update instanceof Api.UpdateDeleteChannelMessages) {
+      if (this.isApiUpdate(update, 'UpdateDeleteChannelMessages')) {
         this.logger.debug(
           `MTProto update: deleted channel messages ${update.messages.join(',')}`,
         );
       }
 
-      if (update instanceof Api.UpdateChannelPinnedMessage) {
+      if (this.isApiUpdate(update, 'UpdateChannelPinnedMessage')) {
         this.logger.debug(
           `MTProto update: pinned message changed in channel ${update.channelId}`,
         );
@@ -194,6 +194,17 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     }, new Raw({}));
 
     MtprotoClientService.updatesBound = true;
+  }
+
+  private isApiUpdate(update: any, updateType: string): boolean {
+    const ApiType = Api?.[updateType];
+    const canUseInstanceof = typeof ApiType === 'function';
+
+    if (canUseInstanceof && update instanceof ApiType) {
+      return true;
+    }
+
+    return update?.className === updateType;
   }
 
   private mapMessage(message: GramMessage): MtprotoChannelMessage {
@@ -252,7 +263,6 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   }
 
   private validateConfig(): void {
-
     if (!MTPROTO_MONITOR_CONFIG.API_ID) {
       throw new Error('MTPROTO_API_ID_MISSING');
     }
