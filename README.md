@@ -126,18 +126,127 @@ Backend:
 - TON libraries (`@ton/ton`)
 - Telegram bot and MTProto integrations
 
-## Run locally
+## Launch
+
+### 1) Install dependencies
 
 ```bash
 npm install
-npm run start:local
 ```
 
-Build check:
+### 2) Select runtime environment (`NODE_ENV`)
+
+The backend loads env files in this order:
+
+1. `.env` (if exists)
+2. `.env.<NODE_ENV>` with override enabled
+
+Default env is `local`, so without extra settings it will use `.env.local`.
+
+- `NODE_ENV=local` → `.env.local`
+- `NODE_ENV=stage` → `.env.stage`
+- `NODE_ENV=production` → `.env.production`
+
+### 3) Fill key env values (what is required and where to get it)
+
+Below are the most important secrets/configs for a real local launch.
+
+#### Database
+
+- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+- Source: your local PostgreSQL instance (or dev DB provided by your team)
+
+#### Telegram Bot
+
+- `BOT_TOKEN`: create via [@BotFather](https://t.me/BotFather)
+- `TELEGRAM_BOT_USERNAME`: bot username without `@`
+- `TELEGRAM_SUPPORT_URL`: support chat/user link (optional but recommended)
+
+#### MTProto (for post verification via `mtproto` provider)
+
+- `MTPROTO_API_ID`, `MTPROTO_API_HASH`: create at https://my.telegram.org (`API development tools`)
+- `MTPROTO_PHONE`: phone number of Telegram account used for MTProto auth
+- `MTPROTO_SESSION`: generated session string (see script below)
+
+If you use MTProto verification, keep:
+
+- `TELEGRAM_POST_VERIFY_PROVIDER=mtproto`
+- `MTPROTO_ENABLED=true`
+
+#### TON / escrow / payouts
+
+- `TON_NETWORK` (`testnet` for local/dev)
+- `TONCENTER_RPC` and optionally `TONCENTER_API_KEY` (get API key from toncenter)
+- `HOT_WALLET_ADDRESS`, `HOT_WALLET_MNEMONIC`: hot wallet used for payouts/sweeps
+- `WALLET_MASTER_KEY`: encryption key for wallet-related secrets in DB
+
+### 4) Generate critical secrets locally
+
+#### 4.1 Generate MTProto session
+
+After setting `MTPROTO_API_ID`, `MTPROTO_API_HASH`, `MTPROTO_PHONE` in `.env.local`, run:
+
+```bash
+npm run mtproto:generate-session
+```
+
+The script will ask for login/2FA and print a `MTPROTO_SESSION` string.
+Save this value to `.env.local`.
+
+#### 4.2 Generate / prepare hot wallet
+
+To generate a wallet mnemonic + address for local usage:
+
+```bash
+npx ts-node -r tsconfig-paths/register src/scripts/generate-wallet.ts
+```
+
+Then copy mnemonic/address to:
+
+- `HOT_WALLET_MNEMONIC`
+- `HOT_WALLET_ADDRESS`
+
+If you need to deploy wallet contract (depending on wallet state/network), use:
+
+```bash
+npm run deploy:hot-wallet
+```
+
+#### 4.3 Generate `WALLET_MASTER_KEY`
+
+Use a secure random base64 key, for example:
+
+```bash
+openssl rand -base64 32
+```
+
+Put result into `WALLET_MASTER_KEY`.
+
+### 5) Start backend
+
+```bash
+# local (recommended for development)
+npm run start:local
+
+# stage-like mode
+npm run start:stage
+
+# production env in watch mode
+npm run start:prod
+```
+
+### 6) Build / production run
 
 ```bash
 npm run build
+npm run start:production
 ```
+
+### 7) Security notes for env files
+
+- Never share real `BOT_TOKEN`, mnemonics, API keys, or `WALLET_MASTER_KEY`.
+- Keep production secrets in secret manager / CI vault, not in Git.
+- Use separate wallets and API keys for `local`, `stage`, and `production`.
 
 ## AI usage disclosure
 
