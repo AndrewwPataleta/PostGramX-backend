@@ -29,6 +29,10 @@ const PIN_VIOLATION_REASON = 'PIN_REMOVED_OR_NOT_PINNED';
 @Injectable()
 export class DealPostMtprotoMonitorService {
   private readonly logger = new Logger(DealPostMtprotoMonitorService.name);
+  private readonly monitoredStages = [
+    DealStage.POSTED_VERIFYING,
+    DealStage.DELIVERY_CONFIRMED,
+  ];
 
   constructor(
     private readonly dataSource: DataSource,
@@ -45,10 +49,9 @@ export class DealPostMtprotoMonitorService {
   @Cron(`*/10 * * * * *`)
   async runVerificationCron(): Promise<void> {
     if (!this.mtprotoClientService.isEnabled()) {
-      console.log("disable mtproto")
       return;
     }
-    console.log("run mtproto")
+
     const acquired = await this.tryAdvisoryLock('mtproto:post-verify');
     if (!acquired) {
       return;
@@ -85,7 +88,7 @@ export class DealPostMtprotoMonitorService {
       .innerJoinAndSelect('publication.deal', 'deal')
       .innerJoinAndSelect('deal.channel', 'channel')
       .where('publication.publishedMessageId = :messageId', { messageId })
-      .andWhere('deal.stage = :stage', { stage: DealStage.POSTED_VERIFYING })
+      .andWhere('deal.stage IN (:...stages)', { stages: this.monitoredStages })
       .andWhere('deal.status = :status', { status: DealStatus.ACTIVE })
       .getOne();
 
@@ -109,7 +112,7 @@ export class DealPostMtprotoMonitorService {
     }
 
     if (
-      publication.deal.stage !== DealStage.POSTED_VERIFYING ||
+      !this.monitoredStages.includes(publication.deal.stage) ||
       publication.deal.status !== DealStatus.ACTIVE
     ) {
       return;
@@ -302,7 +305,7 @@ export class DealPostMtprotoMonitorService {
       .innerJoinAndSelect('publication.deal', 'deal')
       .innerJoinAndSelect('deal.channel', 'channel')
       .leftJoin(ListingEntity, 'listing', 'listing.id = deal.listingId')
-      .where('deal.stage = :stage', { stage: DealStage.POSTED_VERIFYING })
+      .where('deal.stage IN (:...stages)', { stages: this.monitoredStages })
       .andWhere('deal.status = :status', { status: DealStatus.ACTIVE })
       .andWhere('publication.status = :publicationStatus', {
         publicationStatus: PublicationStatus.POSTED,
