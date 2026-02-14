@@ -249,7 +249,7 @@ npm run start:production
 
 - Never share real `BOT_TOKEN`, mnemonics, API keys, or `WALLET_MASTER_KEY`.
 - Keep production secrets in secret manager / CI vault, not in Git.
-- Use separate wallets and API keys for `local`, `stage`, and `production`.
+- Use separate wallets and API keys for `local`, `stage` and `production`.
 
 
 ## Legal and repository protection
