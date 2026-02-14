@@ -1,264 +1,103 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# PostGramX Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Open source backend for a Telegram ads marketplace MVP with escrow on TON.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+![NestJS](https://img.shields.io/badge/NestJS-10-red)
+![Node](https://img.shields.io/badge/Node-20-green)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+![TON](https://img.shields.io/badge/TON-Escrow-0088cc)
 
-## Description
+## What this project shows
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Product first two sided marketplace logic
+- Escrow first payment model on TON
+- Deal lifecycle based on explicit states
+- Async posting verification and payout release
+- Backend architecture ready for production growth
 
-## Installation
+## Core concept
 
-```bash
-$ npm install
-```
+The platform is built around one Deal entity.
+A deal links advertiser publisher channel creative escrow and publication.
+This keeps business logic in one flow and avoids split state.
 
-## Running the app
+Main entities:
 
-```bash
-# development
-$ npm run start
+- `DealEntity`
+- `DealCreativeEntity`
+- `DealEscrowEntity`
+- `DealPublicationEntity`
 
-# watch mode
-$ npm run start:dev
+## Deal lifecycle
 
-# production mode
-$ npm run start:prod
-```
+Main stage flow:
 
-## Utility scripts
+`CREATIVE_AWAITING_SUBMIT`
+→ `CREATIVE_AWAITING_CONFIRM`
+→ `SCHEDULING_AWAITING_SUBMIT`
+→ `SCHEDULING_AWAITING_CONFIRM`
+→ `PAYMENT_AWAITING`
+→ `PAYMENT_PARTIALLY_PAID`
+→ `POST_SCHEDULED`
+→ `POST_PUBLISHING`
+→ `POSTED_VERIFYING`
+→ `DELIVERY_CONFIRMED`
+→ `FINALIZED`
 
-### Seed a withdrawable balance for a user
+Cancel and refund path:
 
-This script simulates a completed deal and creates a completed payout transaction so the user
-has a withdrawable balance in the ledger.
+`REFUNDING` → `FINALIZED`
 
-```bash
-# Default amount is 1 TON in nano units
-$ NODE_ENV=local npm run seed:withdrawable-balance -- <userId>
+See full rules in [DEAL_FLOW.md](./DEAL_FLOW.md).
 
-# Specify amount in nano units
-$ NODE_ENV=local npm run seed:withdrawable-balance -- <userId> 2500000000
-```
+## Escrow model
 
+- Advertiser sends funds to escrow deposit address
+- Funds are held before posting is verified
+- Payout is released only after delivery confirmation
+- Refund path is handled by state aware jobs and payment services
 
-### Publish final deal step to Telegram channel
+See details in [SECURITY.md](./SECURITY.md).
 
-Script performs the **final deal publication step** (not just raw message sending):
-- validates publisher access to channel (owner/moderator)
-- creates deal records (`deal`, approved `creative`, `escrow` in `PAID_HELD`, `publication`)
-- publishes message to Telegram channel
-- moves deal to `POSTED_VERIFYING`
+## Telegram analytics and verification
 
-```bash
-NODE_ENV=local npm run telegram:publish-channel-message -- <userId> <channelId> "<text>"
-```
+- Channel and posting data are validated through Telegram services
+- Post monitoring runs in background workers
+- Publication can be marked as edited deleted failed or verified
+- Delivery checks drive settlement and payout eligibility
 
-### Edit deal publication text
+## Documentation map
 
-Script allows another authorized channel user to edit an existing deal publication by:
-- `publicationId` as Telegram `message_id` **or** internal `deal_publications.id`
-- validating editor access (owner/moderator)
-- editing Telegram post text
-- marking publication with `POST_EDITED` to keep deal-monitor flow consistent
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [DEAL_FLOW.md](./DEAL_FLOW.md)
+- [SECURITY.md](./SECURITY.md)
+- [ROADMAP.md](./ROADMAP.md)
 
-```bash
-NODE_ENV=local npm run telegram:edit-channel-publication -- <userId> <publicationId> "<new text>"
-```
+## Tech stack
 
-## Telegram Bot (Polling MVP)
+Backend:
 
-Set the required environment variables before starting the backend:
+- NestJS
+- TypeScript
+- TypeORM
+- PostgreSQL
+- TON libraries (`@ton/ton`)
+- Telegram bot and MTProto integrations
+
+## Run locally
 
 ```bash
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_BOT_USERNAME=Postgramx_bot
-TELEGRAM_MINI_APP_URL=https://t.me/postgramx_bot?startapp=marketplace
-TELEGRAM_MINIAPP_SHORT_NAME=PostgramX
-TELEGRAM_BOT_MODE=polling
-TELEGRAM_WEBHOOK_URL=
-TELEGRAM_ALLOWED_UPDATES=message,callback_query
+npm install
+npm run start:local
 ```
 
-Run the backend locally (the bot will start polling automatically):
+Build check:
 
 ```bash
-pnpm start:dev
+npm run build
 ```
 
-Test the bot in Telegram:
+## AI usage disclosure
 
-1. Open the bot chat.
-2. Send `/start`.
-3. Send `/help`.
-4. Tap “Open Mini App”.
-
-> ⚠️ Polling should run in a single instance. For production, prefer webhooks or a dedicated bot worker.
-
-### Mini App deep links
-
-Deal notifications use the `startapp` payload format `deal_<dealId>`. The Mini App should parse
-`initData.start_param` and route users to `/deals/:id` accordingly.
-Ensure `TELEGRAM_BOT_USERNAME` is set in stage/prod so deep links can open the Mini App directly.
-
-## Test
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Channel linking API
-
-All channel endpoints are prefixed with `/api` in production (for example, `https://postgramx.com/api/channels/preview`).
-
-### Preview channel
-
-```bash
-curl -X POST https://postgramx.com/api/channels/preview \\
-  -H "Content-Type: application/json" \\
-  -d '{"data":{"usernameOrLink":"https://t.me/examplechannel"}}'
-```
-
-### Link channel
-
-```bash
-curl -X POST https://postgramx.com/api/channels/link \\
-  -H "Content-Type: application/json" \\
-  -d '{"data":{"username":"examplechannel"}}'
-```
-
-### Verify channel
-
-```bash
-curl -X POST https://postgramx.com/api/channels/<channelId>/verify
-```
-
-## Payments ledger API
-
-### List transactions
-
-```bash
-curl -X POST http://localhost:8080/payments/transactions/list \\
-  -H "Content-Type: application/json" \\
-  -H "X-Telegram-Mock: true" \\
-  -d '{ "platformType":"telegram", "authType":"telegram", "token":"<initData>", "data": { "page":1, "limit":20 } }'
-```
-
-### Get transaction
-
-```bash
-curl -X POST http://localhost:8080/payments/transactions/<ID> \\
-  -H "Content-Type: application/json" \\
-  -H "X-Telegram-Mock: true" \\
-  -d '{ "platformType":"telegram", "authType":"telegram", "token":"<initData>", "data": {} }'
-```
-
-## Testing TON Payments (MVP)
-
-For the MVP we support TON testnet or mainnet with small-value testing only.
-Recommended wallet: **Tonkeeper** (mobile). Supported wallets include Tonkeeper, Telegram Wallet (if supported), and Tonhub.
-
-### Create a test wallet
-
-1. Install Tonkeeper from the iOS App Store or Google Play.
-2. Create a new wallet and **save your seed phrase securely**.
-3. Do **not** use real funds for MVP testing.
-4. If you are using testnet mode: Tonkeeper → Settings → Network → Testnet.
-
-### Get test TON (testnet)
-
-Use a faucet bot such as: https://t.me/testgiver_ton_bot
-
-1. Open the bot and run `/start`.
-2. Paste your wallet address.
-3. Receive free test TON for testing.
-
-### Connect wallet to the Mini App
-
-The Mini App opens a TonConnect modal. Users must:
-
-1. Approve the connection.
-2. Confirm address sharing.
-
-### Payment flow (MVP)
-
-Current escrow flow:
-
-1. Advertiser creates a deal.
-2. Clicks **Pay**.
-3. Wallet opens via TonConnect.
-4. User sends TON to the generated escrow address.
-5. Backend waits for on-chain confirmation.
-6. After post verification, funds are released.
-
-### Important warnings
-
-- MVP environment — **do not** send large amounts.
-- Payments are not production-hardened yet.
-- Refunds or manual recovery may be required.
-- Always use testnet or minimal TON.
-
-### Environment configuration
-
-```bash
-TON_NETWORK=testnet
-TON_HOT_WALLET_ADDRESS=EQBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TON_API_PROVIDER=toncenter
-```
-
-Notes:
-
-- The hot wallet is only for aggregation/settlement.
-- Deal wallets should be generated per deal (recommended).
-
-### Deploy hot wallet
-
-Use the deployment script to broadcast the initial deploy transaction once the hot wallet address
-has been funded. The script prints the wallet address, balance, and state.
-
-```bash
-HOT_WALLET_MNEMONIC="word1 word2 ... word24" \
-TONCENTER_RPC="https://toncenter.com/api/v2/jsonRPC" \
-TONCENTER_API_KEY="your_key" \
-npm run deploy:hot-wallet
-```
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
+Part of the codebase was generated with AI assistance.
+All generated parts were manually reviewed and adjusted to match domain logic and architecture.
