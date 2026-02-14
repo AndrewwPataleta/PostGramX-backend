@@ -32,15 +32,25 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   private static updatesBound = false;
 
   private readonly logger = new Logger(MtprotoClientService.name);
+  private disabledByAuthKeyDuplication = false;
 
   async onModuleInit(): Promise<void> {
     if (!this.isEnabled()) {
       return;
     }
 
-    await this.withRetry(async () => {
-      await this.ensureConnected();
-    }, 'ensureConnected(onModuleInit)');
+    try {
+      await this.withRetry(async () => {
+        await this.ensureConnected();
+      }, 'ensureConnected(onModuleInit)');
+    } catch (error) {
+      if (this.isAuthKeyDuplicatedError(error)) {
+        await this.handleAuthKeyDuplication();
+        return;
+      }
+
+      throw error;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -65,6 +75,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   isEnabled(): boolean {
     return (
       MTPROTO_MONITOR_CONFIG.ENABLED &&
+      !this.disabledByAuthKeyDuplication &&
       MTPROTO_MONITOR_CONFIG.PROVIDER === 'mtproto'
     );
   }
@@ -73,6 +84,10 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     peer: string,
     messageId: number,
   ): Promise<MtprotoChannelMessage | null> {
+    if (!this.isEnabled()) {
+      return null;
+    }
+
     return this.withRetry(async () => {
       const client = await this.getConnectedClient();
       const messages = await client.getMessages(peer, {
@@ -89,6 +104,10 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getPinnedMessage(peer: string): Promise<number | null> {
+    if (!this.isEnabled()) {
+      return null;
+    }
+
     return this.withRetry(async () => {
       const client = await this.getConnectedClient();
       const channel = await client.getEntity(peer);
@@ -104,6 +123,10 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     peer: string,
     aroundMessageId: number,
   ): Promise<MtprotoChannelMessage[]> {
+    if (!this.isEnabled()) {
+      return [];
+    }
+
     return this.withRetry(async () => {
       const client = await this.getConnectedClient();
       const ids = Array.from(
@@ -254,6 +277,11 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.withRequestTimeout(operation(), operationName);
     } catch (error) {
+      if (this.isAuthKeyDuplicatedError(error)) {
+        await this.handleAuthKeyDuplication();
+        throw error;
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.warn(
@@ -315,5 +343,23 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
     if (!MTPROTO_MONITOR_CONFIG.SESSION) {
       throw new Error('MTPROTO_SESSION_MISSING');
     }
+  }
+
+  private isAuthKeyDuplicatedError(error: unknown): boolean {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error ?? '');
+    return errorMessage.includes('AUTH_KEY_DUPLICATED');
+  }
+
+  private async handleAuthKeyDuplication(): Promise<void> {
+    if (this.disabledByAuthKeyDuplication) {
+      return;
+    }
+
+    this.disabledByAuthKeyDuplication = true;
+    this.logger.error(
+      'MTProto disabled: AUTH_KEY_DUPLICATED. Use a unique MTPROTO_SESSION per running instance and regenerate the session if needed.',
+    );
+    await this.onModuleDestroy();
   }
 }
