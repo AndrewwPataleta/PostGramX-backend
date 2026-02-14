@@ -81,7 +81,10 @@ export class DealPostingWorker {
   async handleVerificationCron(): Promise<void> {
     const now = new Date();
     const deals = await this.dealRepository.find({
-      where: { stage: DealStage.POSTED_VERIFYING },
+      where: [
+        { stage: DealStage.POSTED_VERIFYING },
+        { stage: DealStage.DELIVERY_CONFIRMED },
+      ],
     });
 
     this.logger.log(
