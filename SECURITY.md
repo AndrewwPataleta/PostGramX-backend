@@ -7,6 +7,37 @@
 - Refund path is explicit and tied to deal and escrow states
 - Payment and payout logic is built for safe retries
 
+## Escrow status diagram
+
+```mermaid
+stateDiagram-v2
+  [*] --> CREATED
+  CREATED --> AWAITING_PAYMENT: deal enters payment stage
+  AWAITING_PAYMENT --> PAID_PARTIAL: first transfer below required amount
+  PAID_PARTIAL --> AWAITING_PAYMENT: waiting remaining amount
+  AWAITING_PAYMENT --> PAID_HELD: full amount confirmed
+  PAID_PARTIAL --> FAILED: payment deadline reached
+  AWAITING_PAYMENT --> FAILED: payment deadline reached
+  PAID_HELD --> PAYOUT_PENDING: delivery confirmed and payout requested
+  PAYOUT_PENDING --> PAID_OUT: payout transaction completed
+  PAID_HELD --> REFUND_PENDING: cancel or moderation event
+  REFUND_PENDING --> REFUNDED: refund transaction completed
+```
+
+Mermaid source: `docs/diagrams/escrow-status-flow.mmd`
+
+## Escrow statuses and purpose
+
+- `CREATED` reserve escrow row for deal and lock expected amount
+- `AWAITING_PAYMENT` wait for on chain payment to deposit address
+- `PAID_PARTIAL` store partial amount and keep payment window open
+- `PAID_HELD` full amount is confirmed and funds stay locked
+- `PAYOUT_PENDING` payout release is requested and tx is in progress
+- `PAID_OUT` payout finished and escrow is settled
+- `REFUND_PENDING` refund is requested after cancel or failure
+- `REFUNDED` refund finished and escrow is settled
+- `FAILED` payment window expired or unrecoverable payment path
+
 ## Wallet responsibilities
 
 Hot wallet is used for operational transfers only.

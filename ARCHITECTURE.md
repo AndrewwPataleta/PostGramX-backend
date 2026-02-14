@@ -18,6 +18,44 @@ Main modules:
 - `telegram-mtproto`
 - `post-analytics`
 
+## Component diagram
+
+```mermaid
+flowchart LR
+  subgraph Telegram
+    MA[Mini App UI]
+    BOT[Telegram Bot]
+    CH[Telegram Channel]
+  end
+
+  subgraph Backend[NestJS Backend]
+    API[HTTP API]
+    DEALS[Deals Service]
+    ESCROW[Escrow Service]
+    POSTING[Auto Posting Service]
+    STATS[Telegram Stats Service]
+    JOBS[Cron Workers]
+  end
+
+  subgraph Infra
+    PG[(PostgreSQL)]
+    TON[TON Blockchain]
+  end
+
+  MA --> API
+  BOT --> API
+  API --> DEALS
+  DEALS --> PG
+  DEALS --> ESCROW
+  ESCROW --> TON
+  POSTING --> CH
+  STATS --> CH
+  JOBS --> DEALS
+  JOBS --> POSTING
+```
+
+Mermaid source: `docs/diagrams/system-architecture.mmd`
+
 ## Why NestJS
 
 - Clear module boundaries

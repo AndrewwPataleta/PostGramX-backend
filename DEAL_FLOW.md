@@ -19,6 +19,72 @@
 13. `REFUNDING`
 14. `FINALIZED`
 
+## Lifecycle diagram
+
+```mermaid
+stateDiagram-v2
+  [*] --> CREATIVE_AWAITING_SUBMIT
+
+  CREATIVE_AWAITING_SUBMIT --> CREATIVE_AWAITING_CONFIRM: publisher submits creative
+  CREATIVE_AWAITING_CONFIRM --> CREATIVE_AWAITING_FOR_CHANGES: advertiser requests edits
+  CREATIVE_AWAITING_FOR_CHANGES --> CREATIVE_AWAITING_CONFIRM: publisher resubmits creative
+  CREATIVE_AWAITING_CONFIRM --> SCHEDULING_AWAITING_SUBMIT: advertiser approves creative
+
+  SCHEDULING_AWAITING_SUBMIT --> SCHEDULING_AWAITING_CONFIRM: publisher submits schedule
+  SCHEDULING_AWAITING_CONFIRM --> SCHEDULE_AWAITING_FOR_CHANGES: advertiser requests schedule updates
+  SCHEDULE_AWAITING_FOR_CHANGES --> SCHEDULING_AWAITING_CONFIRM: publisher resubmits schedule
+  SCHEDULING_AWAITING_CONFIRM --> PAYMENT_AWAITING: advertiser approves schedule
+
+  PAYMENT_AWAITING --> PAYMENT_PARTIALLY_PAID: partial on chain payment
+  PAYMENT_PARTIALLY_PAID --> PAYMENT_AWAITING: waiting remaining amount
+  PAYMENT_AWAITING --> POST_SCHEDULED: escrow funded
+
+  POST_SCHEDULED --> POST_PUBLISHING: publication worker starts
+  POST_PUBLISHING --> POSTED_VERIFYING: post sent to channel
+  POSTED_VERIFYING --> DELIVERY_CONFIRMED: post verified
+  DELIVERY_CONFIRMED --> FINALIZED: payout completed
+
+  PAYMENT_AWAITING --> REFUNDING: payment timeout
+  POST_SCHEDULED --> REFUNDING: canceled before post
+  REFUNDING --> FINALIZED: refund completed
+```
+
+Mermaid source: `docs/diagrams/deal-lifecycle.mmd`
+
+## Escrow and auto posting sequence
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Adv as Advertiser
+  participant API as Backend API
+  participant TON as TON Chain
+  participant Bot as Posting Worker
+  participant Ch as Telegram Channel
+
+  Adv->>API: create deal request
+  API-->>Adv: deal in creative stage
+
+  Adv->>API: approve terms
+  API-->>Adv: deposit address and payment deadline
+
+  Adv->>TON: send payment
+  API->>TON: watch escrow address
+  TON-->>API: payment detected
+  API-->>Adv: stage is POST_SCHEDULED
+
+  API-->>Bot: enqueue publish job
+  Bot->>Ch: publish post
+  Ch-->>Bot: message id
+  Bot-->>API: publication created and POSTED_VERIFYING
+
+  API->>Ch: verify message after delay
+  Ch-->>API: verified
+  API-->>API: release payout and finalize
+```
+
+Mermaid source: `docs/diagrams/deal-sequence.mmd`
+
 ## Lifecycle overview
 
 Happy path:

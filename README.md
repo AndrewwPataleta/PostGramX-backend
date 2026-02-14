@@ -15,6 +15,44 @@ Open source backend for a Telegram ads marketplace MVP with escrow on TON.
 - Async posting verification and payout release
 - Backend architecture ready for production growth
 
+## Architecture preview
+
+```mermaid
+flowchart LR
+  subgraph Telegram
+    MA[Mini App UI]
+    BOT[Telegram Bot]
+    CH[Telegram Channel]
+  end
+
+  subgraph Backend[NestJS Backend]
+    API[HTTP API]
+    DEALS[Deals Service]
+    ESCROW[Escrow Service]
+    POSTING[Auto Posting Service]
+    STATS[Telegram Stats Service]
+    JOBS[Cron Workers]
+  end
+
+  subgraph Infra
+    PG[(PostgreSQL)]
+    TON[TON Blockchain]
+  end
+
+  MA --> API
+  BOT --> API
+  API --> DEALS
+  DEALS --> PG
+  DEALS --> ESCROW
+  ESCROW --> TON
+  POSTING --> CH
+  STATS --> CH
+  JOBS --> DEALS
+  JOBS --> POSTING
+```
+
+Source file: `docs/diagrams/system-architecture.mmd`
+
 ## Core concept
 
 The platform is built around one Deal entity.
@@ -48,7 +86,7 @@ Cancel and refund path:
 
 `REFUNDING` → `FINALIZED`
 
-See full rules in [DEAL_FLOW.md](./DEAL_FLOW.md).
+See full rules and diagrams in [DEAL_FLOW.md](./DEAL_FLOW.md).
 
 ## Escrow model
 
@@ -72,6 +110,10 @@ See details in [SECURITY.md](./SECURITY.md).
 - [DEAL_FLOW.md](./DEAL_FLOW.md)
 - [SECURITY.md](./SECURITY.md)
 - [ROADMAP.md](./ROADMAP.md)
+- [docs/diagrams/system-architecture.mmd](./docs/diagrams/system-architecture.mmd)
+- [docs/diagrams/deal-lifecycle.mmd](./docs/diagrams/deal-lifecycle.mmd)
+- [docs/diagrams/deal-sequence.mmd](./docs/diagrams/deal-sequence.mmd)
+- [docs/diagrams/escrow-status-flow.mmd](./docs/diagrams/escrow-status-flow.mmd)
 
 ## Tech stack
 
