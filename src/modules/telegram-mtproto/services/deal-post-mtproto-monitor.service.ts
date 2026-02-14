@@ -22,7 +22,6 @@ import {
   MtprotoClientService,
 } from './mtproto-client.service';
 import { MtprotoPeerResolverService } from './mtproto-peer-resolver.service';
-import {DEAL_DELIVERY_CONFIG} from "../../../config/deal-delivery.config";
 
 const PIN_VIOLATION_REASON = 'PIN_REMOVED_OR_NOT_PINNED';
 
@@ -102,12 +101,19 @@ export class DealPostMtprotoMonitorService {
       return;
     }
 
+    this.logger.debug(
+      `verifyPublishedPost start: publicationId=${publicationId}`,
+    );
+
     const publication = await this.publicationRepository.findOne({
       where: { id: publicationId },
       relations: ['deal', 'deal.channel'],
     });
 
     if (!publication?.deal?.channel || !publication.publishedMessageId) {
+      this.logger.debug(
+        `verifyPublishedPost skip: publication ${publicationId} missing deal/channel/messageId`,
+      );
       return;
     }
 
@@ -115,6 +121,9 @@ export class DealPostMtprotoMonitorService {
       !this.monitoredStages.includes(publication.deal.stage) ||
       publication.deal.status !== DealStatus.ACTIVE
     ) {
+      this.logger.debug(
+        `verifyPublishedPost skip: publication ${publication.id} out of monitored scope (stage=${publication.deal.stage}, status=${publication.deal.status})`,
+      );
       return;
     }
 
@@ -123,6 +132,9 @@ export class DealPostMtprotoMonitorService {
       publication.deal.channel,
     );
     if (!peer) {
+      this.logger.warn(
+        `verifyPublishedPost skip: peer not resolved for publication ${publication.id}`,
+      );
       return;
     }
 
@@ -135,13 +147,26 @@ export class DealPostMtprotoMonitorService {
         messageId,
       );
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (this.isMessageDeletedError(errorMessage)) {
+        this.logger.warn(
+          `verifyPublishedPost detected deleted message via MTProto error for publication ${publication.id}: ${errorMessage}`,
+        );
+        await this.markViolationIfNeeded(publication.id, 'POST_DELETED', now);
+        return;
+      }
+
       this.logger.warn(
-        `MTProto check skipped for publication ${publication.id}: ${error instanceof Error ? error.message : String(error)}`,
+        `verifyPublishedPost skip: MTProto check failed for publication ${publication.id}: ${errorMessage}`,
       );
       return;
     }
 
     if (!message) {
+      this.logger.warn(
+        `verifyPublishedPost detected deleted message: publication=${publication.id}, messageId=${messageId}`,
+      );
       await this.markViolationIfNeeded(publication.id, 'POST_DELETED', now);
       return;
     }
@@ -167,6 +192,9 @@ export class DealPostMtprotoMonitorService {
     }
 
     if (currentHash !== baselineHash) {
+      this.logger.warn(
+        `verifyPublishedPost detected edited message: publication=${publication.id}, messageId=${messageId}, currentHash=${currentHash}, baselineHash=${baselineHash}`,
+      );
       await this.markViolationIfNeeded(
         publication.id,
         DEAL_PUBLICATION_ERRORS.POST_EDITED,
@@ -179,6 +207,10 @@ export class DealPostMtprotoMonitorService {
       lastVerifiedAt: now,
       lastCheckedAt: now,
     });
+
+    this.logger.debug(
+      `verifyPublishedPost success: publication=${publication.id}, messageId=${messageId}`,
+    );
 
     await this.verifyPinIfRequired(publication, peer, now);
   }
@@ -280,6 +312,9 @@ export class DealPostMtprotoMonitorService {
     });
 
     if (!publication || publication.error === errorCode) {
+      this.logger.debug(
+        `markViolationIfNeeded skip: publication=${publicationId}, existingError=${publication?.error ?? 'none'}, requestedError=${errorCode}`,
+      );
       return;
     }
 
@@ -289,6 +324,54 @@ export class DealPostMtprotoMonitorService {
       lastCheckedAt: now,
       lastVerifiedAt: now,
     });
+
+    this.logger.warn(
+      `markViolationIfNeeded applied: publication=${publication.id}, deal=${publication.dealId}, error=${errorCode}`,
+    );
+
+    await this.dealCancelAndRefundService.cancelForPublicationViolation(
+      publication.dealId,
+      errorCode,
+    );
+
+    const deal = await this.dealRepository.findOne({
+      where: { id: publication.dealId },
+    });
+
+    if (!deal) {
+      this.logger.warn(
+        `markViolationIfNeeded skip notifications: deal ${publication.dealId} not found`,
+      );
+      return;
+    }
+
+    if (errorCode === DEAL_PUBLICATION_ERRORS.POST_EDITED) {
+      await this.dealsNotificationsService.notifyPostEditedAdmin(deal);
+      await this.dealsNotificationsService.notifyAdvertiser(
+        deal,
+        'telegram.deal.post.edited_advertiser',
+      );
+      return;
+    }
+
+    if (errorCode === 'POST_DELETED') {
+      await this.dealsNotificationsService.notifyPostDeletedAdmin(deal);
+      await this.dealsNotificationsService.notifyAdvertiser(
+        deal,
+        'telegram.deal.post.deleted_advertiser',
+      );
+    }
+  }
+
+  private isMessageDeletedError(message: string): boolean {
+    const normalized = message.toUpperCase();
+    return (
+      normalized.includes('MESSAGE_ID_INVALID') ||
+      normalized.includes('MESSAGE_ID_INVALID_ERROR') ||
+      normalized.includes('MESSAGE_ID_EMPTY') ||
+      normalized.includes('MSG_ID_INVALID') ||
+      normalized.includes('400')
+    );
   }
 
   private getMessageHash(message: MtprotoChannelMessage): string {
