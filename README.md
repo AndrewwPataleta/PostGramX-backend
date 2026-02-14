@@ -283,12 +283,12 @@ npm run start:production
 4. Use NDA + contractor IP assignment for everyone with source access.
 5. Consider formal copyright registration for stronger enforcement.
 
-## Использование ИИ в проекте
+## AI usage in the project
 
-В разработке проекта частично использовались инструменты ИИ.
-Оценочно вклад ИИ составляет около **20%**.
-В основном это:
+AI tools were used partially during project development.
+Estimated AI contribution is about **20%**.
+Mainly this includes:
 
-- частично скрипты для i18n;
-- шаблонный (boilerplate) код.
+- partial scripts for i18n;
+- template (boilerplate) code.
 
