@@ -18,10 +18,8 @@ export class MtprotoPeerResolverService {
       return cached.peer;
     }
 
-    const candidate =
-      channel.telegramChatId ??
-      (channel.username ? `@${channel.username}` : null);
-    if (!candidate) {
+    const candidate = this.getPeerCandidate(channel);
+    if (candidate === null) {
       return null;
     }
 
@@ -32,5 +30,57 @@ export class MtprotoPeerResolverService {
     });
 
     return candidate;
+  }
+
+  private getPeerCandidate(channel: ChannelEntity): string | null {
+    const normalizedUsername = this.normalizeUsername(channel.username);
+    const normalizedChatId = this.normalizeChannelChatId(
+      channel.telegramChatId,
+    );
+
+    if (normalizedUsername) {
+      return normalizedUsername;
+    }
+
+    if (normalizedChatId) {
+      return normalizedChatId;
+    }
+
+    return null;
+  }
+
+  private normalizeUsername(username?: string | null): string | null {
+    if (!username) {
+      return null;
+    }
+
+    const trimmed = username.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const withoutPrefix = trimmed.replace(/^@+/, '');
+    if (!withoutPrefix) {
+      return null;
+    }
+
+    return `@${withoutPrefix}`;
+  }
+
+  private normalizeChannelChatId(chatId?: string | null): string | null {
+    if (!chatId) {
+      return null;
+    }
+
+    const trimmed = String(chatId).trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (trimmed.startsWith('-100')) {
+      return trimmed;
+    }
+
+    return null;
   }
 }
