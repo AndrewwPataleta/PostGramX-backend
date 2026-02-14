@@ -138,8 +138,3 @@ Build check:
 ```bash
 npm run build
 ```
-
-## AI usage disclosure
-
-Part of the codebase was generated with AI assistance.
-All generated parts were manually reviewed and adjusted to match domain logic and architecture.
