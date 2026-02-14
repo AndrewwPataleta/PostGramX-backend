@@ -86,7 +86,7 @@ export class FeesConfigService {
 
     buildSeedConfig(): FeesConfig {
         return {
-            feesEnabled: this.readBoolean('FEES_ENABLED', true),
+            feesEnabled: this.readBoolean('FEES_ENABLED', false),
             payoutUserReceivesFullAmount: this.readBoolean(
                 'PAYOUT_USER_RECEIVES_FULL_AMOUNT',
                 true,
