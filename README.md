@@ -104,6 +104,12 @@ See details in [SECURITY.md](./SECURITY.md).
 - Publication can be marked as edited deleted failed or verified
 - Delivery checks drive settlement and payout eligibility
 
+## i18n support
+
+- Built in localization is enabled via `nestjs-i18n`
+- Currently supported languages: English (`en`) and Russian (`ru`)
+- Translation resources are stored in `src/i18n/en` and `src/i18n/ru`
+
 ## Documentation map
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
