@@ -21,6 +21,7 @@ export interface MtprotoChannelMessage {
   text: string | null;
   mediaUniqueId: string | null;
   entitiesSignature: string | null;
+  views: number | null;
 }
 
 @Injectable()
@@ -213,6 +214,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
       text: message.message ?? null,
       mediaUniqueId: this.extractMediaUniqueId(message),
       entitiesSignature: this.extractEntitiesSignature(message),
+      views: typeof message.views === 'number' ? message.views : null,
     };
   }
 

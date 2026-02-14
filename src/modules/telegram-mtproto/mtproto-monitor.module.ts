@@ -17,6 +17,6 @@ import { DealsModule } from '../deals/deals.module';
     MtprotoPeerResolverService,
     DealPostMtprotoMonitorService,
   ],
-  exports: [DealPostMtprotoMonitorService],
+  exports: [DealPostMtprotoMonitorService, MtprotoClientService],
 })
 export class MtprotoMonitorModule {}
