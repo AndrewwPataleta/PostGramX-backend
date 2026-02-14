@@ -1,3 +1,7 @@
+import { loadEnvConfig } from '../../config/env';
+
+loadEnvConfig();
+
 const normalizeEnvValue = (value: string | undefined): string | undefined => {
   if (value === undefined) {
     return undefined;
@@ -35,8 +39,8 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
 };
 
 export const MTPROTO_MONITOR_CONFIG = {
-  ENABLED:process.env.MTPROTO_ENABLED,
-  API_ID: process.env.MTPROTO_API_ID,
+  ENABLED: parseBoolean(process.env.MTPROTO_ENABLED, false),
+  API_ID: parseNumber(process.env.MTPROTO_API_ID, 0),
   API_HASH: normalizeEnvValue(process.env.MTPROTO_API_HASH) ?? '',
   SESSION: normalizeEnvValue(process.env.MTPROTO_SESSION) ?? '',
   PHONE: normalizeEnvValue(process.env.MTPROTO_PHONE) ?? '',
