@@ -282,3 +282,13 @@ npm run start:production
 3. Limit collaborator access by least-privilege roles.
 4. Use NDA + contractor IP assignment for everyone with source access.
 5. Consider formal copyright registration for stronger enforcement.
+
+## Использование ИИ в проекте
+
+В разработке проекта частично использовались инструменты ИИ.
+Оценочно вклад ИИ составляет около **20%**.
+В основном это:
+
+- частично скрипты для i18n;
+- шаблонный (boilerplate) код.
+
