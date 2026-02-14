@@ -1,6 +1,6 @@
 # PostGramX Backend
 
-Open source backend for a Telegram ads marketplace MVP with escrow on TON.
+Backend for a Telegram ads marketplace MVP with escrow on TON. This repository contains proprietary software.
 
 ![NestJS](https://img.shields.io/badge/NestJS-10-red)
 ![Node](https://img.shields.io/badge/Node-20-green)
@@ -247,6 +247,32 @@ npm run start:production
 - Never share real `BOT_TOKEN`, mnemonics, API keys, or `WALLET_MASTER_KEY`.
 - Keep production secrets in secret manager / CI vault, not in Git.
 - Use separate wallets and API keys for `local`, `stage`, and `production`.
+
+
+## Legal and repository protection
+
+### License and ownership
+
+- Copyright (c) 2026 PatStudio LLC. All rights reserved.
+- This codebase is **proprietary / closed-source** (not open-source).
+- No one may use, copy, modify, or distribute this code without written permission from PatStudio LLC.
+
+### GitHub visibility and access
+
+- GitHub hosting does **not** automatically make a project open-source.
+- Keep the repository **Private** for commercial core logic whenever possible.
+- If needed, split architecture into:
+  - private core backend
+  - public SDK/API clients
+  - public docs
+
+### Practical legal hardening checklist
+
+1. Add a proprietary `LICENSE` file (included in this repo).
+2. Keep a clear copyright notice in README and release artifacts.
+3. Limit collaborator access by least-privilege roles.
+4. Use NDA + contractor IP assignment for everyone with source access.
+5. Consider formal copyright registration for stronger enforcement.
 
 ## AI usage disclosure
 
