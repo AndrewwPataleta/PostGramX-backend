@@ -104,6 +104,12 @@ See details in [SECURITY.md](./SECURITY.md).
 - Publication can be marked as edited deleted failed or verified
 - Delivery checks drive settlement and payout eligibility
 
+## i18n support
+
+- Built in localization is enabled via `nestjs-i18n`
+- Currently supported languages: English (`en`) and Russian (`ru`)
+- Translation resources are stored in `src/i18n/en` and `src/i18n/ru`
+
 ## Documentation map
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -276,3 +282,13 @@ npm run start:production
 3. Limit collaborator access by least-privilege roles.
 4. Use NDA + contractor IP assignment for everyone with source access.
 5. Consider formal copyright registration for stronger enforcement.
+
+## AI usage in the project
+
+AI tools were used partially during project development.
+Estimated AI contribution is about **20%**.
+Mainly this includes:
+
+- partial scripts for i18n;
+- template (boilerplate) code.
+
