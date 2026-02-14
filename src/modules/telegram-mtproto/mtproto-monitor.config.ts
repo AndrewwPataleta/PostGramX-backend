@@ -47,8 +47,7 @@ export const MTPROTO_MONITOR_CONFIG = {
   API_HASH: normalizeEnvValue(process.env.MTPROTO_API_HASH) ?? '',
   SESSION: normalizeEnvValue(process.env.MTPROTO_SESSION) ?? '',
   PHONE: normalizeEnvValue(process.env.MTPROTO_PHONE) ?? '',
-  POLL_CRON:
-    normalizeEnvValue(process.env.MTPROTO_POLL_CRON) ?? '*/30 * * * * *',
+  POLL_CRON: normalizeEnvValue(process.env.MTPROTO_POLL_CRON) ?? '* * * * *',
   MAX_PARALLEL: parseNumber(process.env.MTPROTO_MAX_PARALLEL, 5),
   PROVIDER:
     normalizeEnvValue(process.env.TELEGRAM_POST_VERIFY_PROVIDER) ?? 'mtproto',
