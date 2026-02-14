@@ -78,6 +78,7 @@
       "post_not_published_admin": "<b>Deal completed</b>: post was not published.\n<b>Channel:</b> {channel}\n<b>Deal:</b> <code>{dealId}</code>",
       "post_published_admin": "<b>Post published</b>.\nAttention: if the post is deleted before the deadline or edited, the advertiser will receive a refund.",
       "deal_completed_admin": "Deal completed successfully.\nChannel: {channel}\nDeal: {dealId}\nChannel balance topped up: {amount} {currency}.\nYou can withdraw in the app.",
+      "deal_completed_admin_stats": "Completed publication stats.\nChannel: {channel}\nDeal: {dealId}\nPost views: {views}\nTracked links: {trackedChannels}\nSubscribers gained: {subscribersDelta}",
       "post_delete_failed_admin": "Publication completed, but the post could not be deleted automatically.\nChannel: {channel}\nDeal: {dealId}\nPlease delete the post manually.",
       "post_deleted_admin": "Deal canceled: post was deleted.\nChannel: {channel}\nDeal: {dealId}\nRefund initiated.",
       "post_edited_admin": "Deal canceled: post was edited.\nChannel: {channel}\nDeal: {dealId}\nRefund initiated.",
@@ -102,6 +103,7 @@
       "edited_advertiser": "Post was edited by the channel. Deal canceled and refund initiated. Open the app to withdraw.",
       "completed_advertiser": "Advertising completed successfully. History has been saved.",
       "completed_advertiser_with_amount": "Publication completed successfully.\nAmount for this post: {amount} {currency}.\nHistory has been saved.",
+      "completed_stats_advertiser": "Completed publication stats.\nPost views: {views}\nTracked links: {trackedChannels}\nSubscribers gained: {subscribersDelta}",
       "published": "<b>Post published</b>. We will verify delivery.\nThe post must remain until {mustRemainUntil}.\nWe will monitor the conditions and the post.\nIf the post is deleted earlier, we will refund the funds to your wallet.",
       "delivery_confirmed": "<b>Delivery confirmed</b>. Funds released.",
       "check_unavailable_advertiser": "<b>Deal canceled</b>: the bot does not have enough rights to verify the post.\nRefund initiated. Open the app to withdraw funds."

@@ -380,6 +380,29 @@ export class DealPostingWorker {
       deleteMessage ? 'WINDOW_ENDED' : 'AUTO_COMPLETED',
     );
 
+    const analytics = await this.postAnalyticsService.getDealAnalytics(deal.id);
+    if (analytics) {
+      const subscribersDelta = analytics.links.reduce(
+        (sum, link) => sum + (link.subscribersDelta ?? 0),
+        0,
+      );
+
+      await this.dealsNotificationsService.notifyDealCompletedStatsAdvertiser(
+        deal,
+        {
+          views: analytics.finalViews,
+          trackedChannels: analytics.links.length,
+          subscribersDelta,
+        },
+      );
+
+      await this.dealsNotificationsService.notifyDealCompletedStatsAdmin(deal, {
+        views: analytics.finalViews,
+        trackedChannels: analytics.links.length,
+        subscribersDelta,
+      });
+    }
+
     const escrow = await this.escrowRepository.findOne({
       where: { dealId: deal.id },
     });

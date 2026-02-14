@@ -28,6 +28,12 @@ const NOTIFICATION_CONCURRENCY = 5;
 
 type DealActionReason = 'verification' | 'approval' | 'payment' | 'publish';
 
+type DealCompletionStatsPayload = {
+  views: number | null;
+  trackedChannels: number;
+  subscribersDelta: number;
+};
+
 @Injectable()
 export class DealsNotificationsService {
   private readonly logger = new Logger(DealsNotificationsService.name);
@@ -849,6 +855,39 @@ export class DealsNotificationsService {
     );
   }
 
+  async notifyDealCompletedStatsAdvertiser(
+    deal: DealEntity,
+    stats: DealCompletionStatsPayload,
+  ): Promise<void> {
+    await this.notifyAdvertiser(
+      deal,
+      'telegram.deal.post.completed_stats_advertiser',
+      {
+        views: this.formatOptionalStat(stats.views),
+        trackedChannels: stats.trackedChannels,
+        subscribersDelta: stats.subscribersDelta,
+      },
+    );
+  }
+
+  async notifyDealCompletedStatsAdmin(
+    deal: DealEntity,
+    stats: DealCompletionStatsPayload,
+  ): Promise<void> {
+    await this.notifyDeal(
+      deal,
+      {
+        type: 'DEAL_COMPLETED_STATS',
+        messageKey: 'telegram.deal.notification.deal_completed_admin_stats',
+      },
+      {
+        views: this.formatOptionalStat(stats.views),
+        trackedChannels: stats.trackedChannels,
+        subscribersDelta: stats.subscribersDelta,
+      },
+    );
+  }
+
   private async notifyDeal(
     deal: DealEntity,
     payload: { type: string; messageKey: string; reasonKey?: string },
@@ -1325,5 +1364,13 @@ export class DealsNotificationsService {
     });
 
     await Promise.all(workers);
+  }
+
+  private formatOptionalStat(value: number | null): string {
+    if (value === null || Number.isNaN(value)) {
+      return '-';
+    }
+
+    return String(value);
   }
 }
