@@ -135,6 +135,8 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureConnected(): Promise<void> {
+
+
     this.validateConfig();
 
     if (!MtprotoClientService.sharedClient) {

@@ -22,6 +22,7 @@ import {
   MtprotoClientService,
 } from './mtproto-client.service';
 import { MtprotoPeerResolverService } from './mtproto-peer-resolver.service';
+import {DEAL_DELIVERY_CONFIG} from "../../../config/deal-delivery.config";
 
 const PIN_VIOLATION_REASON = 'PIN_REMOVED_OR_NOT_PINNED';
 
@@ -41,12 +42,13 @@ export class DealPostMtprotoMonitorService {
     private readonly dealCancelAndRefundService: DealCancelAndRefundService,
   ) {}
 
-  @Cron(MTPROTO_MONITOR_CONFIG.POLL_CRON)
+  @Cron(`*/10 * * * * *`)
   async runVerificationCron(): Promise<void> {
     if (!this.mtprotoClientService.isEnabled()) {
+      console.log("disable mtproto")
       return;
     }
-
+    console.log("run mtproto")
     const acquired = await this.tryAdvisoryLock('mtproto:post-verify');
     if (!acquired) {
       return;

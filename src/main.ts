@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 
+import 'dotenv/config'
 import {loadEnvConfig} from './config/env';
 import {json, urlencoded} from 'express';
 import {Logger, VersioningType} from '@nestjs/common';
