@@ -114,7 +114,6 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function processMode(mode: Mode): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { AppDataSource } = require('../database/datasource');
 
     const endpoint = getRequiredEnv('TONCENTER_RPC');

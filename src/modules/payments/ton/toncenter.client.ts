@@ -24,7 +24,6 @@ export class TonCenterClient {
           params,
         });
 
-        // toncenter v2 обычно возвращает { ok: true, result: ... }
         if (data?.ok === false) {
           throw new Error(`TONCENTER error: ${JSON.stringify(data.error)}`);
         }
