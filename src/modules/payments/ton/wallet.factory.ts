@@ -4,11 +4,11 @@ import {WalletContractV4} from '@ton/ton';
 import {Address} from '@ton/ton';
 
 export type CreatedDealWallet = {
-    mnemonic: string[];      // 24 words (СЕКРЕТ)
+    mnemonic: string[];
     publicKeyHex: string;
     secretKeyHex: string;
-    address: string;         // user-visible
-    addressRaw: Address;     // for internal use
+    address: string;
+    addressRaw: Address;
 };
 
 function toHex(bytes: Uint8Array) {
