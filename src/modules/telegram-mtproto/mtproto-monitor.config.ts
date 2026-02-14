@@ -15,7 +15,10 @@ const normalizeEnvValue = (value: string | undefined): string | undefined => {
   return trimmed.replace(/^['\"]|['\"]$/g, '');
 };
 
-const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+const parseBoolean = (
+  value: string | undefined,
+  fallback: boolean,
+): boolean => {
   const normalizedValue = normalizeEnvValue(value);
   if (normalizedValue === undefined) {
     return fallback;
@@ -50,4 +53,5 @@ export const MTPROTO_MONITOR_CONFIG = {
   PROVIDER:
     normalizeEnvValue(process.env.TELEGRAM_POST_VERIFY_PROVIDER) ?? 'mtproto',
   PEER_CACHE_MINUTES: parseNumber(process.env.MTPROTO_PEER_CACHE_MINUTES, 10),
+  REQUEST_TIMEOUT_MS: parseNumber(process.env.MTPROTO_REQUEST_TIMEOUT_MS, 8000),
 };
