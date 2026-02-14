@@ -40,7 +40,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
 
     await this.withRetry(async () => {
       await this.ensureConnected();
-    });
+    }, 'ensureConnected(onModuleInit)');
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -85,7 +85,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
       }
 
       return this.mapMessage(message);
-    });
+    }, `getChannelMessage(peer=${peer}, messageId=${messageId})`);
   }
 
   async getPinnedMessage(peer: string): Promise<number | null> {
@@ -97,7 +97,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
       );
 
       return Number(fullChannel.fullChat?.pinnedMsgId ?? 0) || null;
-    });
+    }, `getPinnedMessage(peer=${peer})`);
   }
 
   async getChannelHistorySlice(
@@ -118,7 +118,7 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
         )
         .sort((a: GramMessage, b: GramMessage) => a.id - b.id)
         .map((message: GramMessage) => this.mapMessage(message));
-    });
+    }, `getChannelHistorySlice(peer=${peer}, aroundMessageId=${aroundMessageId})`);
   }
 
   private async getConnectedClient(): Promise<TelegramClientInstance> {
@@ -135,8 +135,6 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureConnected(): Promise<void> {
-
-
     this.validateConfig();
 
     if (!MtprotoClientService.sharedClient) {
@@ -250,11 +248,18 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
 
   private async withRetry<T>(
     operation: () => Promise<T>,
+    operationName: string,
     attempt = 0,
   ): Promise<T> {
     try {
-      return await operation();
+      return await this.withRequestTimeout(operation(), operationName);
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `MTProto operation failed: ${operationName}, attempt=${attempt + 1}, error=${errorMessage}`,
+      );
+
       if (attempt >= 2) {
         throw error;
       }
@@ -262,7 +267,39 @@ export class MtprotoClientService implements OnModuleInit, OnModuleDestroy {
       const delayMs = 250 * (attempt + 1);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       await this.ensureConnected();
-      return this.withRetry(operation, attempt + 1);
+      return this.withRetry(operation, operationName, attempt + 1);
+    }
+  }
+
+  private async withRequestTimeout<T>(
+    promise: Promise<T>,
+    operationName: string,
+  ): Promise<T> {
+    const timeoutMs = MTPROTO_MONITOR_CONFIG.REQUEST_TIMEOUT_MS;
+
+    if (!timeoutMs || timeoutMs <= 0) {
+      return promise;
+    }
+
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(
+              new Error(
+                `MTPROTO_REQUEST_TIMEOUT: ${operationName} exceeded ${timeoutMs}ms`,
+              ),
+            );
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
     }
   }
 
