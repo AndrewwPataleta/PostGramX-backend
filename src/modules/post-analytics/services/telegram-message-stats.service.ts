@@ -1,71 +1,57 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TelegramApiService } from '../../../core/telegram-api.service';
-
-interface TelegramApiResponse<T> {
-  ok: boolean;
-  result?: T;
-}
-
-interface TelegramMessageResult {
-  views?: number;
-}
+import { MtprotoClientService } from '../../telegram-mtproto/services/mtproto-client.service';
 
 @Injectable()
 export class TelegramMessageStatsService {
   private readonly logger = new Logger(TelegramMessageStatsService.name);
-  private readonly apiBaseUrl: string;
 
-  constructor(private readonly telegramApiService: TelegramApiService) {
-    this.apiBaseUrl = this.telegramApiService.getApiBaseUrl();
-  }
+  constructor(private readonly mtprotoClientService: MtprotoClientService) {}
 
   async getMessageViews(
     telegramChatId: string,
     messageId: string,
   ): Promise<number | null> {
+    if (!this.mtprotoClientService.isEnabled()) {
+      this.logger.warn(
+        `MTProto is disabled, unable to fetch views for chat=${telegramChatId} message=${messageId}`,
+      );
+      return null;
+    }
+
+    const numericMessageId = Number(messageId);
+    if (!Number.isInteger(numericMessageId) || numericMessageId <= 0) {
+      this.logger.warn(
+        `Invalid message id for MTProto views chat=${telegramChatId} message=${messageId}`,
+      );
+      return null;
+    }
+
     try {
-      const url = `${this.apiBaseUrl}/getMessage`;
-      const body = new URLSearchParams({
-        chat_id: telegramChatId,
-        message_id: messageId,
-      });
       this.logger.debug(
-        `Telegram API request getMessage views: chat=${telegramChatId} message=${messageId}`,
+        `MTProto request getMessage views: chat=${telegramChatId} message=${numericMessageId}`,
       );
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-      });
-
-      this.logger.debug(
-        `Telegram API response getMessage views: HTTP ${response.status} for chat=${telegramChatId} message=${messageId}`,
+      const message = await this.mtprotoClientService.getChannelMessage(
+        telegramChatId,
+        numericMessageId,
       );
 
-      if (!response.ok) {
+      if (!message) {
         this.logger.warn(
-          `Telegram API getMessage views failed with HTTP ${response.status} for chat=${telegramChatId} message=${messageId}`,
+          `MTProto getMessage views returned empty result for chat=${telegramChatId} message=${numericMessageId}`,
         );
         return null;
       }
 
-      const payload =
-        (await response.json()) as TelegramApiResponse<TelegramMessageResult>;
-      if (!payload.ok || !payload.result) {
-        this.logger.warn(
-          `Telegram API getMessage views returned empty result for chat=${telegramChatId} message=${messageId}`,
-        );
-        return null;
-      }
+      this.logger.debug(
+        `MTProto response getMessage views: chat=${telegramChatId} message=${numericMessageId} views=${message.views ?? 'null'}`,
+      );
 
-      return typeof payload.result.views === 'number'
-        ? payload.result.views
-        : null;
+      return message.views;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to fetch views chat=${telegramChatId} message=${messageId}: ${message}`,
+        `Failed to fetch MTProto views chat=${telegramChatId} message=${numericMessageId}: ${message}`,
       );
       return null;
     }
