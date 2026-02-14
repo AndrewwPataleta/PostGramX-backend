@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ENV, NODE_ENV_VALUES } from '../common/constants/env.constants';
 
 let isLoaded = false;
 
@@ -27,17 +28,19 @@ export function loadEnvConfig(): void {
     loadEnvFile(defaultEnvPath);
   } else {
     const fallbackResult = config();
-    const fallbackError = fallbackResult.error as NodeJS.ErrnoException | undefined;
+    const fallbackError = fallbackResult.error as
+      | NodeJS.ErrnoException
+      | undefined;
     if (fallbackError && fallbackError.code !== 'ENOENT') {
       throw fallbackError;
     }
   }
 
-  if (!process.env.NODE_ENV) {
-    process.env.NODE_ENV = 'local';
+  if (!process.env[ENV.NODE_ENV]) {
+    process.env[ENV.NODE_ENV] = NODE_ENV_VALUES.LOCAL;
   }
 
-  const envPath = path.join(projectRoot, `.env.${process.env.NODE_ENV}`);
+  const envPath = path.join(projectRoot, `.env.${process.env[ENV.NODE_ENV]}`);
   loadEnvFile(envPath, true);
 
   isLoaded = true;
